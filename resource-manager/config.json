@@ -1,0 +1,5 @@
+{
+    "log_level": "info",
+    "log_gc": "true",
+    "provider": "local"
+}

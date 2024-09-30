@@ -1,0 +1,8 @@
+{
+    "log_level": "info",
+    "log_gc": "true",
+    "python_installer": "pip3",
+    "temporary_binaries": "./_live_objects",
+    "command_entrypoint": "./py_src/entrypoint.sh",
+    "enviroment_setup_script": "./py_src/setup.sh"
+}

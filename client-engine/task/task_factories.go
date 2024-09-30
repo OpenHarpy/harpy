@@ -1,0 +1,66 @@
+package task
+
+import "fmt"
+
+type MapFactory struct {
+	Mappers []MapperDefinition
+}
+
+func (m MapFactory) MakeTasks(previousResult TaskGroupResult) []TaskDefinition {
+	// The mappers can only be the first task in the task group, so we will not have any previous results
+	//   We only get the previous results because that is how the interface is defined in the TaskFactory
+	//   The interface defined in this way simplifies the implementation of the task group
+	//   The taskset will be responsible for managing the task groups and the task groups will be responsible for managing the tasks
+	var tasks []TaskDefinition
+	for _, mapper := range m.Mappers {
+		tasks = append(tasks, TaskDefinition(mapper))
+	}
+	return tasks
+}
+func (m MapFactory) String() string {
+	return fmt.Sprintf("MapFactory with %d mappers", len(m.Mappers))
+}
+
+type TransformFactory struct {
+	Transformer TransformerDefinition
+}
+
+func (t TransformFactory) MakeTasks(previousResult TaskGroupResult) []TaskDefinition {
+	// The transformer will follow the same partitioning as the mappers in the previous result
+	//   Each result will be passed to the transformer as an argument (parallel execution)
+	tasks := []TaskDefinition{}
+	for _, result := range previousResult.Results {
+		if !result.Success {
+			return []TaskDefinition{}
+		}
+		task := TaskDefinition(t.Transformer)
+		args := t.Transformer.ArgumentsBinary
+		// Add the result object to the beginning of the arguments
+		args = append([][]byte{result.ObjectReturnBinary}, args...)
+		task.ArgumentsBinary = args
+		tasks = append(tasks, task)
+	}
+	return tasks
+}
+func (t TransformFactory) String() string {
+	return fmt.Sprintf("TransformFactory with transformer %s", t.Transformer.String())
+}
+
+type ReduceFactory struct {
+	Reducer ReducerDefinition
+}
+
+func (r ReduceFactory) MakeTasks(previousResult TaskGroupResult) []TaskDefinition {
+	// The reducer will only have one task
+	//   It will have all the object return binaries from the previous results as arguments
+	//   This is will result in a single task that will reduce all the results into a single result
+	task := TaskDefinition(r.Reducer)
+	task.ArgumentsBinary = [][]byte{}
+	for _, result := range previousResult.Results {
+		task.ArgumentsBinary = append(task.ArgumentsBinary, result.ObjectReturnBinary)
+	}
+	return []TaskDefinition{task}
+}
+func (r ReduceFactory) String() string {
+	return fmt.Sprintf("ReduceFactory with reducer %s", r.Reducer.String())
+}

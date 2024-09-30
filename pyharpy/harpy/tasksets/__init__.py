@@ -3,9 +3,9 @@ import grpc
 import cloudpickle
 from typing import List
 
-from sdk.primitives import check_variable
+from harpy.primitives import check_variable
 
-from sdk.grpc_ce_protocol.ceprotocol_pb2 import (
+from harpy.grpc_ce_protocol.ceprotocol_pb2 import (
     SessionRequest,
     SessionHandler,
     
@@ -22,13 +22,13 @@ from sdk.grpc_ce_protocol.ceprotocol_pb2 import (
     
     ProgressType
 )
-from sdk.grpc_ce_protocol.ceprotocol_pb2_grpc import (
+from harpy.grpc_ce_protocol.ceprotocol_pb2_grpc import (
     TaskSetStub,
 )
-from sdk.processing.types import (
+from harpy.processing.types import (
     MapTask, ReduceTask, TransformTask, TaskSetResults, Result
 )
-from sdk.tasksets.code_quality_check import validate_function, get_output_type
+from harpy.tasksets.code_quality_check import validate_function, get_output_type
 
 INVALID_TASKSET_MESSAGE = "TaskSet is not valid, please make sure to create a taskset before using it"
 STREAM_CHUNK_SIZE = 1024*1024 # 1MB

@@ -1,10 +1,10 @@
 [tool.poetry]
-name = "py-client"
+name = "pyharpy"
 version = "0.1.0"
 description = ""
 authors = ["Caio Cominato <caiopetrellicominato@gmail.com>"]
 readme = "README.md"
-packages = [{include = "py_client"}]
+packages = [{include = "harpy"}]
 
 [tool.poetry.dependencies]
 python = "^3.10"
@@ -12,6 +12,9 @@ grpcio = "^1.66.1"
 grpcio-tools = "^1.66.1"
 protobuf = "5.27.2"
 cloudpickle = "^3.0.0"
+pandas = "^2.2.3"
+duckdb = "^1.1.1"
+ipykernel = "^6.29.5"
 
 
 [build-system]

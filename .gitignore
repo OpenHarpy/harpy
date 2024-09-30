@@ -4,6 +4,7 @@ remote-runner/_live_objects/
 _*/
 *.cloudpickle
 todo
+.whl
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

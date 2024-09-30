@@ -34,7 +34,12 @@ func NewTaskDefinition(name string, callableBinary []byte, argumentsBinary [][]b
 
 func (lm *LiveMemory) CreateSession(options map[string]string) *task.Session {
 	// Create a new session
-	sess := task.NewSession(options)
+	sess, err := task.NewSession(options)
+	if err != nil {
+		// TODO: We should handle this error
+		logger.Error("failed_to_create_session", "SESSION-SERVICE", err)
+		return nil
+	}
 	lm.Sessions[sess.SessionId] = sess
 	return sess
 }

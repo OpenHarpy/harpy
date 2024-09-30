@@ -3,20 +3,20 @@ import grpc
 import atexit
 import pandas as pd
 
-from sdk.primitives import SingletonMeta, check_variable
-from sdk.configs import Configs
-from sdk.grpc_ce_protocol.ceprotocol_pb2 import (
+from harpy.primitives import SingletonMeta, check_variable
+from harpy.configs import Configs
+from harpy.grpc_ce_protocol.ceprotocol_pb2 import (
     SessionRequest,
     SessionHandler,
     TaskSetHandler
 )
-from sdk.grpc_ce_protocol.ceprotocol_pb2_grpc import (
+from harpy.grpc_ce_protocol.ceprotocol_pb2_grpc import (
     SessionStub,
 )
-from sdk.tasksets import TaskSet
-from sdk.processing.types import MapTask, TaskSetResults
-from sdk.quack import QuackContext
-from sdk.exceptions.user_facing import SQLException
+from harpy.tasksets import TaskSet
+from harpy.processing.types import MapTask, TaskSetResults
+from harpy.quack import QuackContext
+from harpy.exceptions.user_facing import SQLException
 
 INVALID_SESSION_MESSAGE = "Session is not valid, please make sure to create a session before using it"
 

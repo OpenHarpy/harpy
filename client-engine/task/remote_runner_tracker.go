@@ -242,7 +242,7 @@ func NewNodeTracker() (*NodeTracker, error) {
 			break
 		} else if requestResponse.RequestStatus == REQUEST_ERROR {
 			resourceManager.ReleaseNodes(requestResponse) // We need to release the nodes
-			return nil, errors.New("Failed to get nodes")
+			return nil, errors.New("failed to get nodes")
 		}
 		time.Sleep(REQUEST_POOLING_INTERVAL)
 	}

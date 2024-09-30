@@ -23,7 +23,11 @@ type Session struct {
 
 func NewSession(options map[string]string) (*Session, error) {
 	idx := fmt.Sprintf("session-%s", uuid.New().String())
-	nt := NewNodeTracker()
+	nt, err := NewNodeTracker()
+	if err != nil {
+		// TODO: HANDLE THIS ERROR
+		return nil, err
+	}
 	return &Session{
 		SessionId:        idx,
 		TaskSets:         make(map[string]*TaskSet),

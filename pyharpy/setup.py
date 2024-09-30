@@ -1,9 +1,9 @@
 from setuptools import setup, find_packages
 
 setup(
-    name='sdk',
+    name='pyharpy',
     version='0.1.0',
-    description='A Python client SDK for Project Quack',
+    description='A Python client for Harpy',
     author='Caio',
     author_email='caiopetrellicominato@gmail.com',
     #url='https://github.com/yourusername/project-quack',

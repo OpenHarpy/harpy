@@ -3,7 +3,7 @@
 import grpc
 import warnings
 
-from sdk.grpc_ce_protocol import ceprotocol_pb2 as ceprotocol__pb2
+from harpy.grpc_ce_protocol import ceprotocol_pb2 as ceprotocol__pb2
 
 GRPC_GENERATED_VERSION = '1.66.1'
 GRPC_VERSION = grpc.__version__

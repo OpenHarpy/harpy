@@ -1,6 +1,6 @@
 import duckdb
 
-from sdk.primitives import SingletonMeta
+from harpy.primitives import SingletonMeta
 
 class QuackContext(metaclass=SingletonMeta):
     def __init__(self):

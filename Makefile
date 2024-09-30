@@ -8,8 +8,8 @@ GO_PROJECT_CLIENT_ENGING := $(shell pwd)/client-engine
 GO_PROJECT_REMOTE_RUNNER := $(shell pwd)/remote-runner
 GO_PROJECT_RESOURCE_MANAGER := $(shell pwd)/resource-manager
 
-PYTHON_PROJECT_DIR := $(shell pwd)/py-client/sdk
-PYTHON_PROJECT_ROOT := $(shell pwd)/py-client
+PYTHON_PROJECT_DIR := $(shell pwd)/pyharpy/harpy
+PYTHON_PROJECT_ROOT := $(shell pwd)/pyharpy
 
 DISTRIBUTION_DIR := $(shell pwd)/dist
 
@@ -44,7 +44,7 @@ build-proto-go:
 
 build-proto-python:
 	cd $(PYTHON_PROJECT_ROOT) && $(PYTHON) -m grpc_tools.protoc -I=$(PROTO_DIR)/grpc_ce_protocol --python_out=$(PYTHON_PROTO) --grpc_python_out=$(PYTHON_PROTO) $(PROTO_DIR)/grpc_ce_protocol/*.proto && \
-	sed -i 's/import ceprotocol_pb2/from sdk.grpc_ce_protocol import ceprotocol_pb2/g' $(PYTHON_PROTO)/*.py
+	sed -i 's/import ceprotocol_pb2/from harpy.grpc_ce_protocol import ceprotocol_pb2/g' $(PYTHON_PROTO)/*.py
 build-proto:
 	make build-proto-go
 	make build-proto-python
@@ -69,7 +69,11 @@ build-sdk:
 	make clean-sdk-python
 	make move-sdk-dist
 
+prepare-env:
+	cd $(PYTHON_PROJECT_ROOT) && poetry install
+
 build: 
+	make prepare-env
 	make build-proto
 	make build-sdk
 

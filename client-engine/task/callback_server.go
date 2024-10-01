@@ -1,3 +1,12 @@
+// Package task implements any task related operations
+//
+// This file contains the implementation of the callback server
+// the callback server is spawned by the client-engine when a task-group is created
+// the server is terminated when the task-group is completed
+// the server listens for the callback from the node when any command is updated
+// TODO: This server should be a session level server
+//
+// Author: Caio Cominato
 package task
 
 import (

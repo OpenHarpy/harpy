@@ -1,3 +1,16 @@
+// Package task implements any task related operations
+//
+// This file contains the implementation of the Session structure
+// The session is the main structure that holds all the task sets
+// This structure is the entry point for everything related to task execution
+// Sessions hold the RRT which is used to manage the nodes that are allocated to a session
+// Sessions are also a requirement for any task-set to be executed as task-sets require nodes to run
+// Sessions do not get discarted when a task-set is completed, they are kept alive until the session is closed
+// A user is supposed to use a single session for all the task-sets that are related
+// By design, a session will keep the nodes attached to it until the session is closed
+//
+// Author: Caio Cominato
+
 package task
 
 import (

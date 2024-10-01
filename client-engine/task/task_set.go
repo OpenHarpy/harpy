@@ -1,3 +1,14 @@
+// Package task implements any task related operations
+//
+// This file contains the implementation of the TaskSet structure
+// The task-set is a collection of task-groups that are related
+// Task-sets control the definition and execution of the task-groups that are executed
+// Task-sets makes sure that the task-definitions are defined in the correct order
+// Task-sets also control the order of execution of the task-groups
+// They also hold the results of the task-groups that are executed and the overall status of the task-set
+//
+// Author: Caio Cominato
+
 package task
 
 import (

@@ -1,3 +1,11 @@
+// Package task implements any task related operations
+//
+// This file contains the implementation of the task types
+// The task types are used to define the structure of the tasks that are going to be executed
+// These definitions are used to hold important information about the tasks that are going to be executed
+//
+// Author: Caio Cominato
+
 package task
 
 import (

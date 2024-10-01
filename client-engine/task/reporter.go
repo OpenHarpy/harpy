@@ -1,3 +1,10 @@
+// Package task implements any task related operations
+//
+// This file contains the implementation of the reporter
+// This structure is to be used accorss task-sets and tasks so that functions can be used as callbacks
+//
+// Author: Caio Cominato
+
 package task
 
 // Reporter is used to report an abstract event to a specific function.
@@ -20,10 +27,3 @@ func (r *Reporter) Report(args ...interface{}) {
 	args = append(args, r.Context...)
 	r.Function(args...)
 }
-
-//func (r *Reporter) getContextKey(key string) interface{} {
-//	return r.Context[key]
-//}
-//func (r *Reporter) setContextKey(key string, value interface{}) {
-//	r.Context[key] = value
-//}

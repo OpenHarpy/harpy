@@ -1,3 +1,22 @@
+// Package task implements any task related operations
+//
+// This file contains the implementation of the remote runner tracker (RRT)
+// RRT is used to manage the nodes that are allocated to a session
+// This is an abstraction layer that manages individual node connections
+// A task execution will just request a Node via GetNextNode() and use that node to execute the task
+// RRT does the round-robin scheduling of the nodes.
+// RRT also is responsible for interfacing with the resource manager to get and release the nodes
+//
+// IMPORTANT: 	RRT is not controll if a node is getting more tasks than it can handle
+// 				The node itself is responsible for throttle the task execution if it is overloaded
+//				This can be revisited in the future.
+//
+// By design, the round-robin is designed to load balance the tasks across the nodes
+// If a user wants lots of tasks, than there should be more nodes allocated
+// By contrast a larger client-engine will also be required to handle the load
+//
+// Author: Caio Cominato
+
 package task
 
 import (

@@ -1,3 +1,17 @@
+// Package task implements any task related operations
+//
+// This file contains the implementation of the task factories
+// The task factories are used to create the tasks that are going to be executed
+// The abstraction is necessary because each underlying task is a "TaskDefinition" (see task_types.go)
+// Dispite that, tasks are different from each other and have different requirements
+// Nodes are simple creatures that only do "TaskDefinition" -> "TaskResult".
+// But Mapper, Transformer and Reducer are different from each other and have different requirements even if they are all TaskDefinitions.
+// The task factories are what allows data to flow from previous tasks to the next tasks
+// 	The taskgroup may not know how many tasks are going to get executed befor the taskgroup is executed
+//  Hence we need factories because we depend on the taskset results.
+//
+// Author: Caio Cominato
+
 package task
 
 import "fmt"

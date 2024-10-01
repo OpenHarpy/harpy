@@ -1,3 +1,11 @@
+// Package task implements any task related operations
+//
+// This file contains the implementation of the resource manager client
+// This client is used by the RRT to request nodes from the resource manager
+// The session with the resource manager is kept alive until the session is closed
+//
+// Author: Caio Cominato
+
 package task
 
 import (

@@ -9,6 +9,7 @@ import (
 
 func ProcessEventLoop(exitEventLoop chan bool, waitEventLoopExitChan chan bool, lm *LiveMemory) {
 	logger.Info("Starting process event loop", "PROCESS_EVENT_LOOP")
+	lastHeartbeatTime := time.Now().Unix()
 	// This function will loop through all the processes and check if they are done
 	// If they are done then it will set the process status to done
 	for {
@@ -72,6 +73,11 @@ func ProcessEventLoop(exitEventLoop chan bool, waitEventLoopExitChan chan bool, 
 						logger.Warn("Process not triggered for a while, cleaning up", "PROCESS_EVENT_LOOP", logrus.Fields{"process_id": key})
 					}
 				}
+			}
+			// Check if we need to send a heartbeat
+			if currentTime-lastHeartbeatTime > int64(heartbeatInterval.Seconds()) {
+				lastHeartbeatTime = currentTime
+				lm.NodeStatusUpdateClient.SendNodeHeartbeat()
 			}
 			time.Sleep(processPoolingInterval)
 		}

@@ -41,17 +41,19 @@ type NodeCatalog struct {
 type LiveNode struct {
 	// The Live Node is a struct that holds all the live data of a node
 	// It is used to store all the live data of a node
-	NodeID          string
-	NodeType        string
-	NodeGRPCAddress string
-	NodeStatus      LiveNodeStatusEnum
+	NodeID                string
+	NodeType              string
+	NodeGRPCAddress       string
+	NodeStatus            LiveNodeStatusEnum
+	LastHeartbeatReceived int64
 }
 
 type ResourceAssignment struct {
 	// This struct is used to store the resource assignment to a session
-	RequestID     string
-	NodeType      string
-	NodeCount     uint32
-	LiveNodes     []string
-	ServingStatus ResourceRequestStatusEnum
+	RequestID             string
+	NodeType              string
+	NodeCount             uint32
+	LiveNodes             []string
+	ServingStatus         ResourceRequestStatusEnum
+	LastHeartbeatReceived int64
 }

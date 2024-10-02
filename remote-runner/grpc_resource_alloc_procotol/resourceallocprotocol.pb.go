@@ -486,6 +486,53 @@ func (x *LiveNode) GetNodeStatus() NodeStatus {
 	return NodeStatus_NODE_STATUS_UNKNOWN
 }
 
+type NodeHeartbeatRequest struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+
+	NodeID string `protobuf:"bytes,1,opt,name=NodeID,proto3" json:"NodeID,omitempty"`
+}
+
+func (x *NodeHeartbeatRequest) Reset() {
+	*x = NodeHeartbeatRequest{}
+	if protoimpl.UnsafeEnabled {
+		mi := &file_grpc_resource_alloc_procotol_resourceallocprotocol_proto_msgTypes[6]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
+}
+
+func (x *NodeHeartbeatRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*NodeHeartbeatRequest) ProtoMessage() {}
+
+func (x *NodeHeartbeatRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_grpc_resource_alloc_procotol_resourceallocprotocol_proto_msgTypes[6]
+	if protoimpl.UnsafeEnabled && x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use NodeHeartbeatRequest.ProtoReflect.Descriptor instead.
+func (*NodeHeartbeatRequest) Descriptor() ([]byte, []int) {
+	return file_grpc_resource_alloc_procotol_resourceallocprotocol_proto_rawDescGZIP(), []int{6}
+}
+
+func (x *NodeHeartbeatRequest) GetNodeID() string {
+	if x != nil {
+		return x.NodeID
+	}
+	return ""
+}
+
 type NodeRequestStatusResponse struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -500,7 +547,7 @@ type NodeRequestStatusResponse struct {
 func (x *NodeRequestStatusResponse) Reset() {
 	*x = NodeRequestStatusResponse{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_grpc_resource_alloc_procotol_resourceallocprotocol_proto_msgTypes[6]
+		mi := &file_grpc_resource_alloc_procotol_resourceallocprotocol_proto_msgTypes[7]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -513,7 +560,7 @@ func (x *NodeRequestStatusResponse) String() string {
 func (*NodeRequestStatusResponse) ProtoMessage() {}
 
 func (x *NodeRequestStatusResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_grpc_resource_alloc_procotol_resourceallocprotocol_proto_msgTypes[6]
+	mi := &file_grpc_resource_alloc_procotol_resourceallocprotocol_proto_msgTypes[7]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -526,7 +573,7 @@ func (x *NodeRequestStatusResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use NodeRequestStatusResponse.ProtoReflect.Descriptor instead.
 func (*NodeRequestStatusResponse) Descriptor() ([]byte, []int) {
-	return file_grpc_resource_alloc_procotol_resourceallocprotocol_proto_rawDescGZIP(), []int{6}
+	return file_grpc_resource_alloc_procotol_resourceallocprotocol_proto_rawDescGZIP(), []int{7}
 }
 
 func (x *NodeRequestStatusResponse) GetSuccess() bool {
@@ -557,6 +604,7 @@ func (x *NodeRequestStatusResponse) GetNodes() []*LiveNode {
 	return nil
 }
 
+// Update OK message
 type UpdateOk struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -569,7 +617,7 @@ type UpdateOk struct {
 func (x *UpdateOk) Reset() {
 	*x = UpdateOk{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_grpc_resource_alloc_procotol_resourceallocprotocol_proto_msgTypes[7]
+		mi := &file_grpc_resource_alloc_procotol_resourceallocprotocol_proto_msgTypes[8]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -582,7 +630,7 @@ func (x *UpdateOk) String() string {
 func (*UpdateOk) ProtoMessage() {}
 
 func (x *UpdateOk) ProtoReflect() protoreflect.Message {
-	mi := &file_grpc_resource_alloc_procotol_resourceallocprotocol_proto_msgTypes[7]
+	mi := &file_grpc_resource_alloc_procotol_resourceallocprotocol_proto_msgTypes[8]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -595,7 +643,7 @@ func (x *UpdateOk) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpdateOk.ProtoReflect.Descriptor instead.
 func (*UpdateOk) Descriptor() ([]byte, []int) {
-	return file_grpc_resource_alloc_procotol_resourceallocprotocol_proto_rawDescGZIP(), []int{7}
+	return file_grpc_resource_alloc_procotol_resourceallocprotocol_proto_rawDescGZIP(), []int{8}
 }
 
 func (x *UpdateOk) GetSuccess() bool {
@@ -659,7 +707,10 @@ var file_grpc_resource_alloc_procotol_resourceallocprotocol_proto_rawDesc = []by
 	0x31, 0x0a, 0x0a, 0x4e, 0x6f, 0x64, 0x65, 0x53, 0x74, 0x61, 0x74, 0x75, 0x73, 0x18, 0x04, 0x20,
 	0x01, 0x28, 0x0e, 0x32, 0x11, 0x2e, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x2e, 0x4e, 0x6f, 0x64, 0x65,
 	0x53, 0x74, 0x61, 0x74, 0x75, 0x73, 0x52, 0x0a, 0x4e, 0x6f, 0x64, 0x65, 0x53, 0x74, 0x61, 0x74,
-	0x75, 0x73, 0x22, 0xbc, 0x01, 0x0a, 0x19, 0x4e, 0x6f, 0x64, 0x65, 0x52, 0x65, 0x71, 0x75, 0x65,
+	0x75, 0x73, 0x22, 0x2e, 0x0a, 0x14, 0x4e, 0x6f, 0x64, 0x65, 0x48, 0x65, 0x61, 0x72, 0x74, 0x62,
+	0x65, 0x61, 0x74, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x12, 0x16, 0x0a, 0x06, 0x4e, 0x6f,
+	0x64, 0x65, 0x49, 0x44, 0x18, 0x01, 0x20, 0x01, 0x28, 0x09, 0x52, 0x06, 0x4e, 0x6f, 0x64, 0x65,
+	0x49, 0x44, 0x22, 0xbc, 0x01, 0x0a, 0x19, 0x4e, 0x6f, 0x64, 0x65, 0x52, 0x65, 0x71, 0x75, 0x65,
 	0x73, 0x74, 0x53, 0x74, 0x61, 0x74, 0x75, 0x73, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65,
 	0x12, 0x18, 0x0a, 0x07, 0x53, 0x75, 0x63, 0x63, 0x65, 0x73, 0x73, 0x18, 0x01, 0x20, 0x01, 0x28,
 	0x08, 0x52, 0x07, 0x53, 0x75, 0x63, 0x63, 0x65, 0x73, 0x73, 0x12, 0x22, 0x0a, 0x0c, 0x45, 0x72,
@@ -700,7 +751,7 @@ var file_grpc_resource_alloc_procotol_resourceallocprotocol_proto_rawDesc = []by
 	0x44, 0x10, 0x04, 0x12, 0x1a, 0x0a, 0x16, 0x53, 0x45, 0x52, 0x56, 0x49, 0x4e, 0x47, 0x5f, 0x53,
 	0x54, 0x41, 0x54, 0x55, 0x53, 0x5f, 0x55, 0x4e, 0x4b, 0x4e, 0x4f, 0x57, 0x4e, 0x10, 0x05, 0x12,
 	0x18, 0x0a, 0x14, 0x53, 0x45, 0x52, 0x56, 0x49, 0x4e, 0x47, 0x5f, 0x53, 0x54, 0x41, 0x54, 0x55,
-	0x53, 0x5f, 0x45, 0x52, 0x52, 0x4f, 0x52, 0x10, 0x06, 0x32, 0xf1, 0x01, 0x0a, 0x15, 0x4e, 0x6f,
+	0x53, 0x5f, 0x45, 0x52, 0x52, 0x4f, 0x52, 0x10, 0x06, 0x32, 0xb3, 0x02, 0x0a, 0x15, 0x4e, 0x6f,
 	0x64, 0x65, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x69, 0x6e, 0x67, 0x53, 0x65, 0x72, 0x76,
 	0x69, 0x63, 0x65, 0x12, 0x43, 0x0a, 0x0c, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x4e, 0x6f,
 	0x64, 0x65, 0x73, 0x12, 0x12, 0x2e, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x2e, 0x4e, 0x6f, 0x64, 0x65,
@@ -715,13 +766,21 @@ var file_grpc_resource_alloc_procotol_resourceallocprotocol_proto_rawDesc = []by
 	0x75, 0x73, 0x12, 0x15, 0x2e, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x2e, 0x52, 0x65, 0x71, 0x75, 0x65,
 	0x73, 0x74, 0x48, 0x61, 0x6e, 0x64, 0x6c, 0x65, 0x72, 0x1a, 0x20, 0x2e, 0x70, 0x72, 0x6f, 0x74,
 	0x6f, 0x2e, 0x4e, 0x6f, 0x64, 0x65, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x53, 0x74, 0x61,
-	0x74, 0x75, 0x73, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x22, 0x00, 0x32, 0x51, 0x0a,
-	0x17, 0x4e, 0x6f, 0x64, 0x65, 0x53, 0x74, 0x61, 0x74, 0x75, 0x73, 0x55, 0x70, 0x64, 0x61, 0x74,
-	0x65, 0x53, 0x65, 0x72, 0x76, 0x69, 0x63, 0x65, 0x12, 0x36, 0x0a, 0x10, 0x55, 0x70, 0x64, 0x61,
-	0x74, 0x65, 0x4e, 0x6f, 0x64, 0x65, 0x53, 0x74, 0x61, 0x74, 0x75, 0x73, 0x12, 0x0f, 0x2e, 0x70,
-	0x72, 0x6f, 0x74, 0x6f, 0x2e, 0x4c, 0x69, 0x76, 0x65, 0x4e, 0x6f, 0x64, 0x65, 0x1a, 0x0f, 0x2e,
-	0x70, 0x72, 0x6f, 0x74, 0x6f, 0x2e, 0x55, 0x70, 0x64, 0x61, 0x74, 0x65, 0x4f, 0x6b, 0x22, 0x00,
-	0x62, 0x06, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x33,
+	0x74, 0x75, 0x73, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x22, 0x00, 0x12, 0x40, 0x0a,
+	0x14, 0x53, 0x65, 0x6e, 0x64, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x48, 0x65, 0x61, 0x72,
+	0x74, 0x62, 0x65, 0x61, 0x74, 0x12, 0x15, 0x2e, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x2e, 0x52, 0x65,
+	0x71, 0x75, 0x65, 0x73, 0x74, 0x48, 0x61, 0x6e, 0x64, 0x6c, 0x65, 0x72, 0x1a, 0x0f, 0x2e, 0x70,
+	0x72, 0x6f, 0x74, 0x6f, 0x2e, 0x55, 0x70, 0x64, 0x61, 0x74, 0x65, 0x4f, 0x6b, 0x22, 0x00, 0x32,
+	0x92, 0x01, 0x0a, 0x17, 0x4e, 0x6f, 0x64, 0x65, 0x53, 0x74, 0x61, 0x74, 0x75, 0x73, 0x55, 0x70,
+	0x64, 0x61, 0x74, 0x65, 0x53, 0x65, 0x72, 0x76, 0x69, 0x63, 0x65, 0x12, 0x36, 0x0a, 0x10, 0x55,
+	0x70, 0x64, 0x61, 0x74, 0x65, 0x4e, 0x6f, 0x64, 0x65, 0x53, 0x74, 0x61, 0x74, 0x75, 0x73, 0x12,
+	0x0f, 0x2e, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x2e, 0x4c, 0x69, 0x76, 0x65, 0x4e, 0x6f, 0x64, 0x65,
+	0x1a, 0x0f, 0x2e, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x2e, 0x55, 0x70, 0x64, 0x61, 0x74, 0x65, 0x4f,
+	0x6b, 0x22, 0x00, 0x12, 0x3f, 0x0a, 0x0d, 0x4e, 0x6f, 0x64, 0x65, 0x48, 0x65, 0x61, 0x72, 0x74,
+	0x62, 0x65, 0x61, 0x74, 0x12, 0x1b, 0x2e, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x2e, 0x4e, 0x6f, 0x64,
+	0x65, 0x48, 0x65, 0x61, 0x72, 0x74, 0x62, 0x65, 0x61, 0x74, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73,
+	0x74, 0x1a, 0x0f, 0x2e, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x2e, 0x55, 0x70, 0x64, 0x61, 0x74, 0x65,
+	0x4f, 0x6b, 0x22, 0x00, 0x62, 0x06, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x33,
 }
 
 var (
@@ -737,7 +796,7 @@ func file_grpc_resource_alloc_procotol_resourceallocprotocol_proto_rawDescGZIP()
 }
 
 var file_grpc_resource_alloc_procotol_resourceallocprotocol_proto_enumTypes = make([]protoimpl.EnumInfo, 2)
-var file_grpc_resource_alloc_procotol_resourceallocprotocol_proto_msgTypes = make([]protoimpl.MessageInfo, 8)
+var file_grpc_resource_alloc_procotol_resourceallocprotocol_proto_msgTypes = make([]protoimpl.MessageInfo, 9)
 var file_grpc_resource_alloc_procotol_resourceallocprotocol_proto_goTypes = []any{
 	(NodeStatus)(0),                   // 0: proto.NodeStatus
 	(ServingStatus)(0),                // 1: proto.ServingStatus
@@ -747,28 +806,33 @@ var file_grpc_resource_alloc_procotol_resourceallocprotocol_proto_goTypes = []an
 	(*NodeReleaseRequest)(nil),        // 5: proto.NodeReleaseRequest
 	(*NodeReleaseResponse)(nil),       // 6: proto.NodeReleaseResponse
 	(*LiveNode)(nil),                  // 7: proto.LiveNode
-	(*NodeRequestStatusResponse)(nil), // 8: proto.NodeRequestStatusResponse
-	(*UpdateOk)(nil),                  // 9: proto.UpdateOk
+	(*NodeHeartbeatRequest)(nil),      // 8: proto.NodeHeartbeatRequest
+	(*NodeRequestStatusResponse)(nil), // 9: proto.NodeRequestStatusResponse
+	(*UpdateOk)(nil),                  // 10: proto.UpdateOk
 }
 var file_grpc_resource_alloc_procotol_resourceallocprotocol_proto_depIdxs = []int32{
-	2, // 0: proto.NodeAllocationResponse.RequestHandler:type_name -> proto.RequestHandler
-	2, // 1: proto.NodeReleaseRequest.RequestHandler:type_name -> proto.RequestHandler
-	0, // 2: proto.LiveNode.NodeStatus:type_name -> proto.NodeStatus
-	1, // 3: proto.NodeRequestStatusResponse.ServingStatus:type_name -> proto.ServingStatus
-	7, // 4: proto.NodeRequestStatusResponse.Nodes:type_name -> proto.LiveNode
-	3, // 5: proto.NodeRequestingService.RequestNodes:input_type -> proto.NodeRequest
-	2, // 6: proto.NodeRequestingService.ReleaseNodes:input_type -> proto.RequestHandler
-	2, // 7: proto.NodeRequestingService.NodeRequestStatus:input_type -> proto.RequestHandler
-	7, // 8: proto.NodeStatusUpdateService.UpdateNodeStatus:input_type -> proto.LiveNode
-	4, // 9: proto.NodeRequestingService.RequestNodes:output_type -> proto.NodeAllocationResponse
-	6, // 10: proto.NodeRequestingService.ReleaseNodes:output_type -> proto.NodeReleaseResponse
-	8, // 11: proto.NodeRequestingService.NodeRequestStatus:output_type -> proto.NodeRequestStatusResponse
-	9, // 12: proto.NodeStatusUpdateService.UpdateNodeStatus:output_type -> proto.UpdateOk
-	9, // [9:13] is the sub-list for method output_type
-	5, // [5:9] is the sub-list for method input_type
-	5, // [5:5] is the sub-list for extension type_name
-	5, // [5:5] is the sub-list for extension extendee
-	0, // [0:5] is the sub-list for field type_name
+	2,  // 0: proto.NodeAllocationResponse.RequestHandler:type_name -> proto.RequestHandler
+	2,  // 1: proto.NodeReleaseRequest.RequestHandler:type_name -> proto.RequestHandler
+	0,  // 2: proto.LiveNode.NodeStatus:type_name -> proto.NodeStatus
+	1,  // 3: proto.NodeRequestStatusResponse.ServingStatus:type_name -> proto.ServingStatus
+	7,  // 4: proto.NodeRequestStatusResponse.Nodes:type_name -> proto.LiveNode
+	3,  // 5: proto.NodeRequestingService.RequestNodes:input_type -> proto.NodeRequest
+	2,  // 6: proto.NodeRequestingService.ReleaseNodes:input_type -> proto.RequestHandler
+	2,  // 7: proto.NodeRequestingService.NodeRequestStatus:input_type -> proto.RequestHandler
+	2,  // 8: proto.NodeRequestingService.SendRequestHeartbeat:input_type -> proto.RequestHandler
+	7,  // 9: proto.NodeStatusUpdateService.UpdateNodeStatus:input_type -> proto.LiveNode
+	8,  // 10: proto.NodeStatusUpdateService.NodeHeartbeat:input_type -> proto.NodeHeartbeatRequest
+	4,  // 11: proto.NodeRequestingService.RequestNodes:output_type -> proto.NodeAllocationResponse
+	6,  // 12: proto.NodeRequestingService.ReleaseNodes:output_type -> proto.NodeReleaseResponse
+	9,  // 13: proto.NodeRequestingService.NodeRequestStatus:output_type -> proto.NodeRequestStatusResponse
+	10, // 14: proto.NodeRequestingService.SendRequestHeartbeat:output_type -> proto.UpdateOk
+	10, // 15: proto.NodeStatusUpdateService.UpdateNodeStatus:output_type -> proto.UpdateOk
+	10, // 16: proto.NodeStatusUpdateService.NodeHeartbeat:output_type -> proto.UpdateOk
+	11, // [11:17] is the sub-list for method output_type
+	5,  // [5:11] is the sub-list for method input_type
+	5,  // [5:5] is the sub-list for extension type_name
+	5,  // [5:5] is the sub-list for extension extendee
+	0,  // [0:5] is the sub-list for field type_name
 }
 
 func init() { file_grpc_resource_alloc_procotol_resourceallocprotocol_proto_init() }
@@ -850,7 +914,7 @@ func file_grpc_resource_alloc_procotol_resourceallocprotocol_proto_init() {
 			}
 		}
 		file_grpc_resource_alloc_procotol_resourceallocprotocol_proto_msgTypes[6].Exporter = func(v any, i int) any {
-			switch v := v.(*NodeRequestStatusResponse); i {
+			switch v := v.(*NodeHeartbeatRequest); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -862,6 +926,18 @@ func file_grpc_resource_alloc_procotol_resourceallocprotocol_proto_init() {
 			}
 		}
 		file_grpc_resource_alloc_procotol_resourceallocprotocol_proto_msgTypes[7].Exporter = func(v any, i int) any {
+			switch v := v.(*NodeRequestStatusResponse); i {
+			case 0:
+				return &v.state
+			case 1:
+				return &v.sizeCache
+			case 2:
+				return &v.unknownFields
+			default:
+				return nil
+			}
+		}
+		file_grpc_resource_alloc_procotol_resourceallocprotocol_proto_msgTypes[8].Exporter = func(v any, i int) any {
 			switch v := v.(*UpdateOk); i {
 			case 0:
 				return &v.state
@@ -880,7 +956,7 @@ func file_grpc_resource_alloc_procotol_resourceallocprotocol_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: file_grpc_resource_alloc_procotol_resourceallocprotocol_proto_rawDesc,
 			NumEnums:      2,
-			NumMessages:   8,
+			NumMessages:   9,
 			NumExtensions: 0,
 			NumServices:   2,
 		},

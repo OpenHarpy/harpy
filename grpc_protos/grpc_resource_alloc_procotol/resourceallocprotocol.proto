@@ -53,6 +53,9 @@ message LiveNode {
     string NodeGRPCAddress = 3;
     NodeStatus NodeStatus = 4;
 }
+message NodeHeartbeatRequest {
+    string NodeID = 1;
+}
 
 message NodeRequestStatusResponse {
     bool Success = 1;
@@ -61,18 +64,21 @@ message NodeRequestStatusResponse {
     repeated LiveNode Nodes = 5;
 }
 
-service NodeRequestingService {
-    rpc RequestNodes (NodeRequest) returns (NodeAllocationResponse) {}
-    rpc ReleaseNodes (RequestHandler) returns (NodeReleaseResponse) {}
-    rpc NodeRequestStatus (RequestHandler) returns (NodeRequestStatusResponse) {}
-}
-
+// Update OK message
 message UpdateOk {
     bool Success = 1;
     string ErrorMessage = 2;
 }
 
+service NodeRequestingService {
+    rpc RequestNodes (NodeRequest) returns (NodeAllocationResponse) {}
+    rpc ReleaseNodes (RequestHandler) returns (NodeReleaseResponse) {}
+    rpc NodeRequestStatus (RequestHandler) returns (NodeRequestStatusResponse) {}
+    rpc SendRequestHeartbeat (RequestHandler) returns (UpdateOk) {}
+}
+
 service NodeStatusUpdateService {
     rpc UpdateNodeStatus (LiveNode) returns (UpdateOk) {}
+    rpc NodeHeartbeat (NodeHeartbeatRequest) returns (UpdateOk) {}
 }
     

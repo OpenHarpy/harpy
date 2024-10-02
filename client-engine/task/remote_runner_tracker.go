@@ -25,6 +25,7 @@ import (
 	"context"
 	"errors"
 	"log"
+	"sync"
 	"time"
 
 	"github.com/google/uuid"
@@ -33,7 +34,8 @@ import (
 )
 
 const (
-	REQUEST_POOLING_INTERVAL = 200 * time.Millisecond
+	REQUEST_POOLING_INTERVAL   = 200 * time.Millisecond
+	REQUEST_HEARTBEAT_INTERVAL = 30 * time.Second
 )
 
 type Node struct {
@@ -232,10 +234,24 @@ func (n *Node) GetTaskOutput(commandID string, taskRun *TaskRun) error {
 }
 
 type NodeTracker struct {
-	NodesList               []*Node
-	RoundRobinIndex         int
-	ResourceManager         *NodeRequestClient
-	ResourceRequestResponse *NodeRequestResponse
+	NodesList                     []*Node
+	RoundRobinIndex               int
+	ResourceManager               *NodeRequestClient
+	ResourceRequestResponse       *NodeRequestResponse
+	NodeTrackerHeartbeatExit      chan bool
+	NodeTrackerHeartbeatWaitGroup *sync.WaitGroup
+}
+
+func (n *NodeTracker) HeartbeatRoutine() {
+	for {
+		select {
+		case <-n.NodeTrackerHeartbeatExit:
+			defer n.NodeTrackerHeartbeatWaitGroup.Done()
+			return
+		case <-time.After(REQUEST_HEARTBEAT_INTERVAL):
+			n.ResourceManager.SendHeartbeat(n.ResourceRequestResponse.RequestID)
+		}
+	}
 }
 
 func NewNodeTracker(CallbackURI string) (*NodeTracker, error) {
@@ -263,7 +279,8 @@ func NewNodeTracker(CallbackURI string) (*NodeTracker, error) {
 		if requestResponse.RequestStatus == REQUEST_ALLOCATED {
 			break
 		} else if requestResponse.RequestStatus == REQUEST_ERROR {
-			resourceManager.ReleaseNodes(requestResponse) // We need to release the nodes
+			resourceManager.ReleaseNodes(requestResponse)
+			resourceManager.disconnect()
 			return nil, errors.New("failed to get nodes")
 		}
 		time.Sleep(REQUEST_POOLING_INTERVAL)
@@ -278,28 +295,42 @@ func NewNodeTracker(CallbackURI string) (*NodeTracker, error) {
 	}
 
 	for _, liveNode := range requestResponse.Nodes {
-		nodeTracker.AddNode(liveNode.NodeGRPCAddress)
+		err = nodeTracker.AddNode(liveNode.NodeGRPCAddress)
+		if err != nil {
+			resourceManager.ReleaseNodes(requestResponse)
+			resourceManager.disconnect()
+			return nil, err
+		}
 	}
 	// For each node we need to register the callback server
 	for _, node := range nodeTracker.NodesList {
 		err := node.RegisterCallback(CallbackURI)
 		if err != nil {
+			resourceManager.ReleaseNodes(requestResponse)
+			resourceManager.disconnect()
 			return nil, err
 		}
 	}
+
+	// Everything is ready, now we can start the heartbeat
+	nodeTracker.NodeTrackerHeartbeatExit = make(chan bool)
+	nodeTracker.NodeTrackerHeartbeatWaitGroup = &sync.WaitGroup{}
+	nodeTracker.NodeTrackerHeartbeatWaitGroup.Add(1)
+	go nodeTracker.HeartbeatRoutine()
 	return nodeTracker, nil
 }
 
-func (n *NodeTracker) AddNode(nodeURI string) {
+func (n *NodeTracker) AddNode(nodeURI string) error {
 	node := &Node{
 		nodeID:  uuid.New().String(),
 		NodeURI: nodeURI,
 	}
 	err := node.connect()
 	if err != nil {
-		panic(err)
+		return err
 	}
-	n.NodesList = append(n.NodesList, node)
+	n.NodesList = append(n.NodesList, node) // Add the node to the list
+	return nil
 }
 
 func (n *NodeTracker) GetNextNode() *Node {
@@ -333,4 +364,6 @@ func (n *NodeTracker) Close() {
 	}
 	n.ResourceManager.ReleaseNodes(n.ResourceRequestResponse)
 	n.ResourceManager.disconnect()
+	n.NodeTrackerHeartbeatExit <- true
+	n.NodeTrackerHeartbeatWaitGroup.Wait() // Wait for the heartbeat to finish
 }

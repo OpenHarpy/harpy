@@ -19,9 +19,10 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	NodeRequestingService_RequestNodes_FullMethodName      = "/proto.NodeRequestingService/RequestNodes"
-	NodeRequestingService_ReleaseNodes_FullMethodName      = "/proto.NodeRequestingService/ReleaseNodes"
-	NodeRequestingService_NodeRequestStatus_FullMethodName = "/proto.NodeRequestingService/NodeRequestStatus"
+	NodeRequestingService_RequestNodes_FullMethodName         = "/proto.NodeRequestingService/RequestNodes"
+	NodeRequestingService_ReleaseNodes_FullMethodName         = "/proto.NodeRequestingService/ReleaseNodes"
+	NodeRequestingService_NodeRequestStatus_FullMethodName    = "/proto.NodeRequestingService/NodeRequestStatus"
+	NodeRequestingService_SendRequestHeartbeat_FullMethodName = "/proto.NodeRequestingService/SendRequestHeartbeat"
 )
 
 // NodeRequestingServiceClient is the client API for NodeRequestingService service.
@@ -31,6 +32,7 @@ type NodeRequestingServiceClient interface {
 	RequestNodes(ctx context.Context, in *NodeRequest, opts ...grpc.CallOption) (*NodeAllocationResponse, error)
 	ReleaseNodes(ctx context.Context, in *RequestHandler, opts ...grpc.CallOption) (*NodeReleaseResponse, error)
 	NodeRequestStatus(ctx context.Context, in *RequestHandler, opts ...grpc.CallOption) (*NodeRequestStatusResponse, error)
+	SendRequestHeartbeat(ctx context.Context, in *RequestHandler, opts ...grpc.CallOption) (*UpdateOk, error)
 }
 
 type nodeRequestingServiceClient struct {
@@ -71,6 +73,16 @@ func (c *nodeRequestingServiceClient) NodeRequestStatus(ctx context.Context, in 
 	return out, nil
 }
 
+func (c *nodeRequestingServiceClient) SendRequestHeartbeat(ctx context.Context, in *RequestHandler, opts ...grpc.CallOption) (*UpdateOk, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(UpdateOk)
+	err := c.cc.Invoke(ctx, NodeRequestingService_SendRequestHeartbeat_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // NodeRequestingServiceServer is the server API for NodeRequestingService service.
 // All implementations must embed UnimplementedNodeRequestingServiceServer
 // for forward compatibility.
@@ -78,6 +90,7 @@ type NodeRequestingServiceServer interface {
 	RequestNodes(context.Context, *NodeRequest) (*NodeAllocationResponse, error)
 	ReleaseNodes(context.Context, *RequestHandler) (*NodeReleaseResponse, error)
 	NodeRequestStatus(context.Context, *RequestHandler) (*NodeRequestStatusResponse, error)
+	SendRequestHeartbeat(context.Context, *RequestHandler) (*UpdateOk, error)
 	mustEmbedUnimplementedNodeRequestingServiceServer()
 }
 
@@ -96,6 +109,9 @@ func (UnimplementedNodeRequestingServiceServer) ReleaseNodes(context.Context, *R
 }
 func (UnimplementedNodeRequestingServiceServer) NodeRequestStatus(context.Context, *RequestHandler) (*NodeRequestStatusResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method NodeRequestStatus not implemented")
+}
+func (UnimplementedNodeRequestingServiceServer) SendRequestHeartbeat(context.Context, *RequestHandler) (*UpdateOk, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method SendRequestHeartbeat not implemented")
 }
 func (UnimplementedNodeRequestingServiceServer) mustEmbedUnimplementedNodeRequestingServiceServer() {}
 func (UnimplementedNodeRequestingServiceServer) testEmbeddedByValue()                               {}
@@ -172,6 +188,24 @@ func _NodeRequestingService_NodeRequestStatus_Handler(srv interface{}, ctx conte
 	return interceptor(ctx, in, info, handler)
 }
 
+func _NodeRequestingService_SendRequestHeartbeat_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(RequestHandler)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(NodeRequestingServiceServer).SendRequestHeartbeat(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: NodeRequestingService_SendRequestHeartbeat_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(NodeRequestingServiceServer).SendRequestHeartbeat(ctx, req.(*RequestHandler))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // NodeRequestingService_ServiceDesc is the grpc.ServiceDesc for NodeRequestingService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -191,6 +225,10 @@ var NodeRequestingService_ServiceDesc = grpc.ServiceDesc{
 			MethodName: "NodeRequestStatus",
 			Handler:    _NodeRequestingService_NodeRequestStatus_Handler,
 		},
+		{
+			MethodName: "SendRequestHeartbeat",
+			Handler:    _NodeRequestingService_SendRequestHeartbeat_Handler,
+		},
 	},
 	Streams:  []grpc.StreamDesc{},
 	Metadata: "grpc_resource_alloc_procotol/resourceallocprotocol.proto",
@@ -198,6 +236,7 @@ var NodeRequestingService_ServiceDesc = grpc.ServiceDesc{
 
 const (
 	NodeStatusUpdateService_UpdateNodeStatus_FullMethodName = "/proto.NodeStatusUpdateService/UpdateNodeStatus"
+	NodeStatusUpdateService_NodeHeartbeat_FullMethodName    = "/proto.NodeStatusUpdateService/NodeHeartbeat"
 )
 
 // NodeStatusUpdateServiceClient is the client API for NodeStatusUpdateService service.
@@ -205,6 +244,7 @@ const (
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type NodeStatusUpdateServiceClient interface {
 	UpdateNodeStatus(ctx context.Context, in *LiveNode, opts ...grpc.CallOption) (*UpdateOk, error)
+	NodeHeartbeat(ctx context.Context, in *NodeHeartbeatRequest, opts ...grpc.CallOption) (*UpdateOk, error)
 }
 
 type nodeStatusUpdateServiceClient struct {
@@ -225,11 +265,22 @@ func (c *nodeStatusUpdateServiceClient) UpdateNodeStatus(ctx context.Context, in
 	return out, nil
 }
 
+func (c *nodeStatusUpdateServiceClient) NodeHeartbeat(ctx context.Context, in *NodeHeartbeatRequest, opts ...grpc.CallOption) (*UpdateOk, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(UpdateOk)
+	err := c.cc.Invoke(ctx, NodeStatusUpdateService_NodeHeartbeat_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // NodeStatusUpdateServiceServer is the server API for NodeStatusUpdateService service.
 // All implementations must embed UnimplementedNodeStatusUpdateServiceServer
 // for forward compatibility.
 type NodeStatusUpdateServiceServer interface {
 	UpdateNodeStatus(context.Context, *LiveNode) (*UpdateOk, error)
+	NodeHeartbeat(context.Context, *NodeHeartbeatRequest) (*UpdateOk, error)
 	mustEmbedUnimplementedNodeStatusUpdateServiceServer()
 }
 
@@ -242,6 +293,9 @@ type UnimplementedNodeStatusUpdateServiceServer struct{}
 
 func (UnimplementedNodeStatusUpdateServiceServer) UpdateNodeStatus(context.Context, *LiveNode) (*UpdateOk, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method UpdateNodeStatus not implemented")
+}
+func (UnimplementedNodeStatusUpdateServiceServer) NodeHeartbeat(context.Context, *NodeHeartbeatRequest) (*UpdateOk, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method NodeHeartbeat not implemented")
 }
 func (UnimplementedNodeStatusUpdateServiceServer) mustEmbedUnimplementedNodeStatusUpdateServiceServer() {
 }
@@ -283,6 +337,24 @@ func _NodeStatusUpdateService_UpdateNodeStatus_Handler(srv interface{}, ctx cont
 	return interceptor(ctx, in, info, handler)
 }
 
+func _NodeStatusUpdateService_NodeHeartbeat_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(NodeHeartbeatRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(NodeStatusUpdateServiceServer).NodeHeartbeat(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: NodeStatusUpdateService_NodeHeartbeat_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(NodeStatusUpdateServiceServer).NodeHeartbeat(ctx, req.(*NodeHeartbeatRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // NodeStatusUpdateService_ServiceDesc is the grpc.ServiceDesc for NodeStatusUpdateService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -293,6 +365,10 @@ var NodeStatusUpdateService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "UpdateNodeStatus",
 			Handler:    _NodeStatusUpdateService_UpdateNodeStatus_Handler,
+		},
+		{
+			MethodName: "NodeHeartbeat",
+			Handler:    _NodeStatusUpdateService_NodeHeartbeat_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

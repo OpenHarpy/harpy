@@ -22,6 +22,7 @@ const (
 	processPoolingInterval     = 200 * time.Millisecond
 	timeoutAfterGettingResult  = 30 * time.Second
 	timeoutProcessNotTriggered = 120 * time.Second
+	heartbeatInterval          = 10 * time.Second
 	allowParallelProcesses     = 4
 )
 

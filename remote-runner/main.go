@@ -14,9 +14,10 @@ import (
 type LiveMemory struct {
 	// The Live Memory is a struct that holds all the live data of the server
 	// It is used to store all the live data of the server
-	Process         map[string]*Process
-	Callback        map[string]*Callback
-	CallbackClients map[string]*CallbackClient
+	Process                map[string]*Process
+	Callback               map[string]*Callback
+	CallbackClients        map[string]*CallbackClient
+	NodeStatusUpdateClient *NodeStatusUpdateClient
 }
 
 func main() {
@@ -59,9 +60,10 @@ func main() {
 
 	// Make the live memory struct
 	lm := &LiveMemory{
-		Process:         make(map[string]*Process),
-		Callback:        make(map[string]*Callback),
-		CallbackClients: make(map[string]*CallbackClient),
+		Process:                make(map[string]*Process),
+		Callback:               make(map[string]*Callback),
+		CallbackClients:        make(map[string]*CallbackClient),
+		NodeStatusUpdateClient: nodeStatusUpdateClient,
 	}
 
 	// Start the gRPC server

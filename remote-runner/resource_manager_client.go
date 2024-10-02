@@ -85,3 +85,18 @@ func (n *NodeStatusUpdateClient) SetNodeShutdown() error {
 func (n *NodeStatusUpdateClient) SetNodePanic() error {
 	return SendNewStatus(n, pb.NodeStatus_NODE_STATUS_ERROR)
 }
+
+func (n *NodeStatusUpdateClient) SendNodeHeartbeat() error {
+	nodeHeartbeatRequest := &pb.NodeHeartbeatRequest{
+		NodeID: n.NodeID,
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*10)
+	defer cancel()
+	_, err := n.client.NodeHeartbeat(ctx, nodeHeartbeatRequest)
+	if err != nil {
+		logger.Error("Failed to update node heartbeat", "NODE_STATUS_UPDATE_CLIENT", err)
+		return err
+	}
+	return nil
+}

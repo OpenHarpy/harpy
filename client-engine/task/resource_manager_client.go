@@ -118,6 +118,24 @@ func (nodeRequestClient *NodeRequestClient) RequestNode(nodeType string, nodeCou
 	}, nil
 }
 
+func (nodeRequestClient *NodeRequestClient) SendHeartbeat(requestID string) error {
+	requestHandler := &pb.RequestHandler{
+		RequestID: requestID,
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*10)
+	defer cancel()
+	res, err := nodeRequestClient.client.SendRequestHeartbeat(ctx, requestHandler)
+	if err != nil {
+		logger.Error("Failed to send heartbeat", "CLIENT", err)
+		return err
+	}
+	if !res.Success {
+		logger.Error("Failed to send heartbeat", "CLIENT", errors.New("failed to send heartbeat"))
+		return errors.New("failed to send heartbeat")
+	}
+	return nil
+}
+
 func (nodeRequestClient *NodeRequestClient) GetNodeRequestStatus(request *NodeRequestResponse) (*NodeRequestResponse, error) {
 	nodeRequest := &pb.RequestHandler{
 		RequestID: request.RequestID,

@@ -5,6 +5,7 @@ import (
 	"net"
 	pb "resource-manager/grpc_resource_alloc_procotol"
 	"resource-manager/logger"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/sirupsen/logrus"
@@ -115,6 +116,29 @@ func (s *ResourceAllocServer) NodeRequestStatus(ctx context.Context, in *pb.Requ
 	return response, nil
 }
 
+func (s *ResourceAllocServer) SendRequestHeartbeat(ctx context.Context, in *pb.RequestHandler) (*pb.UpdateOk, error) {
+	// This function is used to handle the heartbeat request
+	logger.Info("Request heartbeat received", "RESOURCE_ALLOC_SERVER", logrus.Fields{"request_id": in.RequestID})
+	if _, ok := s.lm.ResourceAssignments[in.RequestID]; !ok {
+		response := &pb.UpdateOk{
+			Success:      false,
+			ErrorMessage: "Invalid request ID",
+		}
+		return response, nil
+	}
+
+	now := time.Now().Unix()
+	// Update the last heartbeat received
+	s.lm.ResourceAssignments[in.RequestID].LastHeartbeatReceived = now
+
+	response := &pb.UpdateOk{
+		Success:      true,
+		ErrorMessage: "",
+	}
+
+	return response, nil
+}
+
 func (s *ResourceAllocServer) UpdateNodeStatus(ctx context.Context, in *pb.LiveNode) (*pb.UpdateOk, error) {
 	// Get the node from the live memory
 	logger.Info("Request to update node status received", "RESOURCE_ALLOC_SERVER", logrus.Fields{"node_id": in.NodeID})
@@ -134,6 +158,29 @@ func (s *ResourceAllocServer) UpdateNodeStatus(ctx context.Context, in *pb.LiveN
 	node.NodeGRPCAddress = in.NodeGRPCAddress
 
 	logger.Info("Node status updated", "RESOURCE_ALLOC_SERVER", logrus.Fields{"node_id": in.NodeID, "node_status": nodeNewStatus})
+
+	response := &pb.UpdateOk{
+		Success:      true,
+		ErrorMessage: "",
+	}
+
+	return response, nil
+}
+
+func (s *ResourceAllocServer) NodeHeartbeat(ctx context.Context, in *pb.NodeHeartbeatRequest) (*pb.UpdateOk, error) {
+	// Get the node from the live memory
+	logger.Info("Request to update node heartbeat received", "RESOURCE_ALLOC_SERVER", logrus.Fields{"node_id": in.NodeID})
+	node, ok := s.lm.NodePool[in.NodeID]
+	if !ok {
+		response := &pb.UpdateOk{
+			Success:      false,
+			ErrorMessage: "Node not found",
+		}
+		return response, nil
+	}
+
+	// Update the last heartbeat received
+	node.LastHeartbeatReceived = time.Now().Unix()
 
 	response := &pb.UpdateOk{
 		Success:      true,

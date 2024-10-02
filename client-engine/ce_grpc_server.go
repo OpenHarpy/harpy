@@ -8,6 +8,7 @@ import (
 	"io"
 	"net"
 	"runtime"
+	"sync"
 
 	pb "client-engine/grpc_ce_protocol"
 
@@ -34,7 +35,12 @@ func NewTaskDefinition(name string, callableBinary []byte, argumentsBinary [][]b
 
 func (lm *LiveMemory) CreateSession(options map[string]string) *task.Session {
 	// Create a new session
-	sess, err := task.NewSession(options)
+	sess, err := task.NewSession(
+		lm.RegisterCommandCallbackPointer,
+		lm.RegisterCommandID,
+		lm.DeregisterCommandCallbackPointer,
+		options,
+	)
 	if err != nil {
 		// TODO: We should handle this error
 		logger.Error("failed_to_create_session", "SESSION-SERVICE", err)
@@ -295,7 +301,7 @@ func (l *TaskSetStreamListener) OnTaskProgress(ts *task.TaskSet, tr *task.TaskRu
 	details["taskset_progress"] = ts.TaskSetProgress
 	details["taskset_status"] = ts.TaskSetStatus
 	details["taskrun_id"] = tr.TaskRunID
-	details["taskrun_status"] = tr.Status
+	details["taskrun_status"] = string(tr.Status)
 	details["taskrun_name"] = tr.Task.Name
 
 	tsHandler := &pb.TaskSetHandler{TaskSetId: ts.TaskSetId}
@@ -304,7 +310,7 @@ func (l *TaskSetStreamListener) OnTaskProgress(ts *task.TaskSet, tr *task.TaskRu
 		ProgressType:    pb.ProgressType_TaskProgress,
 		RelatedID:       tr.TaskRunID,
 		ProgressMessage: "",
-		StatusMessage:   tr.Status,
+		StatusMessage:   string(tr.Status),
 		ProgressDetails: details,
 	}
 
@@ -413,32 +419,41 @@ func (s *CEgRPCServer) Dismantle(ctx context.Context, in *pb.TaskSetHandler) (*p
 	return &pb.TaskSetHandler{TaskSetId: "", Success: true}, nil
 }
 
-func NewCEServer(exit chan bool, panic chan bool, port string, lm *LiveMemory) {
+func NewCEServer(exit chan bool, wg *sync.WaitGroup, lm *LiveMemory, port string) error {
 	port = ":" + port
 	logger.Info("gRPC server started", "SERVER", logrus.Fields{"host": port})
 
-	lis, err := net.Listen("tcp", port)
-	if err != nil {
-		logger.Error("failed_to_listen", "SERVER", err)
-		panic <- true
-		return
-	}
 	s := grpc.NewServer()
 	ceServer := &CEgRPCServer{
 		lm: lm,
 	}
 	pb.RegisterSessionServer(s, ceServer)
 	pb.RegisterTaskSetServer(s, ceServer)
-	// Goroutine to listen for exit signal
-	if err := s.Serve(lis); err != nil {
-		logger.Error("failed_to_serve", "SERVER", err)
-		panic <- true
+
+	lis, err := net.Listen("tcp", port)
+	if err != nil {
+		logger.Error("failed_to_listen", "SERVER", err)
+		defer wg.Done()
+		return err
+	} else {
+
+		logger.Info("Server listening", "SERVER", logrus.Fields{"host": port})
+
+		// Goroutine for the server
+		go func() {
+			if err := s.Serve(lis); err != nil {
+				logger.Error("failed_to_serve", "SERVER", err)
+				defer wg.Done()
+			}
+		}()
+		go func() {
+			<-exit
+			logger.Info("Stopping server", "SERVER")
+			s.GracefulStop()
+			logger.Info("Server stopped", "SERVER")
+			defer wg.Done()
+		}()
+
 	}
-
-	go func() {
-		<-exit
-		logger.Info("Received exit signal, stopping server...", "SERVER")
-		s.GracefulStop()
-	}()
-
+	return nil
 }

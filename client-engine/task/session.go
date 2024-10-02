@@ -27,26 +27,37 @@ type TaskSetListener interface {
 }
 
 type Session struct {
-	SessionId        string
-	TaskSets         map[string]*TaskSet
-	TaskSetListeners map[string]TaskSetListener
-	Options          map[string]string
-	NodeTracker      *NodeTracker
+	SessionId                        string
+	TaskSets                         map[string]*TaskSet
+	TaskSetListeners                 map[string]TaskSetListener
+	Options                          map[string]string
+	NodeTracker                      *NodeTracker
+	RegisterCallbackPointer          func(callback func(string, Status) error) string
+	RegisterCallbackID               func(string, string)
+	DeregisterCommandCallbackPointer func(string)
 }
 
-func NewSession(options map[string]string) (*Session, error) {
+func NewSession(
+	RegisterCommandCallbackPointer func(callback func(string, Status) error) string,
+	RegisterCommandID func(string, string),
+	DeregisterCommandCallbackPointer func(string),
+	options map[string]string,
+) (*Session, error) {
 	idx := fmt.Sprintf("session-%s", uuid.New().String())
-	nt, err := NewNodeTracker()
+	nt, err := NewNodeTracker("localhost:50052")
 	if err != nil {
 		// TODO: HANDLE THIS ERROR
 		return nil, err
 	}
 	return &Session{
-		SessionId:        idx,
-		TaskSets:         make(map[string]*TaskSet),
-		TaskSetListeners: make(map[string]TaskSetListener),
-		Options:          options,
-		NodeTracker:      nt,
+		SessionId:                        idx,
+		TaskSets:                         make(map[string]*TaskSet),
+		TaskSetListeners:                 make(map[string]TaskSetListener),
+		Options:                          options,
+		NodeTracker:                      nt,
+		RegisterCallbackPointer:          RegisterCommandCallbackPointer,
+		RegisterCallbackID:               RegisterCommandID,
+		DeregisterCommandCallbackPointer: DeregisterCommandCallbackPointer,
 	}, nil
 }
 

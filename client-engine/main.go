@@ -3,35 +3,39 @@ package main
 import (
 	"client-engine/config"
 	"client-engine/logger"
-	"client-engine/task"
 	"os"
 	"os/signal"
+	"sync"
 	"syscall"
 )
-
-// Begin LiveMemory
-type LiveMemory struct {
-	// The Live Memory is a struct that holds all the live data of the server
-	// It is used to store all the live data of the server
-	Sessions           map[string]*task.Session
-	TaskSetDefinitions map[string]*task.TaskSet
-	TaskDefinitions    map[string]*TaskDefinition
-}
 
 func main() {
 	logger.SetupLogging()
 	logger.Info("Starting Client Engine", "MAIN")
-	lm := &LiveMemory{
-		Sessions:           make(map[string]*task.Session),
-		TaskSetDefinitions: make(map[string]*task.TaskSet),
-		TaskDefinitions:    make(map[string]*TaskDefinition),
-	}
+	lm := NewLiveMemory()
+
+	// Create wait groups for the servers
+	var exitMainServerChan = make(chan bool)
+	var exitCallbackServerChan = make(chan bool)
+	var wg sync.WaitGroup
+	wg.Add(2)
 
 	// Start the gRPC server
-	exitMainServer := make(chan bool)
-	panicMainServer := make(chan bool)
+
 	port := config.GetConfigs().GetConfigsWithDefault("port", "50051")
-	go NewCEServer(exitMainServer, panicMainServer, port, lm)
+	err := NewCEServer(exitMainServerChan, &wg, lm, port)
+	if err != nil {
+		logger.Error("Failed to start gRPC server", "MAIN", err)
+		return
+	}
+
+	// Start the gRPC callback server
+	port = config.GetConfigs().GetConfigsWithDefault("callback.port", "50052")
+	err = StartCallbackServer(exitCallbackServerChan, &wg, lm, port)
+	if err != nil {
+		logger.Error("Failed to start gRPC callback server", "MAIN", err)
+		return
+	}
 
 	// Handle graceful shutdown
 	sigChan := make(chan os.Signal, 1)
@@ -40,16 +44,10 @@ func main() {
 	go func() {
 		<-sigChan
 		logger.Info("Received signal to shutdown", "MAIN")
-		exitMainServer <- true
+		exitMainServerChan <- true
+		exitCallbackServerChan <- true
 	}()
-
-	// Handle panics
-	go func() {
-		<-panicMainServer
-		logger.Error("Panic in main server", "MAIN", nil)
-	}()
-
 	// Wait for the server to exit
-	<-exitMainServer
+	wg.Wait()
 	logger.Info("Client Engine stopped", "MAIN")
 }

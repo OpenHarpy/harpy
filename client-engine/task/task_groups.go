@@ -113,18 +113,17 @@ func (t TaskGroup) SkipRemaining() {
 	}
 }
 
-func (t TaskGroup) RemoteGRPCExecute(previousResult TaskGroupResult, session *Session) (TaskGroupResult, error) {
-	// SPAWN a gRPC server as a callback server for the task set
-	port, ok := session.Options["tasks.callback.port"]
+func (t *TaskGroup) CallbackHandler(commandID string, status Status) error {
+	taskRun, ok := t.CommandIDTaskMapping[commandID]
 	if !ok {
-		panic("TaskSet cannot be executed 'tasks.callback.port' is not set")
+		println("commandID not found in CommandIDTaskMapping")
+		return fmt.Errorf("commandID not found in CommandIDTaskMapping")
 	}
-	// Start the server
-	stopChan := make(chan bool)
-	waitServerChan := make(chan bool)
-	go StartCallbackServer(stopChan, &t, port, waitServerChan)
-	callbackServerURL := fmt.Sprintf("localhost:%s", port)
+	taskRun.SetStatus(status)
+	return nil
+}
 
+func (t TaskGroup) RemoteGRPCExecute(previousResult TaskGroupResult, session *Session) (TaskGroupResult, error) {
 	if t.Tasks == nil {
 		return TaskGroupResult{}, fmt.Errorf("tasks have not been generated for TaskGroup[%s]", t.TaskGroupID)
 	}
@@ -132,12 +131,14 @@ func (t TaskGroup) RemoteGRPCExecute(previousResult TaskGroupResult, session *Se
 	t.generateTasks(previousResult)
 	t.Report()
 	var results []Result = []Result{}
-	// We will execute tasks in parallel here and collect the results
 
-	// Initializing the mappings
-	t.NodeMappingCallbackID = make(map[string]string)
+	// Initializing the mappings for the tasks
+	// This is necessary to track the tasks
 	t.CommandIDNodeMapping = make(map[string]string)
 	t.CommandIDTaskMapping = make(map[string]*TaskRun)
+
+	// Register the callback handler
+	callbackHandlerID := session.RegisterCallbackPointer(t.CallbackHandler)
 
 	for _, task := range t.TaskRuns {
 		// For each task we get the node from the session
@@ -145,17 +146,6 @@ func (t TaskGroup) RemoteGRPCExecute(previousResult TaskGroupResult, session *Se
 		if node == nil {
 			println("no nodes available for TaskGroup[%s]", t.TaskGroupID)
 			return TaskGroupResult{}, fmt.Errorf("no nodes available for TaskGroup[%s]", t.TaskGroupID)
-		}
-		// We need to first register the callback server to the node
-		_, ok := t.NodeMappingCallbackID[node.nodeID]
-		if !ok {
-			// The callback server has not been registered to the node
-			callbackID, err := node.RegisterCallback(callbackServerURL)
-			if err != nil {
-				println("error registering callback server to node")
-				return TaskGroupResult{}, err
-			}
-			t.NodeMappingCallbackID[node.nodeID] = callbackID
 		}
 		// We need to register the task to the node
 		commandID, err := node.RegisterTask(task.Task)
@@ -165,19 +155,24 @@ func (t TaskGroup) RemoteGRPCExecute(previousResult TaskGroupResult, session *Se
 		// We need to apply the mappings so we can track the task
 		t.CommandIDNodeMapping[commandID] = node.nodeID
 		t.CommandIDTaskMapping[commandID] = task
+		// We need to register the commandID to the callbackHandler
+		session.RegisterCallbackID(commandID, callbackHandlerID)
 	}
 	// Now for each command id lets ask the node to run the command
+	// Why is this done in a separate loop?
+	//  - Nodes could fail to register the command
+	//  - Mainly, we trade off a bit of performance for more reliability in the system
+	//  - The loop above could be tuned to do some retries if we start to see common issues
 	for commandID, nodeID := range t.CommandIDNodeMapping {
 		node := session.NodeTracker.GetNode(nodeID)
-		callbackID := t.NodeMappingCallbackID[nodeID]
-		err := node.RunCommand(commandID, callbackID)
+		err := node.RunCommand(commandID)
+		// Under the hood this will span a thread in the node and this action will be non-blocking
 		if err != nil {
 			return TaskGroupResult{}, err
 		}
 	}
 	t.Report()
 
-	// TODO: We need to clean up this code this is a mess
 	for {
 		// We need to check if all the tasks are done
 		allDone := true
@@ -190,18 +185,9 @@ func (t TaskGroup) RemoteGRPCExecute(previousResult TaskGroupResult, session *Se
 		if allDone {
 			break
 		}
-		time.Sleep(POOLING_INTERVAL)
-	}
-	// Deregister all the callbacks and kill the server
-	for nodeID, callbackID := range t.NodeMappingCallbackID {
-		node := session.NodeTracker.GetNode(nodeID)
-		if node == nil {
-			return TaskGroupResult{}, fmt.Errorf("node not found for nodeID[%s]", nodeID)
-		}
-		err := node.UnregisterCallback(callbackID)
-		if err != nil {
-			return TaskGroupResult{}, err
-		}
+		time.Sleep(POOLING_INTERVAL) // The pooling interval can be small because this is not a network call
+		// Lets change this to use channels instead of polling
+		// TODO: Change this after we test the new implementation of the server callback
 	}
 
 	// Now we need to get the results from the commandIDTaskMapping
@@ -214,10 +200,8 @@ func (t TaskGroup) RemoteGRPCExecute(previousResult TaskGroupResult, session *Se
 		}
 		results = append(results, *taskRun.Result)
 	}
-	// Stop the server
-	stopChan <- true
-	// We need to wait for the server to stop
-	<-waitServerChan
+	// Deregister all the callbacks and kill the server
+	session.DeregisterCommandCallbackPointer(callbackHandlerID)
 
 	t.Report()
 

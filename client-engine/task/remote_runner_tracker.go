@@ -37,10 +37,11 @@ const (
 )
 
 type Node struct {
-	nodeID  string
-	NodeURI string
-	conn    *grpc.ClientConn
-	client  pb.NodeClient
+	nodeID     string
+	NodeURI    string
+	conn       *grpc.ClientConn
+	client     pb.NodeClient
+	callbackID string
 }
 
 func (n *Node) connect() error {
@@ -54,6 +55,7 @@ func (n *Node) connect() error {
 }
 
 func (n *Node) disconnect() error {
+	n.UnregisterCallback()
 	if n.conn != nil {
 		err := n.conn.Close()
 		if err != nil {
@@ -63,7 +65,7 @@ func (n *Node) disconnect() error {
 	return nil
 }
 
-func (n *Node) RegisterCallback(CallbackURI string) (string, error) {
+func (n *Node) RegisterCallback(CallbackURI string) error {
 	callbackRegistration := pb.CallbackRegistration{
 		CallbackURI: CallbackURI,
 	}
@@ -72,14 +74,15 @@ func (n *Node) RegisterCallback(CallbackURI string) (string, error) {
 	res, err := n.client.RegisterCallback(ctx, &callbackRegistration)
 	if err != nil {
 		log.Printf("Failed to register callback: %v", err)
-		return "", err
+		return err
 	}
-	return res.CallbackID, nil
+	n.callbackID = res.CallbackID
+	return nil
 }
 
-func (n *Node) UnregisterCallback(CallbackID string) error {
+func (n *Node) UnregisterCallback() error {
 	callbackUnregistration := pb.CallbackHandler{
-		CallbackID: CallbackID,
+		CallbackID: n.callbackID,
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*10)
 	defer cancel()
@@ -171,9 +174,9 @@ func (n *Node) RegisterTask(task *TaskDefinition) (string, error) {
 	return response.CommandID, nil
 }
 
-func (n *Node) RunCommand(commandID string, callbackID string) error {
+func (n *Node) RunCommand(commandID string) error {
 	commandHandler := pb.CommandHandler{CommandID: commandID}
-	callbackHandler := pb.CallbackHandler{CallbackID: callbackID}
+	callbackHandler := pb.CallbackHandler{CallbackID: n.callbackID}
 	commandRequest := pb.CommandRequest{CommandHandler: &commandHandler, CallbackHandler: &callbackHandler}
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*10)
 	defer cancel()
@@ -235,7 +238,7 @@ type NodeTracker struct {
 	ResourceRequestResponse *NodeRequestResponse
 }
 
-func NewNodeTracker() (*NodeTracker, error) {
+func NewNodeTracker(CallbackURI string) (*NodeTracker, error) {
 	// Later these will come from the session configuration
 	nodeType := "small-4cpu-8gb"
 	nodeCount := 1
@@ -276,6 +279,13 @@ func NewNodeTracker() (*NodeTracker, error) {
 
 	for _, liveNode := range requestResponse.Nodes {
 		nodeTracker.AddNode(liveNode.NodeGRPCAddress)
+	}
+	// For each node we need to register the callback server
+	for _, node := range nodeTracker.NodesList {
+		err := node.RegisterCallback(CallbackURI)
+		if err != nil {
+			return nil, err
+		}
 	}
 	return nodeTracker, nil
 }

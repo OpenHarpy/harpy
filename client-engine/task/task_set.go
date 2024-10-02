@@ -12,6 +12,7 @@
 package task
 
 import (
+	"client-engine/logger"
 	"fmt"
 
 	"github.com/google/uuid"
@@ -124,7 +125,7 @@ func (t *TaskSet) Execute() (TaskSetResult, error) {
 		return TaskSetResult{}, fmt.Errorf("RootNode is nil")
 	}
 	// Logger for the task set
-	// TODO: Logger here
+	logger.Info("Executing TaskSet[%s]", t.TaskSetId)
 	// Execute the task set
 	t.TaskSetProgress = "running"
 	t.TaskSetProgress = "running"
@@ -140,8 +141,8 @@ func (t *TaskSet) Execute() (TaskSetResult, error) {
 			//result, err := nextNode.Execute(lastResult, t.Session)
 			result, err := nextNode.RemoteGRPCExecute(lastResult, t.Session)
 			if err != nil {
+				logger.Error("Error executing TaskGroup[%s]: %s", nextNode.TaskGroupID, err)
 				return TaskSetResult{}, err
-				// TODO: Handle and log the error
 			}
 			lastResult = result
 			if lastResult.OverallStatus != "success" {

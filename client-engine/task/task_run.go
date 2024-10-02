@@ -10,6 +10,18 @@ package task
 
 import "fmt"
 
+type Status string // This is a string because for now we are not going to map the statuses to a specific grpc enum
+
+const (
+	STATUS_UNDEFINED Status = "undefined"
+	STATUS_DEFINED   Status = "defined"
+	STATUS_QUEUED    Status = "queued"
+	STATUS_RUNNING   Status = "running"
+	STATUS_DONE      Status = "done"
+	STATUS_PANIC     Status = "panic"
+	STATUS_KILLING   Status = "killing"
+)
+
 // Result
 type Result struct {
 	ObjectReturnBinary []byte
@@ -40,7 +52,7 @@ type TaskRun struct {
 	Reporter  *Reporter
 	Result    *Result
 	TaskRunID string
-	Status    string
+	Status    Status
 }
 
 func NewTaskRun(task *TaskDefinition, taskRunID string, reporter *Reporter) *TaskRun {
@@ -58,7 +70,7 @@ func (t TaskRun) String() string {
 func (t *TaskRun) Report() {
 	t.Reporter.Report(t)
 }
-func (t *TaskRun) SetStatus(status string) {
+func (t *TaskRun) SetStatus(status Status) {
 	t.Status = status
 	t.Report()
 }

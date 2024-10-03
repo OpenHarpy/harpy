@@ -12,8 +12,9 @@ import (
 	"google.golang.org/grpc"
 )
 
+// TODO: This is a shit implementation. We need to make sure that the LiveMemory gets adapted
+
 type ResourceAllocServer struct {
-	lm *LiveMemory
 	pb.UnimplementedNodeRequestingServiceServer
 	pb.UnimplementedNodeStatusUpdateServiceServer
 }
@@ -24,7 +25,8 @@ func (s *ResourceAllocServer) RequestNodes(ctx context.Context, in *pb.NodeReque
 	logger.Info("Request for node received", "RESOURCE_ALLOC_SERVER", logrus.Fields{"request_id": requestId, "node_type": in.NodeType, "node_count": in.NodeCount})
 
 	// Check if the node type is valid
-	if _, ok := s.lm.NodeCatalogs[in.NodeType]; !ok {
+	_, ok := GetNodeCatalog(in.NodeType)
+	if !ok {
 		response := &pb.NodeAllocationResponse{
 			Success:        false,
 			ErrorMessage:   "Invalid node type",
@@ -38,10 +40,9 @@ func (s *ResourceAllocServer) RequestNodes(ctx context.Context, in *pb.NodeReque
 		RequestID:     requestId,
 		NodeType:      in.NodeType,
 		NodeCount:     in.NodeCount,
-		LiveNodes:     []string{},
 		ServingStatus: ResourceRequestStatusEnum_RESOURCE_REQUESTED,
 	}
-	s.lm.ResourceAssignments[requestId] = assignment
+	assignment.Sync()
 
 	reqHandler := &pb.RequestHandler{
 		RequestID: requestId,
@@ -59,7 +60,8 @@ func (s *ResourceAllocServer) ReleaseNodes(ctx context.Context, in *pb.RequestHa
 	// This function is used to handle the release of nodes
 	// Check if the request ID is valid
 	logger.Info("Request to release nodes received", "RESOURCE_ALLOC_SERVER", logrus.Fields{"request_id": in.RequestID})
-	if _, ok := s.lm.ResourceAssignments[in.RequestID]; !ok {
+	resourceAssignment, ok := GetResourceAssignment(in.RequestID)
+	if !ok {
 		response := &pb.NodeReleaseResponse{
 			Success:      false,
 			ErrorMessage: "Invalid request ID",
@@ -68,7 +70,8 @@ func (s *ResourceAllocServer) ReleaseNodes(ctx context.Context, in *pb.RequestHa
 	}
 
 	// Mark the assigment as RELEASE_REQUESTED
-	s.lm.ResourceAssignments[in.RequestID].ServingStatus = ResourceRequestStatusEnum_RESOURCE_RELEASE_REQUESTED
+	resourceAssignment.ServingStatus = ResourceRequestStatusEnum_RESOURCE_RELEASE_REQUESTED
+	resourceAssignment.Sync()
 
 	response := &pb.NodeReleaseResponse{
 		Success:      true,
@@ -82,7 +85,8 @@ func (s *ResourceAllocServer) NodeRequestStatus(ctx context.Context, in *pb.Requ
 	// This function is used to get the status of the request
 	// Check if the request ID is valid
 	logger.Info("Request for node status received", "RESOURCE_ALLOC_SERVER", logrus.Fields{"request_id": in.RequestID})
-	if _, ok := s.lm.ResourceAssignments[in.RequestID]; !ok {
+	resourceAssignment, ok := GetResourceAssignment(in.RequestID)
+	if !ok {
 		response := &pb.NodeRequestStatusResponse{
 			Success:      false,
 			ErrorMessage: "Invalid request ID",
@@ -91,14 +95,10 @@ func (s *ResourceAllocServer) NodeRequestStatus(ctx context.Context, in *pb.Requ
 	}
 
 	// Make NODES payload
-	nodes := []*pb.LiveNode{}
-	for _, nodeID := range s.lm.ResourceAssignments[in.RequestID].LiveNodes {
-		node, ok := s.lm.NodePool[nodeID]
-		if !ok {
-			continue
-		}
-
-		nodes = append(nodes, &pb.LiveNode{
+	nodes := GetLiveNodesServingRequest(resourceAssignment.RequestID)
+	nodesReturn := []*pb.LiveNode{}
+	for _, node := range nodes {
+		nodesReturn = append(nodesReturn, &pb.LiveNode{
 			NodeID:          node.NodeID,
 			NodeType:        node.NodeType,
 			NodeGRPCAddress: node.NodeGRPCAddress,
@@ -109,8 +109,8 @@ func (s *ResourceAllocServer) NodeRequestStatus(ctx context.Context, in *pb.Requ
 	response := &pb.NodeRequestStatusResponse{
 		Success:       true,
 		ErrorMessage:  "",
-		ServingStatus: pb.ServingStatus(s.lm.ResourceAssignments[in.RequestID].ServingStatus),
-		Nodes:         nodes,
+		ServingStatus: pb.ServingStatus(resourceAssignment.ServingStatus),
+		Nodes:         nodesReturn,
 	}
 
 	return response, nil
@@ -119,7 +119,8 @@ func (s *ResourceAllocServer) NodeRequestStatus(ctx context.Context, in *pb.Requ
 func (s *ResourceAllocServer) SendRequestHeartbeat(ctx context.Context, in *pb.RequestHandler) (*pb.UpdateOk, error) {
 	// This function is used to handle the heartbeat request
 	logger.Info("Request heartbeat received", "RESOURCE_ALLOC_SERVER", logrus.Fields{"request_id": in.RequestID})
-	if _, ok := s.lm.ResourceAssignments[in.RequestID]; !ok {
+	resourceAssignment, ok := GetResourceAssignment(in.RequestID)
+	if !ok {
 		response := &pb.UpdateOk{
 			Success:      false,
 			ErrorMessage: "Invalid request ID",
@@ -129,7 +130,8 @@ func (s *ResourceAllocServer) SendRequestHeartbeat(ctx context.Context, in *pb.R
 
 	now := time.Now().Unix()
 	// Update the last heartbeat received
-	s.lm.ResourceAssignments[in.RequestID].LastHeartbeatReceived = now
+	resourceAssignment.LastHeartbeatReceived = now
+	resourceAssignment.Sync()
 
 	response := &pb.UpdateOk{
 		Success:      true,
@@ -142,7 +144,7 @@ func (s *ResourceAllocServer) SendRequestHeartbeat(ctx context.Context, in *pb.R
 func (s *ResourceAllocServer) UpdateNodeStatus(ctx context.Context, in *pb.LiveNode) (*pb.UpdateOk, error) {
 	// Get the node from the live memory
 	logger.Info("Request to update node status received", "RESOURCE_ALLOC_SERVER", logrus.Fields{"node_id": in.NodeID})
-	node, ok := s.lm.NodePool[in.NodeID]
+	node, ok := GetLiveNode(in.NodeID)
 	if !ok {
 		response := &pb.UpdateOk{
 			Success:      false,
@@ -159,6 +161,7 @@ func (s *ResourceAllocServer) UpdateNodeStatus(ctx context.Context, in *pb.LiveN
 
 	logger.Info("Node status updated", "RESOURCE_ALLOC_SERVER", logrus.Fields{"node_id": in.NodeID, "node_status": nodeNewStatus})
 
+	node.Sync()
 	response := &pb.UpdateOk{
 		Success:      true,
 		ErrorMessage: "",
@@ -170,7 +173,7 @@ func (s *ResourceAllocServer) UpdateNodeStatus(ctx context.Context, in *pb.LiveN
 func (s *ResourceAllocServer) NodeHeartbeat(ctx context.Context, in *pb.NodeHeartbeatRequest) (*pb.UpdateOk, error) {
 	// Get the node from the live memory
 	logger.Info("Request to update node heartbeat received", "RESOURCE_ALLOC_SERVER", logrus.Fields{"node_id": in.NodeID})
-	node, ok := s.lm.NodePool[in.NodeID]
+	node, ok := GetLiveNode(in.NodeID)
 	if !ok {
 		response := &pb.UpdateOk{
 			Success:      false,
@@ -181,6 +184,7 @@ func (s *ResourceAllocServer) NodeHeartbeat(ctx context.Context, in *pb.NodeHear
 
 	// Update the last heartbeat received
 	node.LastHeartbeatReceived = time.Now().Unix()
+	node.Sync()
 
 	response := &pb.UpdateOk{
 		Success:      true,
@@ -190,13 +194,11 @@ func (s *ResourceAllocServer) NodeHeartbeat(ctx context.Context, in *pb.NodeHear
 	return response, nil
 }
 
-func NewResourceAllocServer(exit chan bool, waitServerChan chan bool, lm *LiveMemory, port string) {
+func NewResourceAllocServer(exit chan bool, waitServerChan chan bool, port string) {
 	port = ":" + port
 	s := grpc.NewServer()
 
-	recServer := &ResourceAllocServer{
-		lm: lm,
-	}
+	recServer := &ResourceAllocServer{}
 
 	pb.RegisterNodeRequestingServiceServer(s, recServer)
 	pb.RegisterNodeStatusUpdateServiceServer(s, recServer)

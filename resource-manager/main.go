@@ -9,23 +9,12 @@ import (
 )
 
 // Begin LiveMemory
-type LiveMemory struct {
-	// The Live Memory is a struct that holds all the live data of the server
-	// It is used to store all the live data of the server
-
-	NodeCatalogs        map[string]*NodeCatalog        // This is a map between nodeType -> NodeCatalog
-	NodePool            map[string]*LiveNode           // This is a map between nodeID -> LiveNode
-	NodeTypePool        map[string][]*string           // This is a map between nodeType -> nodeID
-	NodeServingRequests map[string]*string             // This is a map between nodeID -> requestID
-	ResourceAssignments map[string]*ResourceAssignment // This is a map between resourceRequest -> ResourceAssignment
-}
-
 // For debugging purposes we will have a function to add some local running nodes
 //
 //	This will be changed to PROVIDERS in the future
 //	Providers will be the implementation of the node instancing and destruction process
 //	Examples of providers are AWS, GCP, Azure, local, etc.
-func AddLocalNodes(lm *LiveMemory) {
+func AddLocalNodes() {
 	// TODO: Implement the provider
 	NodeCatalog := &NodeCatalog{
 		NodeType:         "small-4cpu-8gb",
@@ -36,7 +25,7 @@ func AddLocalNodes(lm *LiveMemory) {
 		NodeWarmpoolSize: 1,
 		NodeIdleTimeout:  60, // This is the time in seconds that a node can be idle before it is destroyed
 	}
-	lm.NodeCatalogs["small-4cpu-8gb"] = NodeCatalog
+	NodeCatalog.Sync() // This will sync the node catalog to the database
 	// This will make it so that nodes of this type can be requested
 	// This is a local node
 	liveNode := &LiveNode{
@@ -45,41 +34,31 @@ func AddLocalNodes(lm *LiveMemory) {
 		NodeGRPCAddress: "",
 		NodeStatus:      LiveNodeStatusEnum_NODE_STATUS_UNKNOWN,
 	}
-	lm.NodePool["local-1"] = liveNode // This ID will be used to reference this node
-	lm.NodeTypePool["small-4cpu-8gb"] = []*string{&liveNode.NodeID}
 	// The node will assign itself to the resource manager
 	// Upon spinning up the node should "know" its own ID and it should "know" the address of the resource manager
 	// This is done by passing the nodeID and the resource manager's address as an argument to the remote-runner's main process
 	// As this is just a debug function we will make sure that this is done correctly
 	// But in the future this will be done by the provider itself
+	liveNode.Sync() // This will sync the live node to the database
 }
 
 func main() {
 	logger.SetupLogging()
 	logger.Info("Starting Resource Manager", "MAIN")
 
-	// Make the live memory struct
-	lm := &LiveMemory{
-		NodeCatalogs:        make(map[string]*NodeCatalog),
-		NodePool:            make(map[string]*LiveNode),
-		ResourceAssignments: make(map[string]*ResourceAssignment),
-		NodeTypePool:        make(map[string][]*string),
-		NodeServingRequests: make(map[string]*string),
-	}
-
 	// Add some local nodes
-	AddLocalNodes(lm)
+	AddLocalNodes()
 
 	// Start the gRPC server
 	exitMainServer := make(chan bool)
 	waitServerExitChan := make(chan bool)
 	port := config.GetConfigs().GetConfigsWithDefault("port", "50050")
-	go NewResourceAllocServer(exitMainServer, waitServerExitChan, lm, port)
+	go NewResourceAllocServer(exitMainServer, waitServerExitChan, port)
 
 	// Start the event loop
 	exitEventLoop := make(chan bool)
 	waitEventLoopExitChan := make(chan bool)
-	go ProcessEventLoop(exitEventLoop, waitEventLoopExitChan, lm)
+	go ProcessEventLoop(exitEventLoop, waitEventLoopExitChan)
 
 	// Handle graceful shutdown
 	sigChan := make(chan os.Signal, 1)

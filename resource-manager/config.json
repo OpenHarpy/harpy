@@ -1,5 +1,7 @@
 {
     "log_level": "info",
     "log_gc": "true",
-    "provider": "local"
+    "node-provider": "local",
+    "database-provider": "sqlite",
+    "database-uri": "sqlite:///resource-manager.db"
 }

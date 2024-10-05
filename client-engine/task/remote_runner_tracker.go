@@ -243,6 +243,9 @@ type NodeTracker struct {
 }
 
 func (n *NodeTracker) HeartbeatRoutine() {
+	// Send the first heartbeat
+	n.ResourceManager.SendHeartbeat(n.ResourceRequestResponse.RequestID)
+	// Send a heartbeat every REQUEST_HEARTBEAT_INTERVAL
 	for {
 		select {
 		case <-n.NodeTrackerHeartbeatExit:

@@ -91,6 +91,11 @@ func SyncGenericStruct(data interface{}) {
 	db.Save(data)
 }
 
+func DeleteGenericStruct(data interface{}) {
+	db := GetDBInstance().db
+	db.Delete(data)
+}
+
 type NodeCatalog struct {
 	// The Node Catalog is a struct that holds all the information about the nodes
 	// It is used to store all the information about the nodes in the system
@@ -128,7 +133,8 @@ type ResourceAssignment struct {
 	LastHeartbeatReceived int64
 }
 
-func (ra *ResourceAssignment) Sync() { SyncGenericStruct(ra) }
+func (ra *ResourceAssignment) Sync()   { SyncGenericStruct(ra) }
+func (ra *ResourceAssignment) Delete() { DeleteGenericStruct(ra) }
 
 func GetNodeCatalog(nodeType string) (*NodeCatalog, bool) {
 	db := GetDBInstance().db

@@ -8,8 +8,7 @@ import (
 	"resource-manager/logger"
 	"strings"
 	"sync"
-
-	"github.com/sirupsen/logrus"
+	"time"
 )
 
 // Resource Manager HTTP Server
@@ -25,13 +24,9 @@ type Node struct {
 	NodeType              string `json:"node_type"`
 	NodeGRPCAddress       string `json:"node_grpc_address"`
 	NodeStatus            string `json:"node_status"`
-	LastHeartbeatReceived int64  `json:"last_heartbeat_received"`
+	LastHeartbeatReceived string `json:"last_heartbeat_received"`
 	IsServingRequest      bool   `json:"is_serving_request"`
 	ServingRequestID      string `json:"serving_request_id"`
-}
-
-type NodesResponse struct {
-	Nodes []Node `json:"nodes"`
 }
 
 type Request struct {
@@ -39,7 +34,11 @@ type Request struct {
 	NodeType              string `json:"node_type"`
 	NodeCount             uint32 `json:"node_count"`
 	ServingStatus         string `json:"serving_status"`
-	LastHeartbeatReceived int64  `json:"last_heartbeat_received"`
+	LastHeartbeatReceived string `json:"last_heartbeat_received"`
+}
+
+func toIsoDate(timestamp int64) string {
+	return time.Unix(timestamp, 0).Format(time.RFC3339)
 }
 
 // NewResourceManagerHTTPServer creates a new instance of the resource manager http server
@@ -49,6 +48,10 @@ func NewResourceManagerHTTPServer() *ResourceManagerHTTPServer {
 
 func WriteJSONResponse(w http.ResponseWriter, response interface{}) {
 	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+	w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
+	w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Access-Control-Allow-Headers, Authorization, X-Requested-With")
+
 	w.WriteHeader(http.StatusOK)
 	err := json.NewEncoder(w).Encode(response)
 	if err != nil {
@@ -102,10 +105,8 @@ func (s *ResourceManagerHTTPServer) NodesHandler(w http.ResponseWriter, r *http.
 	}
 	var results []*LiveNode
 	if len(queryComponents) == 0 {
-		logger.Info("No query components", "HTTP_SERVER")
 		results = LiveNodes()
 	} else {
-		logger.Info("Query components", "HTTP_SERVER", logrus.Fields{"query_components": queryComponents, "query_params": queryParams})
 		where := strings.Join(queryComponents, " AND ")
 		results = LiveNodesWithWhereClause(where, queryParams)
 	}
@@ -118,17 +119,14 @@ func (s *ResourceManagerHTTPServer) NodesHandler(w http.ResponseWriter, r *http.
 			NodeType:              node.NodeType,
 			NodeGRPCAddress:       node.NodeGRPCAddress,
 			NodeStatus:            EnumToString(node.NodeStatus),
-			LastHeartbeatReceived: node.LastHeartbeatReceived,
+			LastHeartbeatReceived: toIsoDate(node.LastHeartbeatReceived),
 			IsServingRequest:      node.IsServingRequest,
 			ServingRequestID:      node.ServingRequestID,
 		})
 	}
-	response := NodesResponse{
-		Nodes: nodes,
-	}
 
 	// Write the response (JSON)
-	WriteJSONResponse(w, response)
+	WriteJSONResponse(w, nodes)
 }
 
 func (s *ResourceManagerHTTPServer) RequestsHandler(w http.ResponseWriter, r *http.Request) {
@@ -174,7 +172,7 @@ func (s *ResourceManagerHTTPServer) RequestsHandler(w http.ResponseWriter, r *ht
 			NodeType:              request.NodeType,
 			NodeCount:             request.NodeCount,
 			ServingStatus:         EnumToString(request.ServingStatus),
-			LastHeartbeatReceived: request.LastHeartbeatReceived,
+			LastHeartbeatReceived: toIsoDate(request.LastHeartbeatReceived),
 		})
 	}
 

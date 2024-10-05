@@ -2,6 +2,7 @@ package main
 
 import (
 	"resource-manager/logger"
+	"sync"
 	"time"
 )
 
@@ -95,16 +96,16 @@ func EvalResourceReleaseRequest() {
 	}
 }
 
-func ProcessEventLoop(existEventLoop chan bool, waitEventLoopExitChan chan bool) {
+func DoProcessLoop(exitEventLoop chan bool, wg *sync.WaitGroup) {
 	logger.Info("Starting process event loop", "PROCESS_EVENT_LOOP")
 	// This function will loop through all the processes and check if they are done
 	// If they are done then it will set the process status to done
 	for {
 		select {
-		case <-existEventLoop:
+		case <-exitEventLoop:
 			// Cleanup code here
 			logger.Info("Exiting event loop", "PROCESS_EVENT_LOOP")
-			waitEventLoopExitChan <- true
+			defer wg.Done()
 			return
 		default:
 			// Current running processes
@@ -116,4 +117,9 @@ func ProcessEventLoop(existEventLoop chan bool, waitEventLoopExitChan chan bool)
 			time.Sleep(processPoolingInterval)
 		}
 	}
+}
+
+func ProcessEventLoop(existEventLoop chan bool, wg *sync.WaitGroup) error {
+	go DoProcessLoop(existEventLoop, wg)
+	return nil
 }

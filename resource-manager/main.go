@@ -5,6 +5,7 @@ import (
 	"os/signal"
 	"resource-manager/config"
 	"resource-manager/logger"
+	"sync"
 	"syscall"
 )
 
@@ -49,16 +50,43 @@ func main() {
 	// Add some local nodes
 	AddLocalNodes()
 
+	// Waitgroup for the different components
+	wg := sync.WaitGroup{}
+	wg.Add(1)
+
 	// Start the gRPC server
 	exitMainServer := make(chan bool)
-	waitServerExitChan := make(chan bool)
 	port := config.GetConfigs().GetConfigsWithDefault("port", "50050")
-	go NewResourceAllocServer(exitMainServer, waitServerExitChan, port)
+	err := NewResourceAllocServer(exitMainServer, &wg, port)
+	if err != nil {
+		logger.Error("Failed to start gRPC server", "MAIN", err)
+		return
+	}
 
 	// Start the event loop
 	exitEventLoop := make(chan bool)
-	waitEventLoopExitChan := make(chan bool)
-	go ProcessEventLoop(exitEventLoop, waitEventLoopExitChan)
+	err = ProcessEventLoop(exitEventLoop, &wg)
+	if err != nil {
+		logger.Error("Failed to start event loop", "MAIN", err)
+		exitEventLoop <- true
+		wg.Wait()
+		return
+	} else {
+		wg.Add(1)
+	}
+
+	// Start the HTTP server
+	exitHttpServer := make(chan bool)
+	err = StartServer(exitHttpServer, &wg)
+	if err != nil {
+		logger.Error("Failed to start HTTP server", "MAIN", err)
+		exitMainServer <- true
+		exitEventLoop <- true
+		wg.Wait()
+		return
+	} else {
+		wg.Add(1)
+	}
 
 	// Handle graceful shutdown
 	sigChan := make(chan os.Signal, 1)
@@ -69,10 +97,10 @@ func main() {
 		logger.Info("Received signal to shutdown", "MAIN")
 		exitMainServer <- true
 		exitEventLoop <- true
+		exitHttpServer <- true
 	}()
 
 	// Wait for the server to exit
-	<-waitServerExitChan
-	<-waitEventLoopExitChan
+	wg.Wait()
 	logger.Info("Exiting Resource Manager", "MAIN")
 }

@@ -11,8 +11,10 @@ import (
 // enum
 type ResourceRequestStatusEnum pb.ServingStatus
 type LiveNodeStatusEnum pb.NodeStatus
+type TypeMarkerIndicator int
 
 const (
+	// ResourceRequestStatusEnum
 	ResourceRequestStatusEnum_RESOURCE_UNKNOWN           ResourceRequestStatusEnum = ResourceRequestStatusEnum(pb.ServingStatus_SERVING_STATUS_UNKNOWN)
 	ResourceRequestStatusEnum_RESOURCE_REQUESTED         ResourceRequestStatusEnum = ResourceRequestStatusEnum(pb.ServingStatus_SERVING_STATUS_REQUESTED)
 	ResourceRequestStatusEnum_RESOURCE_ALLOCATING        ResourceRequestStatusEnum = ResourceRequestStatusEnum(pb.ServingStatus_SERVING_STATUS_ALLOCATING)
@@ -20,14 +22,37 @@ const (
 	ResourceRequestStatusEnum_RESOURCE_RELEASE_REQUESTED ResourceRequestStatusEnum = ResourceRequestStatusEnum(pb.ServingStatus_SERVING_STATUS_RELEASE_REQUESTED)
 	ResourceRequestStatusEnum_RESOURCE_RELEASED          ResourceRequestStatusEnum = ResourceRequestStatusEnum(pb.ServingStatus_SERVING_STATUS_RELEASED)
 	ResourceRequestStatusEnum_RESOURCE_PANIC             ResourceRequestStatusEnum = ResourceRequestStatusEnum(pb.ServingStatus_SERVING_STATUS_ERROR)
+	TypeMarker_ResourceRequestStatusEnum                 TypeMarkerIndicator       = 0
+	// LiveNodeStatusEnum
+	LiveNodeStatusEnum_NODE_STATUS_UNKNOWN       LiveNodeStatusEnum  = LiveNodeStatusEnum(pb.NodeStatus_NODE_STATUS_UNKNOWN)
+	LiveNodeStatusEnum_NODE_STATUS_BOOTING       LiveNodeStatusEnum  = LiveNodeStatusEnum(pb.NodeStatus_NODE_STATUS_BOOTING)
+	LiveNodeStatusEnum_NODE_STATUS_READY         LiveNodeStatusEnum  = LiveNodeStatusEnum(pb.NodeStatus_NODE_STATUS_READY)
+	LiveNodeStatusEnum_NODE_STATUS_SHUTTING_DOWN LiveNodeStatusEnum  = LiveNodeStatusEnum(pb.NodeStatus_NODE_STATUS_SHUTTING_DOWN)
+	LiveNodeStatusEnum_NODE_STATUS_SHUTDOWN      LiveNodeStatusEnum  = LiveNodeStatusEnum(pb.NodeStatus_NODE_STATUS_SHUTDOWN)
+	LiveNodeStatusEnum_NODE_STATUS_PANIC         LiveNodeStatusEnum  = LiveNodeStatusEnum(pb.NodeStatus_NODE_STATUS_ERROR)
+	TypeMarker_LiveNodeStatusEnum                TypeMarkerIndicator = 1
 )
-const (
-	LiveNodeStatusEnum_NODE_STATUS_UNKNOWN       LiveNodeStatusEnum = LiveNodeStatusEnum(pb.NodeStatus_NODE_STATUS_UNKNOWN)
-	LiveNodeStatusEnum_NODE_STATUS_BOOTING       LiveNodeStatusEnum = LiveNodeStatusEnum(pb.NodeStatus_NODE_STATUS_BOOTING)
-	LiveNodeStatusEnum_NODE_STATUS_READY         LiveNodeStatusEnum = LiveNodeStatusEnum(pb.NodeStatus_NODE_STATUS_READY)
-	LiveNodeStatusEnum_NODE_STATUS_SHUTTING_DOWN LiveNodeStatusEnum = LiveNodeStatusEnum(pb.NodeStatus_NODE_STATUS_SHUTTING_DOWN)
-	LiveNodeStatusEnum_NODE_STATUS_SHUTDOWN      LiveNodeStatusEnum = LiveNodeStatusEnum(pb.NodeStatus_NODE_STATUS_SHUTDOWN)
-	LiveNodeStatusEnum_NODE_STATUS_PANIC         LiveNodeStatusEnum = LiveNodeStatusEnum(pb.NodeStatus_NODE_STATUS_ERROR)
+
+var (
+	// NodeStatus Mapping to string
+	NodeStatusMapping = map[string]LiveNodeStatusEnum{
+		"UNKNOWN":       LiveNodeStatusEnum_NODE_STATUS_UNKNOWN,
+		"BOOTING":       LiveNodeStatusEnum_NODE_STATUS_BOOTING,
+		"READY":         LiveNodeStatusEnum_NODE_STATUS_READY,
+		"SHUTTING_DOWN": LiveNodeStatusEnum_NODE_STATUS_SHUTTING_DOWN,
+		"SHUTDOWN":      LiveNodeStatusEnum_NODE_STATUS_SHUTDOWN,
+		"PANIC":         LiveNodeStatusEnum_NODE_STATUS_PANIC,
+	}
+	// ResourceRequestStatus Mapping to string
+	ResourceRequestStatusMapping = map[string]ResourceRequestStatusEnum{
+		"UNKNOWN":           ResourceRequestStatusEnum_RESOURCE_UNKNOWN,
+		"REQUESTED":         ResourceRequestStatusEnum_RESOURCE_REQUESTED,
+		"ALLOCATING":        ResourceRequestStatusEnum_RESOURCE_ALLOCATING,
+		"ALLOCATED":         ResourceRequestStatusEnum_RESOURCE_ALLOCATED,
+		"RELEASE_REQUESTED": ResourceRequestStatusEnum_RESOURCE_RELEASE_REQUESTED,
+		"RELEASED":          ResourceRequestStatusEnum_RESOURCE_RELEASED,
+		"PANIC":             ResourceRequestStatusEnum_RESOURCE_PANIC,
+	}
 )
 
 // DB Struct (Singleton)
@@ -175,4 +200,93 @@ func GetLiveNodesServingRequest(requestID string) []*LiveNode {
 		return nil
 	}
 	return lns
+}
+
+func LiveNodesWithWhereClause(whereClause string, args ...interface{}) []*LiveNode {
+	db := GetDBInstance().db
+	var lns []*LiveNode
+	result := db.Where(whereClause, args...).Find(&lns)
+	if result.Error != nil {
+		return nil
+	}
+	return lns
+}
+
+func LiveNodes() []*LiveNode {
+	db := GetDBInstance().db
+	var lns []*LiveNode
+	result := db.Find(&lns)
+	if result.Error != nil {
+		return nil
+	}
+	return lns
+}
+
+func ResourceAssignmentsWithWhereClause(whereClause string, args ...interface{}) []*ResourceAssignment {
+	db := GetDBInstance().db
+	var ras []*ResourceAssignment
+	result := db.Where(whereClause, args...).Find(&ras)
+	if result.Error != nil {
+		return nil
+	}
+	return ras
+}
+func ResourceAssignments() []*ResourceAssignment {
+	db := GetDBInstance().db
+	var ras []*ResourceAssignment
+	result := db.Find(&ras)
+	if result.Error != nil {
+		return nil
+	}
+	return ras
+}
+
+func CatalogsWithWhereClause(whereClause string, args ...interface{}) []*NodeCatalog {
+	db := GetDBInstance().db
+	var ncs []*NodeCatalog
+	result := db.Where(whereClause, args...).Find(&ncs)
+	if result.Error != nil {
+		return nil
+	}
+	return ncs
+}
+
+func NodeCatalogs() []*NodeCatalog {
+	db := GetDBInstance().db
+	var ncs []*NodeCatalog
+	result := db.Find(&ncs)
+	if result.Error != nil {
+		return nil
+	}
+	return ncs
+}
+
+func EnumToString(enum interface{}) string {
+	// If the interface is a LiveNodeStatusEnum
+	if _, ok := enum.(LiveNodeStatusEnum); ok {
+		reverseMapping := make(map[LiveNodeStatusEnum]string)
+		for k, v := range NodeStatusMapping {
+			reverseMapping[v] = k
+		}
+		return reverseMapping[enum.(LiveNodeStatusEnum)]
+	} else if _, ok := enum.(ResourceRequestStatusEnum); ok {
+		reverseMapping := make(map[ResourceRequestStatusEnum]string)
+		for k, v := range ResourceRequestStatusMapping {
+			reverseMapping[v] = k
+		}
+		return reverseMapping[enum.(ResourceRequestStatusEnum)]
+	}
+	return ""
+}
+
+func StringToEnum(enumType TypeMarkerIndicator, str string) interface{} {
+	if str == "" {
+		return nil
+	}
+	if enumType == TypeMarker_ResourceRequestStatusEnum {
+		return ResourceRequestStatusMapping[str]
+	} else if enumType == TypeMarker_LiveNodeStatusEnum {
+		return NodeStatusMapping[str]
+	}
+	return nil
 }

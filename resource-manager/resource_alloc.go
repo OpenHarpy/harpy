@@ -5,6 +5,7 @@ import (
 	"net"
 	pb "resource-manager/grpc_resource_alloc_procotol"
 	"resource-manager/logger"
+	"sync"
 	"time"
 
 	"github.com/google/uuid"
@@ -194,7 +195,7 @@ func (s *ResourceAllocServer) NodeHeartbeat(ctx context.Context, in *pb.NodeHear
 	return response, nil
 }
 
-func NewResourceAllocServer(exit chan bool, waitServerChan chan bool, port string) {
+func NewResourceAllocServer(exit chan bool, wg *sync.WaitGroup, port string) error {
 	port = ":" + port
 	s := grpc.NewServer()
 
@@ -206,18 +207,23 @@ func NewResourceAllocServer(exit chan bool, waitServerChan chan bool, port strin
 	lis, err := net.Listen("tcp", port)
 	if err != nil {
 		logger.Error("failed to listen", "RESOURCE_ALLOC_SERVER", err)
-	}
+		return err
+	} else {
+		go func() {
+			if err := s.Serve(lis); err != nil {
+				logger.Error("failed_to_serve", "SERVER", err)
+				defer wg.Done()
+			}
+		}()
 
-	// Goroutine to listen for exit signal
-	go func() {
-		<-exit
-		logger.Info("Stopping resource allocation server", "RESOURCE_ALLOC_SERVER", nil)
-		s.GracefulStop()
-		logger.Info("Resource allocation server stopped", "RESOURCE_ALLOC_SERVER", nil)
-		waitServerChan <- true
-	}()
-
-	if err := s.Serve(lis); err != nil {
-		logger.Error("failed to serve", "RESOURCE_ALLOC_SERVER", err)
+		// Goroutine to listen for exit signal
+		go func() {
+			<-exit
+			logger.Info("Stopping resource allocation server", "RESOURCE_ALLOC_SERVER", nil)
+			s.GracefulStop()
+			logger.Info("Resource allocation server stopped", "RESOURCE_ALLOC_SERVER", nil)
+			defer wg.Done()
+		}()
 	}
+	return nil
 }

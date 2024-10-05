@@ -1,0 +1,100 @@
+syntax = "proto3";
+
+package proto;
+
+// Session service
+message SessionRequest {
+    map<string, string> Options = 1;
+}
+
+message SessionHandler {
+  string sessionId = 1;
+  bool Success = 2;
+}
+
+
+// Task definitions
+message TaskDefinitionChunk {
+  string Name = 1;
+  bytes CallableBinary = 2;
+  map<uint32, bytes> ArgumentsBinary = 3;
+  map<string, bytes> KwargsBinary = 4;
+}
+
+message TaskHandler {
+  string TaskID = 1;
+}
+
+// Result 
+message TaskSetHandler {
+  string taskSetId = 1;
+  bool Success = 2;
+}
+
+message TaskSetStatus {
+  string TaskSetID = 1;
+  string TaskSetStatus = 2;
+}
+
+message TaskSetResultChunk {
+  string TaskRunID = 1;
+  bytes ObjectReturnBinaryChunk = 2;
+  bytes StdoutBinaryChunk = 3;
+  bytes StderrBinaryChunk = 4;
+  bool Success = 5;
+}
+
+service Session {
+  rpc CreateSession (SessionRequest) returns (SessionHandler) {}
+  rpc CreateTaskSet (SessionHandler) returns (TaskSetHandler) {}
+  rpc CloseSession (SessionHandler) returns (SessionHandler) {}
+}
+
+message TaskAdderResult {
+  bool Success = 1;
+  string ErrorMesssage = 2;
+}
+message MapAdder {
+  TaskSetHandler taskSetHandler = 1;
+  repeated TaskHandler MappersDefinition = 2;
+}
+
+message ReduceAdder {
+  TaskSetHandler taskSetHandler = 1;
+  TaskHandler ReducerDefinition = 2;
+}
+
+message TransformAdder {
+  TaskSetHandler taskSetHandler = 1;
+  TaskHandler TransformerDefinition = 2;
+}
+
+// While executing a task set, the server will stream back progress reports
+// --> OnTaskSetProgress
+// --> OnTaskGroupProgress
+// --> OnTaskProgress
+enum ProgressType {
+  TaskSetProgress = 0;
+  TaskGroupProgress = 1;
+  TaskProgress = 2;
+}
+message TaskSetProgressReport {
+  TaskSetHandler taskSetHandler = 1;
+  ProgressType ProgressType = 2;
+  string RelatedID = 3;
+  string ProgressMessage = 4;
+  string StatusMessage = 5;
+  map<string, string> ProgressDetails = 6; // This is an arbitrary key-value pair to provide more information
+}
+
+service TaskSet {
+  rpc DefineTask (stream TaskDefinitionChunk) returns (TaskHandler) {}
+
+  rpc AddMap (MapAdder) returns (TaskAdderResult) {}
+  rpc AddReduce (ReduceAdder) returns (TaskAdderResult) {}
+  rpc AddTransform (TransformAdder) returns (TaskAdderResult) {}
+  rpc Execute (TaskSetHandler) returns (stream TaskSetProgressReport) {}
+  rpc Dismantle (TaskSetHandler) returns (TaskSetHandler) {}
+
+  rpc GetTaskSetResults (TaskSetHandler) returns (stream TaskSetResultChunk) {}
+}

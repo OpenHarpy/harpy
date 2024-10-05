@@ -1,0 +1,84 @@
+syntax = "proto3";
+
+package proto;
+
+enum NodeStatus {
+    NODE_STATUS_UNKNOWN = 0;
+    NODE_STATUS_BOOTING = 1;
+    NODE_STATUS_READY = 2;
+    NODE_STATUS_SHUTTING_DOWN = 3;
+    NODE_STATUS_SHUTDOWN = 4;
+    NODE_STATUS_ERROR = 5;
+}
+
+enum ServingStatus {
+    SERVING_STATUS_REQUESTED = 0;
+    SERVING_STATUS_ALLOCATING = 1;
+    SERVING_STATUS_ALLOCATED = 2;
+    SERVING_STATUS_RELEASE_REQUESTED = 3;
+    SERVING_STATUS_RELEASED = 4;
+    SERVING_STATUS_UNKNOWN = 5;
+    SERVING_STATUS_ERROR = 6;
+}
+
+// Node Requests
+message RequestHandler {
+    string RequestID = 1;
+}
+
+message NodeRequest {
+    string NodeType = 1;
+    uint32 NodeCount = 2;
+}
+
+message NodeAllocationResponse {
+    bool Success = 1;
+    string ErrorMessage = 2;
+    RequestHandler RequestHandler = 3;
+}
+
+message NodeReleaseRequest {
+    RequestHandler RequestHandler = 1;
+    string ReleaseMessage = 2;
+}
+
+message NodeReleaseResponse {
+    bool Success = 1;
+    string ErrorMessage = 2;
+}
+
+message LiveNode {
+    string NodeID = 1;
+    string NodeType = 2;
+    string NodeGRPCAddress = 3;
+    NodeStatus NodeStatus = 4;
+}
+message NodeHeartbeatRequest {
+    string NodeID = 1;
+}
+
+message NodeRequestStatusResponse {
+    bool Success = 1;
+    string ErrorMessage = 2;
+    ServingStatus ServingStatus = 4;
+    repeated LiveNode Nodes = 5;
+}
+
+// Update OK message
+message UpdateOk {
+    bool Success = 1;
+    string ErrorMessage = 2;
+}
+
+service NodeRequestingService {
+    rpc RequestNodes (NodeRequest) returns (NodeAllocationResponse) {}
+    rpc ReleaseNodes (RequestHandler) returns (NodeReleaseResponse) {}
+    rpc NodeRequestStatus (RequestHandler) returns (NodeRequestStatusResponse) {}
+    rpc SendRequestHeartbeat (RequestHandler) returns (UpdateOk) {}
+}
+
+service NodeStatusUpdateService {
+    rpc UpdateNodeStatus (LiveNode) returns (UpdateOk) {}
+    rpc NodeHeartbeat (NodeHeartbeatRequest) returns (UpdateOk) {}
+}
+    

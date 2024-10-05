@@ -1,0 +1,93 @@
+syntax = "proto3";
+
+package proto;
+
+import "google/protobuf/empty.proto";
+
+// Define some ENUMS
+enum CommandStatusEnum {
+    COMMAND_DEFINED = 0;
+    COMMAND_QUEUED = 1;
+    COMMAND_RUNNING = 2;
+    COMMAND_KILLING = 3;
+    COMMAND_DONE = 4;
+    COMMAND_PANIC = 5;
+}
+
+message PackageRequest {
+    string PackageURI = 1;
+}
+
+message PackageResponse {
+    bool Success = 1;
+    string ErrorMessage = 2;
+}
+
+message PackageList {
+    repeated string PackageURIs = 1;
+}
+
+message CallbackRegistration {
+    string CallbackURI = 1;
+}
+message CallbackHandler {
+    string CallbackID = 1;
+}
+
+message CommandRequestChunk {
+    bytes CallableBinaryChunk = 1;
+    map<uint32, bytes> ArgumentsBinaryChunk = 2;
+    map<string, bytes> KwargsBinaryChunk = 3;
+}
+
+message CommandHandler {
+    string CommandID = 1;
+}
+
+message CommandStatus {
+    string CommandID = 1;
+    CommandStatusEnum CommandStatus = 2;
+}
+
+message CommandRequest {
+    CommandHandler CommandHandler = 1;
+    CallbackHandler CallbackHandler = 2;
+}
+
+message CommandRequestResponse {
+    bool Success = 3;
+    string ErrorMessage = 4;
+}
+
+message CommandOutputChunk {
+    string CommandID = 1;
+    bytes ObjectReturnBinaryChunk = 2;
+    bytes StdoutBinaryChunk = 3;
+    bytes StderrBinaryChunk = 4;
+    bool Success = 5;
+    bool Panic = 6;
+    string ErrorMessage = 7;
+}
+
+message Ack {
+    bool Success = 1;
+    string ErrorMessage = 2;
+}
+
+service NodeController {
+    rpc Callback(CommandStatus) returns (Ack) {}
+}
+
+service Node {
+    // Packages / Setup
+    rpc InstallPackage (PackageRequest) returns (PackageResponse) {}
+    rpc UninstallPackage (PackageRequest) returns (PackageResponse) {}
+    rpc ListPackages (google.protobuf.Empty) returns (PackageList) {}
+    rpc RegisterCallback (CallbackRegistration) returns (CallbackHandler) {}
+    rpc UnregisterCallback (CallbackHandler) returns (Ack) {}
+    // Commands
+    rpc RegisterCommand (stream CommandRequestChunk) returns (CommandHandler) {}
+    rpc RunCommand (CommandRequest) returns (CommandRequestResponse) {}
+    rpc KillCommand (CommandRequest) returns (CommandRequestResponse) {}
+    rpc GetCommandOutput (CommandHandler) returns (stream CommandOutputChunk) {}
+}

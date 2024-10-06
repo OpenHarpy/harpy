@@ -7,6 +7,7 @@ import (
 	"resource-manager/logger"
 	"sync"
 	"syscall"
+	"time"
 )
 
 // Begin LiveMemory
@@ -34,6 +35,7 @@ func AddLocalNodes() {
 		NodeType:        "small-4cpu-8gb",
 		NodeGRPCAddress: "",
 		NodeStatus:      LiveNodeStatusEnum_NODE_STATUS_UNKNOWN,
+		NodeCreatedAt:   time.Now().Unix(),
 	}
 	// The node will assign itself to the resource manager
 	// Upon spinning up the node should "know" its own ID and it should "know" the address of the resource manager

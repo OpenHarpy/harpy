@@ -120,6 +120,7 @@ type LiveNode struct {
 	LastHeartbeatReceived int64
 	IsServingRequest      bool `gorm:"type:boolean"`
 	ServingRequestID      string
+	NodeCreatedAt         int64
 }
 
 func (ln *LiveNode) Sync() { SyncGenericStruct(ln) }
@@ -131,6 +132,7 @@ type ResourceAssignment struct {
 	NodeCount             uint32
 	ServingStatus         ResourceRequestStatusEnum `gorm:"type:int"`
 	LastHeartbeatReceived int64
+	RequestCreatedAt      int64
 }
 
 func (ra *ResourceAssignment) Sync()   { SyncGenericStruct(ra) }

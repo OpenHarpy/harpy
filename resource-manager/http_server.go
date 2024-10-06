@@ -27,6 +27,7 @@ type Node struct {
 	LastHeartbeatReceived string `json:"last_heartbeat_received"`
 	IsServingRequest      bool   `json:"is_serving_request"`
 	ServingRequestID      string `json:"serving_request_id"`
+	NodeCreatedAt         string `json:"node_created_at"`
 }
 
 type Request struct {
@@ -35,6 +36,7 @@ type Request struct {
 	NodeCount             uint32 `json:"node_count"`
 	ServingStatus         string `json:"serving_status"`
 	LastHeartbeatReceived string `json:"last_heartbeat_received"`
+	RequestCreatedAt      string `json:"request_created_at"`
 }
 
 func toIsoDate(timestamp int64) string {
@@ -122,6 +124,7 @@ func (s *ResourceManagerHTTPServer) NodesHandler(w http.ResponseWriter, r *http.
 			LastHeartbeatReceived: toIsoDate(node.LastHeartbeatReceived),
 			IsServingRequest:      node.IsServingRequest,
 			ServingRequestID:      node.ServingRequestID,
+			NodeCreatedAt:         toIsoDate(node.NodeCreatedAt),
 		})
 	}
 
@@ -173,6 +176,7 @@ func (s *ResourceManagerHTTPServer) RequestsHandler(w http.ResponseWriter, r *ht
 			NodeCount:             request.NodeCount,
 			ServingStatus:         EnumToString(request.ServingStatus),
 			LastHeartbeatReceived: toIsoDate(request.LastHeartbeatReceived),
+			RequestCreatedAt:      toIsoDate(request.RequestCreatedAt),
 		})
 	}
 

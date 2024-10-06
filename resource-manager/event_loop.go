@@ -12,6 +12,9 @@ import (
 const processPoolingInterval = 1 * time.Second
 const resourceRequestReleasedTimeout = 60 * time.Second
 
+// const nodeIdleTimeout = 120 * time.Second
+const requestIdleTimeout = 120 * time.Second
+
 func SpinupNode(nodeType string, nodeCount int) []string {
 	// This function will spin up a node of the specified type
 	// The node will be added to the pool
@@ -115,6 +118,27 @@ func EvalResourceRequestReleasedTimeout() {
 	}
 }
 
+func EvalRequestIdleTimeout() {
+	// This function will loop through all the requests and check if they are in the RESOURCE_ALLOCATED state
+	// If their heartbeat crosses a certain threshold then we will remove the request from the database
+	nodeRequests := GetResourceAssignmentsByStatus(ResourceRequestStatusEnum_RESOURCE_ALLOCATED)
+	for _, nodeRequest := range nodeRequests {
+		// Check if the heartbeat has crossed a certain threshold
+		// If it has then we will remove the request from the database
+		timeSince := time.Since(time.Unix(nodeRequest.LastHeartbeatReceived, 0))
+		if nodeRequest.LastHeartbeatReceived == 0 {
+			// If the heartbeat was never received we can consider the creation time to compute the time since
+			timeSince = time.Since(time.Unix(nodeRequest.RequestCreatedAt, 0))
+		}
+		if timeSince > requestIdleTimeout {
+			logger.Info("Request has been idle for too long", "EVAL_REQUEST_IDLE_TIMEOUT", logrus.Fields{"request_id": nodeRequest.RequestID, "time_since": timeSince})
+			// Transition the request to RESOURCE_RELEASE_REQUESTED
+			nodeRequest.ServingStatus = ResourceRequestStatusEnum_RESOURCE_RELEASE_REQUESTED
+			nodeRequest.Sync()
+		}
+	}
+}
+
 func DoProcessLoop(exitEventLoop chan bool, wg *sync.WaitGroup) {
 	logger.Info("Starting process event loop", "PROCESS_EVENT_LOOP")
 	// This function will loop through all the processes and check if they are done
@@ -131,7 +155,7 @@ func DoProcessLoop(exitEventLoop chan bool, wg *sync.WaitGroup) {
 			EvalNodeAllocation()
 			EvalNodesReady()
 			EvalResourceReleaseRequest()
-			// TODO: We need to add logic here to timeout the nodes and requests that are not being used for a long time
+			EvalRequestIdleTimeout()
 			// TODO: We also need to implement logic to handle panics and nodes that are not able to come up
 			EvalResourceRequestReleasedTimeout()
 			time.Sleep(processPoolingInterval)

@@ -37,11 +37,13 @@ func (s *ResourceAllocServer) RequestNodes(ctx context.Context, in *pb.NodeReque
 	}
 
 	// Create new assigment for the request
+	now := time.Now()
 	assignment := &ResourceAssignment{
-		RequestID:     requestId,
-		NodeType:      in.NodeType,
-		NodeCount:     in.NodeCount,
-		ServingStatus: ResourceRequestStatusEnum_RESOURCE_REQUESTED,
+		RequestID:        requestId,
+		NodeType:         in.NodeType,
+		NodeCount:        in.NodeCount,
+		ServingStatus:    ResourceRequestStatusEnum_RESOURCE_REQUESTED,
+		RequestCreatedAt: now.Unix(),
 	}
 	assignment.Sync()
 

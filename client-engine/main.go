@@ -21,7 +21,6 @@ func main() {
 	wg.Add(2)
 
 	// Start the gRPC server
-
 	port := config.GetConfigs().GetConfigsWithDefault("port", "50051")
 	err := NewCEServer(exitMainServerChan, &wg, lm, port)
 	if err != nil {
@@ -30,7 +29,7 @@ func main() {
 	}
 
 	// Start the gRPC callback server
-	port = config.GetConfigs().GetConfigsWithDefault("callback.port", "50052")
+	port = config.GetConfigs().GetConfigsWithDefault("callback_port", "50052")
 	err = StartCallbackServer(exitCallbackServerChan, &wg, lm, port)
 	if err != nil {
 		logger.Error("Failed to start gRPC callback server", "MAIN", err)

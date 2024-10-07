@@ -1,3 +1,4 @@
+# TODO: Add consistency checks for the "instance_id" that is serving the session
 from typing import List
 import grpc
 import atexit

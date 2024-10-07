@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/exec"
 	"resource-manager/logger"
+	obj "resource-manager/objects"
 	"resource-manager/providers"
 	"sync"
 
@@ -67,6 +68,10 @@ type LocalProvider struct {
 
 func (l *LocalProvider) Begin() error {
 	// This function will initialize the provider
+	nodes := obj.GetLiveNodes()
+	for _, node := range nodes {
+		node.Delete()
+	}
 	return nil
 }
 

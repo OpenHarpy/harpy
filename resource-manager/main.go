@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"errors"
 	"os"
 	"os/signal"
 	"resource-manager/config"
@@ -13,37 +14,50 @@ import (
 	"syscall"
 )
 
-// Begin LiveMemory
-// For debugging purposes we will have a function to add some local running nodes
-//
-//	This will be changed to PROVIDERS in the future
-//	Providers will be the implementation of the node instancing and destruction process
-//	Examples of providers are AWS, GCP, Azure, local, etc.
-func AddLocalProvider() providers.ProviderInterface {
-	NodeCatalog := &objects.NodeCatalog{
-		NodeType:         "small-4cpu-8gb",
-		NumCores:         4,
-		AmountOfMemory:   8,
-		AmountOfStorage:  100,
-		NodeMaxCapacity:  1, // This is the maximum number of nodes that can be created of this type
-		NodeWarmpoolSize: 1,
-		NodeIdleTimeout:  60, // This is the time in seconds that a node can be idle before it is destroyed
+func NodeLoader() error {
+	// Load the node catalog
+	catalogData := config.GetConfigs().GetConfigsWithDefault("node_catalog", "catalog.json")
+	// Read the json file
+	jsonFile, err := os.ReadFile(catalogData)
+	if err != nil {
+		logger.Error("Failed to open node catalog", "MAIN", err)
+		return err
 	}
-	NodeCatalog.Sync() // This will sync the node catalog to the database
 
-	// For the local provider we need to clean all the nodes
-	// This is because the local provider is used for debugging and testing purposes only
-	// We do not want to have any nodes in the database
+	// Parse the json file
+	var nodes []objects.NodeCatalog
+	err = json.Unmarshal(jsonFile, &nodes)
+	if err != nil {
+		logger.Error("Failed to parse node catalog", "MAIN", err)
+		return err
+	}
 
-	// Get all the nodes
-	nodes := objects.GetLiveNodes()
+	// Set the default configurations For each key value pair in the default configurations
 	for _, node := range nodes {
-		node.Delete()
+		// We add the key value pair on the database
+		node.Sync()
 	}
+	return nil
+}
 
-	// Create a new local provider
-	provider := lp.NewLocalProvider()
-	return provider
+func GetProvider() (providers.ProviderInterface, error) {
+	// Load the node catalog
+	err := NodeLoader()
+	if err != nil {
+		return nil, err
+	}
+	nodeProvider := config.GetConfigs().GetConfigsWithDefault("node-provider", "local")
+	var provider providers.ProviderInterface
+	if nodeProvider == "local" {
+		provider = lp.NewLocalProvider()
+	} else {
+		return nil, errors.New("invalid provider option was set")
+	}
+	err = providers.StartProvider(provider)
+	if err != nil {
+		return nil, err
+	}
+	return provider, nil
 }
 
 // Load the default environment configurations
@@ -88,8 +102,7 @@ func main() {
 	}
 
 	// Add some local nodes
-	runningProvider := AddLocalProvider()
-	err = providers.StartProvider(runningProvider)
+	runningProvider, err := GetProvider()
 	if err != nil {
 		logger.Error("Failed to initialize provider", "MAIN", err)
 		return

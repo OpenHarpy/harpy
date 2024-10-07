@@ -4,5 +4,6 @@
     "node-provider": "local",
     "database-provider": "sqlite",
     "database-uri": "sqlite:///resource-manager.db",
-    "default_env_configs": "default_env_configs.json"
+    "default_env_configs": "default_env_configs.json",
+    "node_catalog": "catalog.json"
 }

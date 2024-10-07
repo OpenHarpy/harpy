@@ -21,7 +21,7 @@ func MakeLogarusWithFields(subComponent string, additionalFields ...logrus.Field
 	return logrus.WithFields(fields)
 }
 func Info(message string, subComponent string, additionalFields ...logrus.Fields) {
-	MakeLogarusWithFields(subComponent, additionalFields...).Info(message)
+	MakeLogarusWithFields(subComponent, additionalFields...).Info(message + " ")
 }
 func Error(message string, subComponent string, err error, additionalFields ...logrus.Fields) {
 	if err != nil && additionalFields != nil {
@@ -29,13 +29,13 @@ func Error(message string, subComponent string, err error, additionalFields ...l
 	} else {
 		additionalFields = []logrus.Fields{{"error": err}}
 	}
-	MakeLogarusWithFields(subComponent, additionalFields...).Error(message, err)
+	MakeLogarusWithFields(subComponent, additionalFields...).Error(message+" ", err)
 }
 func Debug(message string, subComponent string, additionalFields ...logrus.Fields) {
-	MakeLogarusWithFields(subComponent, additionalFields...).Debug(message)
+	MakeLogarusWithFields(subComponent, additionalFields...).Debug(message + " ")
 }
 func Warn(message string, subComponent string, additionalFields ...logrus.Fields) {
-	MakeLogarusWithFields(subComponent, additionalFields...).Warn(message)
+	MakeLogarusWithFields(subComponent, additionalFields...).Warn(message + " ")
 }
 
 func SetupLogging() {

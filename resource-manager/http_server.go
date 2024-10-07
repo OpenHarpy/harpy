@@ -108,7 +108,7 @@ func (s *ResourceManagerHTTPServer) NodesHandler(w http.ResponseWriter, r *http.
 	}
 	var results []*objects.LiveNode
 	if len(queryComponents) == 0 {
-		results = objects.LiveNodes()
+		results = objects.GetLiveNodes()
 	} else {
 		where := strings.Join(queryComponents, " AND ")
 		results = objects.LiveNodesWithWhereClause(where, queryParams)
@@ -142,7 +142,7 @@ func (s *ResourceManagerHTTPServer) RequestsHandler(w http.ResponseWriter, r *ht
 	// Check for filter parameters
 	requestID := r.URL.Query().Get("request_id")
 	nodeType := r.URL.Query().Get("node_type")
-	servingStatus := objects.StringToEnum(objects.TypeMarker_ResourceRequestStatusEnum, r.URL.Query().Get("serving_status"))
+	servingStatus := objects.StringToEnum(objects.TypeMarker_ResourceAssignmentStatusEnum, r.URL.Query().Get("serving_status"))
 
 	queryComponents := []string{}
 	queryParams := []interface{}{}

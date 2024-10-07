@@ -43,7 +43,7 @@ func (s *ResourceAllocServer) RequestNodes(ctx context.Context, in *pb.NodeReque
 		RequestID:        requestId,
 		NodeType:         in.NodeType,
 		NodeCount:        in.NodeCount,
-		ServingStatus:    obj.ResourceRequestStatusEnum_RESOURCE_REQUESTED,
+		ServingStatus:    obj.ResourceAssignmentStatusEnum_RESOURCE_REQUESTED,
 		RequestCreatedAt: now.Unix(),
 	}
 	assignment.Sync()
@@ -74,7 +74,7 @@ func (s *ResourceAllocServer) ReleaseNodes(ctx context.Context, in *pb.RequestHa
 	}
 
 	// Mark the assigment as RELEASE_REQUESTED
-	resourceAssignment.ServingStatus = obj.ResourceRequestStatusEnum_RESOURCE_RELEASE_REQUESTED
+	resourceAssignment.ServingStatus = obj.ResourceAssignmentStatusEnum_RESOURCE_RELEASE_REQUESTED
 	resourceAssignment.Sync()
 
 	response := &pb.NodeReleaseResponse{

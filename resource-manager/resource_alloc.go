@@ -14,8 +14,6 @@ import (
 	"google.golang.org/grpc"
 )
 
-// TODO: This is a shit implementation. We need to make sure that the LiveMemory gets adapted
-
 type ResourceAllocServer struct {
 	pb.UnimplementedNodeRequestingServiceServer
 	pb.UnimplementedNodeStatusUpdateServiceServer

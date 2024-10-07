@@ -1,4 +1,4 @@
-package main
+package objects
 
 import (
 	pb "resource-manager/grpc_resource_alloc_procotol"
@@ -73,6 +73,9 @@ func databaseMain() *gorm.DB {
 	db.AutoMigrate(&NodeCatalog{})
 	db.AutoMigrate(&LiveNode{})
 	db.AutoMigrate(&ResourceAssignment{})
+	db.AutoMigrate(&Config{})
+	db.AutoMigrate(&Provider{})
+	db.AutoMigrate(&ProviderProps{})
 	return db
 }
 
@@ -123,7 +126,8 @@ type LiveNode struct {
 	NodeCreatedAt         int64
 }
 
-func (ln *LiveNode) Sync() { SyncGenericStruct(ln) }
+func (ln *LiveNode) Sync()   { SyncGenericStruct(ln) }
+func (ln *LiveNode) Delete() { DeleteGenericStruct(ln) }
 
 type ResourceAssignment struct {
 	// This struct is used to store the resource assignment to a session
@@ -131,12 +135,50 @@ type ResourceAssignment struct {
 	NodeType              string
 	NodeCount             uint32
 	ServingStatus         ResourceRequestStatusEnum `gorm:"type:int"`
+	RequestDetails        string                    `gorm:"type:text"`
 	LastHeartbeatReceived int64
 	RequestCreatedAt      int64
 }
 
 func (ra *ResourceAssignment) Sync()   { SyncGenericStruct(ra) }
 func (ra *ResourceAssignment) Delete() { DeleteGenericStruct(ra) }
+
+type Config struct {
+	// This struct is used to store the configuration of the resource manager
+	// It is used to store the configuration of the resource manager
+	ConfigKey   string `gorm:"primary_key"`
+	ConfigValue string `gorm:"type:text"`
+}
+
+func (c *Config) Sync()   { SyncGenericStruct(c) }
+func (c *Config) Delete() { DeleteGenericStruct(c) }
+
+func GetConfig(configKey string) (*Config, bool) {
+	db := GetDBInstance().db
+	var c Config
+	result := db.First(&c, "config_key = ?", configKey)
+	if result.Error != nil {
+		return nil, false
+	}
+	return &c, true
+}
+
+type Provider struct {
+	ProviderName        string `gorm:"primary_key"`
+	ProviderDescription string `gorm:"type:text"`
+}
+
+func (p *Provider) Sync()   { SyncGenericStruct(p) }
+func (p *Provider) Delete() { DeleteGenericStruct(p) }
+
+type ProviderProps struct {
+	ProviderName string `gorm:"primary_key"`
+	PropKey      string `gorm:"primary_key"`
+	PropValue    string `gorm:"type:text"`
+}
+
+func (p *ProviderProps) Sync()   { SyncGenericStruct(p) }
+func (p *ProviderProps) Delete() { DeleteGenericStruct(p) }
 
 func GetNodeCatalog(nodeType string) (*NodeCatalog, bool) {
 	db := GetDBInstance().db
@@ -230,6 +272,16 @@ func LiveNodes() []*LiveNode {
 	return lns
 }
 
+func GetLiveNodes() []*LiveNode {
+	db := GetDBInstance().db
+	var lns []*LiveNode
+	result := db.Find(&lns)
+	if result.Error != nil {
+		return nil
+	}
+	return lns
+}
+
 func ResourceAssignmentsWithWhereClause(whereClause string, args ...interface{}) []*ResourceAssignment {
 	db := GetDBInstance().db
 	var ras []*ResourceAssignment
@@ -253,6 +305,28 @@ func CatalogsWithWhereClause(whereClause string, args ...interface{}) []*NodeCat
 	db := GetDBInstance().db
 	var ncs []*NodeCatalog
 	result := db.Where(whereClause, args...).Find(&ncs)
+	if result.Error != nil {
+		return nil
+	}
+	return ncs
+}
+
+func CatalogsWithWarmPoolNotMet() []*NodeCatalog {
+	db := GetDBInstance().db
+	var ncs []*NodeCatalog
+
+	// Subquery to count live nodes per node type
+	subQuery := db.Model(&LiveNode{}).
+		Select("node_type, COUNT(*) as live_node_count").
+		Group("node_type")
+
+	// Join NodeCatalog with the subquery and filter based on NodeWarmpoolSize
+	result := db.Table("node_catalogs").
+		Select("node_catalogs.*").
+		Joins("LEFT JOIN (?) AS live_nodes ON node_catalogs.node_type = live_nodes.node_type", subQuery).
+		Where("node_catalogs.node_warmpool_size > IFNULL(live_nodes.live_node_count, 0)").
+		Find(&ncs)
+
 	if result.Error != nil {
 		return nil
 	}
@@ -297,4 +371,14 @@ func StringToEnum(enumType TypeMarkerIndicator, str string) interface{} {
 		return NodeStatusMapping[str]
 	}
 	return nil
+}
+
+func GetProviders() []*Provider {
+	db := GetDBInstance().db
+	var providers []*Provider
+	result := db.Find(&providers)
+	if result.Error != nil {
+		return nil
+	}
+	return providers
 }

@@ -1,0 +1,5 @@
+{
+    "harpy.resourceManager.eventLoop.processPoolingIntervalMS" : "1000",
+    "harpy.resourceManager.eventLoop.resourceRequestReleasedTimeoutSec" : "60",
+    "harpy.resourceManager.eventLoop.requestIdleTimeoutSec" : "120"
+}

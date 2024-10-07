@@ -22,6 +22,7 @@ package task
 import (
 	"client-engine/chunker"
 	pb "client-engine/grpc_node_protocol"
+	"client-engine/logger"
 	"context"
 	"errors"
 	"log"
@@ -29,6 +30,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/sirupsen/logrus"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 )
@@ -266,8 +268,10 @@ func NewNodeTracker(CallbackURI string) (*NodeTracker, error) {
 	resourceManager := NewNodeResourceManagerClient("localhost:50050")
 	resourceManager.connect()
 	requestResponse, err := resourceManager.RequestNode(nodeType, nodeCount)
+	logger.Debug("Requesting node", "NODE-TRACKER", logrus.Fields{"RequestID": requestResponse.RequestID, "nodeCount": requestResponse.RequestStatus})
 
 	if err != nil {
+		logger.Error("Failed to request node", "NODE-TRACKER", err)
 		return nil, err
 	}
 
@@ -276,10 +280,12 @@ func NewNodeTracker(CallbackURI string) (*NodeTracker, error) {
 		// We will need to get the nodes from the resource manager
 		requestResponse, err = resourceManager.GetNodeRequestStatus(requestResponse)
 		if err != nil {
+			logger.Error("Failed to get request status", "NODE-TRACKER", err)
 			return nil, err
 		}
 
 		if requestResponse.RequestStatus == REQUEST_ALLOCATED {
+			logger.Debug("Nodes allocated", "NODE-TRACKER", logrus.Fields{"nodeType": requestResponse.RequestID})
 			break
 		} else if requestResponse.RequestStatus == REQUEST_ERROR {
 			resourceManager.ReleaseNodes(requestResponse)
@@ -300,6 +306,7 @@ func NewNodeTracker(CallbackURI string) (*NodeTracker, error) {
 	for _, liveNode := range requestResponse.Nodes {
 		err = nodeTracker.AddNode(liveNode.NodeGRPCAddress)
 		if err != nil {
+			logger.Error("Failed to add node", "NODE-TRACKER", err)
 			resourceManager.ReleaseNodes(requestResponse)
 			resourceManager.disconnect()
 			return nil, err
@@ -309,6 +316,7 @@ func NewNodeTracker(CallbackURI string) (*NodeTracker, error) {
 	for _, node := range nodeTracker.NodesList {
 		err := node.RegisterCallback(CallbackURI)
 		if err != nil {
+			logger.Error("Failed to register callback", "NODE-TRACKER", err)
 			resourceManager.ReleaseNodes(requestResponse)
 			resourceManager.disconnect()
 			return nil, err

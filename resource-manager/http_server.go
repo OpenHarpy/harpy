@@ -6,6 +6,7 @@ import (
 	"net"
 	"net/http"
 	"resource-manager/logger"
+	"resource-manager/objects"
 	"strings"
 	"sync"
 	"time"
@@ -88,7 +89,7 @@ func (s *ResourceManagerHTTPServer) NodesHandler(w http.ResponseWriter, r *http.
 	// Check for filter parameters
 	nodeID := r.URL.Query().Get("node_id")
 	nodeType := r.URL.Query().Get("node_type")
-	nodeStatus := StringToEnum(TypeMarker_LiveNodeStatusEnum, r.URL.Query().Get("node_status"))
+	nodeStatus := objects.StringToEnum(objects.TypeMarker_LiveNodeStatusEnum, r.URL.Query().Get("node_status"))
 
 	// Get the nodes from the database
 	queryComponents := []string{}
@@ -105,12 +106,12 @@ func (s *ResourceManagerHTTPServer) NodesHandler(w http.ResponseWriter, r *http.
 		queryComponents = append(queryComponents, "node_status = ?")
 		queryParams = append(queryParams, nodeStatus)
 	}
-	var results []*LiveNode
+	var results []*objects.LiveNode
 	if len(queryComponents) == 0 {
-		results = LiveNodes()
+		results = objects.LiveNodes()
 	} else {
 		where := strings.Join(queryComponents, " AND ")
-		results = LiveNodesWithWhereClause(where, queryParams)
+		results = objects.LiveNodesWithWhereClause(where, queryParams)
 	}
 
 	// Create the response
@@ -120,7 +121,7 @@ func (s *ResourceManagerHTTPServer) NodesHandler(w http.ResponseWriter, r *http.
 			NodeID:                node.NodeID,
 			NodeType:              node.NodeType,
 			NodeGRPCAddress:       node.NodeGRPCAddress,
-			NodeStatus:            EnumToString(node.NodeStatus),
+			NodeStatus:            objects.EnumToString(node.NodeStatus),
 			LastHeartbeatReceived: toIsoDate(node.LastHeartbeatReceived),
 			IsServingRequest:      node.IsServingRequest,
 			ServingRequestID:      node.ServingRequestID,
@@ -141,7 +142,7 @@ func (s *ResourceManagerHTTPServer) RequestsHandler(w http.ResponseWriter, r *ht
 	// Check for filter parameters
 	requestID := r.URL.Query().Get("request_id")
 	nodeType := r.URL.Query().Get("node_type")
-	servingStatus := StringToEnum(TypeMarker_ResourceRequestStatusEnum, r.URL.Query().Get("serving_status"))
+	servingStatus := objects.StringToEnum(objects.TypeMarker_ResourceRequestStatusEnum, r.URL.Query().Get("serving_status"))
 
 	queryComponents := []string{}
 	queryParams := []interface{}{}
@@ -159,12 +160,12 @@ func (s *ResourceManagerHTTPServer) RequestsHandler(w http.ResponseWriter, r *ht
 	}
 
 	// Get the requests from the database
-	var results []*ResourceAssignment
+	var results []*objects.ResourceAssignment
 	if len(queryComponents) == 0 {
-		results = ResourceAssignments()
+		results = objects.ResourceAssignments()
 	} else {
 		where := strings.Join(queryComponents, " AND ")
-		results = ResourceAssignmentsWithWhereClause(where, queryParams)
+		results = objects.ResourceAssignmentsWithWhereClause(where, queryParams)
 	}
 
 	// Create the response
@@ -174,7 +175,7 @@ func (s *ResourceManagerHTTPServer) RequestsHandler(w http.ResponseWriter, r *ht
 			RequestID:             request.RequestID,
 			NodeType:              request.NodeType,
 			NodeCount:             request.NodeCount,
-			ServingStatus:         EnumToString(request.ServingStatus),
+			ServingStatus:         objects.EnumToString(request.ServingStatus),
 			LastHeartbeatReceived: toIsoDate(request.LastHeartbeatReceived),
 			RequestCreatedAt:      toIsoDate(request.RequestCreatedAt),
 		})
@@ -196,7 +197,7 @@ func (s *ResourceManagerHTTPServer) CatalogHandler(w http.ResponseWriter, r *htt
 
 	if nodeType != "" {
 		// Get the catalog from the database
-		result, ok := GetNodeCatalog(nodeType)
+		result, ok := objects.GetNodeCatalog(nodeType)
 		if !ok {
 			http.Error(w, "Catalog not found", http.StatusNotFound)
 			return
@@ -208,7 +209,7 @@ func (s *ResourceManagerHTTPServer) CatalogHandler(w http.ResponseWriter, r *htt
 	}
 
 	// Get the catalog from the database
-	results := NodeCatalogs()
+	results := objects.NodeCatalogs()
 
 	// Write the response (JSON)
 	WriteJSONResponse(w, results)

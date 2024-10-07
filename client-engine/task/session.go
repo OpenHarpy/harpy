@@ -14,6 +14,7 @@
 package task
 
 import (
+	"client-engine/logger"
 	"fmt"
 
 	"github.com/google/uuid"
@@ -37,6 +38,14 @@ type Session struct {
 	DeregisterCommandCallbackPointer func(string)
 }
 
+func GetFromMappingWithDefaultValue(mapping map[string]string, key string, defaultValue string) string {
+	value, exists := mapping[key]
+	if !exists {
+		return defaultValue
+	}
+	return value
+}
+
 func NewSession(
 	RegisterCommandCallbackPointer func(callback func(string, Status) error) string,
 	RegisterCommandID func(string, string),
@@ -44,9 +53,14 @@ func NewSession(
 	options map[string]string,
 ) (*Session, error) {
 	idx := fmt.Sprintf("session-%s", uuid.New().String())
-	nt, err := NewNodeTracker("localhost:50052")
+	// Construct the node tracker with the callback URI
+	callbackPort := GetFromMappingWithDefaultValue(options, "harpy.clientEngine.callback.port", "50052")
+	callbackHost := GetFromMappingWithDefaultValue(options, "harpy.clientEngine.callback.host", "localhost")
+	callbackURI := fmt.Sprintf("%s:%s", callbackHost, callbackPort)
+	nt, err := NewNodeTracker(callbackURI)
 	if err != nil {
 		// TODO: HANDLE THIS ERROR
+		logger.Error("Error creating node tracker", "SESSION", err)
 		return nil, err
 	}
 	return &Session{

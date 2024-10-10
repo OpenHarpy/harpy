@@ -5,5 +5,7 @@
     "database-provider": "sqlite",
     "database-uri": "sqlite:///resource-manager.db",
     "default_env_configs": "default_env_configs.json",
-    "node_catalog": "catalog.json"
+    "node_catalog": "catalog.json",
+    "local-provider-command": "cd ../remote-runner && go run . local-1 small-4cpu-8gb localhost:50050",
+    "ui-static-files": "resource-manager-ui"
 }

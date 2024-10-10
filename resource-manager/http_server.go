@@ -3,6 +3,7 @@ package main
 
 import (
 	"encoding/json"
+	"errors"
 	"net"
 	"net/http"
 	"resource-manager/logger"
@@ -221,7 +222,7 @@ func (s *ResourceManagerHTTPServer) ConfigHandler(w http.ResponseWriter, r *http
 }
 
 // StartServer starts the http server
-func StartServer(stopChan chan bool, wg *sync.WaitGroup) error {
+func StartServer(stopChan chan bool, wg *sync.WaitGroup, port string, staticServerFiles string) error {
 	// The server serves to expose the current state of the deployment of the Harpy system
 	// The server will expose the following endpoints:
 	// /health - This endpoint will return a 200 OK if the server is up
@@ -229,6 +230,9 @@ func StartServer(stopChan chan bool, wg *sync.WaitGroup) error {
 	// /requests - This endpoint will return the current state of the requests
 	// /config - This endpoint will return the current configuration of the resource manager
 	// /catalog - This endpoint will return the current catalog of the nodes
+	if staticServerFiles == "" {
+		return errors.New("static server files not provided, cannot start server")
+	}
 
 	logger.Info("Starting HTTP server", "HTTP_SERVER")
 
@@ -241,10 +245,13 @@ func StartServer(stopChan chan bool, wg *sync.WaitGroup) error {
 	http.HandleFunc("/requests", s.RequestsHandler)
 	http.HandleFunc("/config", s.ConfigHandler)
 	http.HandleFunc("/catalog", s.CatalogHandler)
+	// Static files handler
+	http.Handle("/", http.FileServer(http.Dir(staticServerFiles)))
 
 	// Start the server - This is a blocking call and we need to be able to stop the server gracefully
 	// when the stopChan is closed
-	l, err := net.Listen("tcp", ":8080")
+	ServerPort := ":" + port
+	l, err := net.Listen("tcp", ServerPort)
 	if err != nil {
 		logger.Error("Failed to start HTTP server", "HTTP_SERVER", err)
 		return err

@@ -22,7 +22,7 @@ func GetConfigs() *Configs {
 		var options map[string]string
 		var usingConfigFileLocation string = "config.json"
 		// First we check if the enviroment variable is set
-		configFileLocation, ok := os.LookupEnv("CONFIG_FILE")
+		configFileLocation, ok := os.LookupEnv("REMOTE_RUNNER_CONFIG_FILE")
 		if !ok {
 			println("(PRELOGGER) [WARNING] - No config file location set, using default location")
 		} else {
@@ -39,6 +39,11 @@ func GetConfigs() *Configs {
 		if err != nil {
 			println("(PRELOGGER) [ERROR] - Error unmarshalling config file", err)
 			os.Exit(1)
+		}
+
+		// Print all configs
+		for key, value := range options {
+			println("(PRELOGGER) [INFO] - Config Key: ", key, " Config Value: ", value)
 		}
 
 		instance = &Configs{

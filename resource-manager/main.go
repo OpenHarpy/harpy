@@ -49,7 +49,11 @@ func GetProvider() (providers.ProviderInterface, error) {
 	nodeProvider := config.GetConfigs().GetConfigsWithDefault("node-provider", "local")
 	var provider providers.ProviderInterface
 	if nodeProvider == "local" {
-		provider = lp.NewLocalProvider()
+		command, ok := config.GetConfigs().GetConfig("local-provider-command")
+		if !ok {
+			return nil, errors.New("local provider command not set, cannot continue")
+		}
+		provider = lp.NewLocalProvider(command)
 	} else {
 		return nil, errors.New("invalid provider option was set")
 	}
@@ -135,7 +139,9 @@ func main() {
 
 	// Start the HTTP server
 	exitHttpServer := make(chan bool)
-	err = StartServer(exitHttpServer, &wg)
+	httpPort := config.GetConfigs().GetConfigsWithDefault("port", "8080")
+	staticFiles := config.GetConfigs().GetConfigsWithDefault("ui-static-files", "")
+	err = StartServer(exitHttpServer, &wg, httpPort, staticFiles)
 	if err != nil {
 		logger.Error("Failed to start HTTP server", "MAIN", err)
 		exitMainServer <- true

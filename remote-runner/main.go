@@ -54,7 +54,12 @@ func main() {
 	// We then need to inform the resource manager that we are being setup
 
 	logger.Info("Starting Remote Runner", "MAIN")
-	NodeSetup()
+	err := NodeSetup()
+	if err != nil {
+		logger.Error("Failed to setup node", "MAIN", err)
+		nodeStatusUpdateClient.SetNodeShutdown()
+		return
+	}
 	// Here we should send a message to the node router to let it know that we are ready to accept commands
 	logger.Info("Node setup complete", "MAIN")
 

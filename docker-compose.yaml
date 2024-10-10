@@ -1,0 +1,18 @@
+version: '3.8'
+
+services:
+  harpy-local-resource-manager:
+    image: harpy:0.0.1
+    environment:
+      - COMPONENT=resource-manager
+    ports:
+      - "50050:50050"
+      - "50053:50053"
+      - "8080:8080"
+  harpy-client-engine:
+    image: harpy:0.0.1
+    environment:
+      - COMPONENT=client-engine
+    ports:
+      - "50051:50051"
+      - "50052:50052"

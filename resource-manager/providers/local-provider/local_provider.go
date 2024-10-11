@@ -7,6 +7,7 @@ import (
 	"errors"
 	"os"
 	"os/exec"
+	"resource-manager/config"
 	"resource-manager/logger"
 	obj "resource-manager/objects"
 	"resource-manager/providers"
@@ -97,11 +98,13 @@ func (l *LocalProvider) ProvisionNodes(nodeType string, nodeCount int) ([]*provi
 	logger.Info("Starting local node process", "PROVISION_NODES")
 	go CreateAndManageLocalProcess(exitChan, &wg, l.CommandToExecute)
 
+	grpcAddress := config.GetConfigs().GetConfigsWithDefault("harpy.resourceManager.localProvider.node.uri", "localhost:50053")
+
 	return []*providers.ProviderProvisionResponse{
 		{
 			NodeType:        "small-4cpu-8gb",
 			NodeID:          "local-1",
-			NodeGRPCAddress: "localhost:50051",
+			NodeGRPCAddress: grpcAddress,
 		},
 	}, nil
 }

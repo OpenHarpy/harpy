@@ -54,10 +54,11 @@ func NewSession(
 ) (*Session, error) {
 	idx := fmt.Sprintf("session-%s", uuid.New().String())
 	// Construct the node tracker with the callback URI
-	callbackPort := GetFromMappingWithDefaultValue(options, "harpy.clientEngine.callback.port", "50052")
-	callbackHost := GetFromMappingWithDefaultValue(options, "harpy.clientEngine.callback.host", "localhost")
+	callbackPort := GetFromMappingWithDefaultValue(options, "harpy.clientEngine.grpcCallbackServer.servePort", "50052")
+	callbackHost := GetFromMappingWithDefaultValue(options, "harpy.clientEngine.grpcCallbackServer.serveHost", "localhost")
+	resourceManagerURI := GetFromMappingWithDefaultValue(options, "harpy.clientEngine.resourceManager.uri", "localhost:50050")
 	callbackURI := fmt.Sprintf("%s:%s", callbackHost, callbackPort)
-	nt, err := NewNodeTracker(callbackURI)
+	nt, err := NewNodeTracker(callbackURI, resourceManagerURI, idx)
 	if err != nil {
 		// TODO: HANDLE THIS ERROR
 		logger.Error("Error creating node tracker", "SESSION", err)

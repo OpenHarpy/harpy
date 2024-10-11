@@ -2,8 +2,6 @@ syntax = "proto3";
 
 package proto;
 
-import "google/protobuf/empty.proto";
-
 // Define some ENUMS
 enum CommandStatusEnum {
     COMMAND_DEFINED = 0;
@@ -14,8 +12,13 @@ enum CommandStatusEnum {
     COMMAND_PANIC = 5;
 }
 
+message IsolatedEnv {
+    string SessionID = 1;
+}
+
 message PackageRequest {
     string PackageURI = 1;
+    IsolatedEnv IsolatedEnv = 2;
 }
 
 message PackageResponse {
@@ -52,6 +55,7 @@ message CommandStatus {
 message CommandRequest {
     CommandHandler CommandHandler = 1;
     CallbackHandler CallbackHandler = 2;
+    IsolatedEnv IsolatedEnv = 3;
 }
 
 message CommandRequestResponse {
@@ -80,12 +84,14 @@ service NodeController {
 
 service Node {
     // Packages / Setup
+    rpc InitIsolatedEnv (IsolatedEnv) returns (Ack) {}
     rpc InstallPackage (PackageRequest) returns (PackageResponse) {}
     rpc UninstallPackage (PackageRequest) returns (PackageResponse) {}
-    rpc ListPackages (google.protobuf.Empty) returns (PackageList) {}
+    rpc ListPackages (IsolatedEnv) returns (PackageList) {}
     rpc RegisterCallback (CallbackRegistration) returns (CallbackHandler) {}
     rpc UnregisterCallback (CallbackHandler) returns (Ack) {}
     // Commands
+    rpc DestroyIsolatedEnv (IsolatedEnv) returns (Ack) {}
     rpc RegisterCommand (stream CommandRequestChunk) returns (CommandHandler) {}
     rpc RunCommand (CommandRequest) returns (CommandRequestResponse) {}
     rpc KillCommand (CommandRequest) returns (CommandRequestResponse) {}

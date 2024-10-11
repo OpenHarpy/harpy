@@ -25,14 +25,6 @@ RUN apk update && \
     ln -s /usr/local/go/bin/gofmt /usr/bin/gofmt && \
     rm -rf /tmp/* /var/cache/apk/*
 
-RUN mkdir /build
-COPY ./base-requirements.txt /build/requirements.txt
-
-# Install Python venv
-RUN python3 -m venv /opt/venv && \
-    source /opt/venv/bin/activate && \
-    pip install -r /build/requirements.txt
-
 # Set environment variables
 ENV PATH="/opt/venv/bin:$PATH"
 ENV GOPATH=/go

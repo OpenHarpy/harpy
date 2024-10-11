@@ -3,6 +3,9 @@ version: '3.8'
 services:
   harpy-local-resource-manager:
     image: harpy:0.0.1
+    volumes:
+      - ./confs:/opt/configs/:ro
+      - ../_example_data/:/Volumes/data/
     environment:
       - COMPONENT=resource-manager
     ports:
@@ -11,6 +14,8 @@ services:
       - "8080:8080"
   harpy-client-engine:
     image: harpy:0.0.1
+    volumes:
+      - ./confs:/opt/configs/:ro
     environment:
       - COMPONENT=client-engine
     ports:

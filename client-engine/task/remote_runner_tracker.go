@@ -25,7 +25,6 @@ import (
 	"client-engine/logger"
 	"context"
 	"errors"
-	"log"
 	"sync"
 	"time"
 
@@ -41,11 +40,13 @@ const (
 )
 
 type Node struct {
-	nodeID     string
-	NodeURI    string
-	conn       *grpc.ClientConn
-	client     pb.NodeClient
-	callbackID string
+	nodeID      string
+	NodeURI     string
+	CallbackURI string
+	CallbackID  string
+	SessionID   string
+	conn        *grpc.ClientConn
+	client      pb.NodeClient
 }
 
 func (n *Node) connect() error {
@@ -55,11 +56,23 @@ func (n *Node) connect() error {
 		return err
 	}
 	n.client = pb.NewNodeClient(n.conn)
+
+	// Register the callback
+	err = n.RegisterCallback()
+	if err != nil {
+		return err
+	}
+	// We also need to make sure that the node can isolate the enviroment for the task
+	err = n.InitIsolatedEnv()
+	if err != nil {
+		return err
+	}
 	return nil
 }
 
 func (n *Node) disconnect() error {
 	n.UnregisterCallback()
+	n.DestroyIsolatedEnv()
 	if n.conn != nil {
 		err := n.conn.Close()
 		if err != nil {
@@ -69,24 +82,52 @@ func (n *Node) disconnect() error {
 	return nil
 }
 
-func (n *Node) RegisterCallback(CallbackURI string) error {
+func (n *Node) InitIsolatedEnv() error {
+	// We need to make sure that the node can isolate the enviroment for the task
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*300) // Higher timeout because this can take a while
+	defer cancel()
+	res, err := n.client.InitIsolatedEnv(ctx, &pb.IsolatedEnv{SessionID: n.SessionID})
+	if err != nil {
+		return err
+	}
+	if !res.Success {
+		return errors.New("Failed to initialize isolated environment [" + res.ErrorMessage + "]")
+	}
+	return nil
+}
+
+func (n *Node) DestroyIsolatedEnv() error {
+	// We need to make sure that the node can isolate the enviroment for the task
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*300) // Higher timeout because this can take a while
+	defer cancel()
+	res, err := n.client.DestroyIsolatedEnv(ctx, &pb.IsolatedEnv{SessionID: n.SessionID})
+	if err != nil {
+		return err
+	}
+	if !res.Success {
+		return errors.New("Failed to destroy isolated environment [" + res.ErrorMessage + "]")
+	}
+	return nil
+}
+
+func (n *Node) RegisterCallback() error {
 	callbackRegistration := pb.CallbackRegistration{
-		CallbackURI: CallbackURI,
+		CallbackURI: n.CallbackURI,
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*10)
 	defer cancel()
 	res, err := n.client.RegisterCallback(ctx, &callbackRegistration)
 	if err != nil {
-		log.Printf("Failed to register callback: %v", err)
+		logger.Error("Failed to register callback", "NODE", err)
 		return err
 	}
-	n.callbackID = res.CallbackID
+	n.CallbackID = res.CallbackID
 	return nil
 }
 
 func (n *Node) UnregisterCallback() error {
 	callbackUnregistration := pb.CallbackHandler{
-		CallbackID: n.callbackID,
+		CallbackID: n.CallbackID,
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*10)
 	defer cancel()
@@ -180,8 +221,9 @@ func (n *Node) RegisterTask(task *TaskDefinition) (string, error) {
 
 func (n *Node) RunCommand(commandID string) error {
 	commandHandler := pb.CommandHandler{CommandID: commandID}
-	callbackHandler := pb.CallbackHandler{CallbackID: n.callbackID}
-	commandRequest := pb.CommandRequest{CommandHandler: &commandHandler, CallbackHandler: &callbackHandler}
+	callbackHandler := pb.CallbackHandler{CallbackID: n.CallbackID}
+	isolatedEnv := pb.IsolatedEnv{SessionID: n.SessionID}
+	commandRequest := pb.CommandRequest{CommandHandler: &commandHandler, CallbackHandler: &callbackHandler, IsolatedEnv: &isolatedEnv}
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*10)
 	defer cancel()
 	res, err := n.client.RunCommand(ctx, &commandRequest)
@@ -259,13 +301,13 @@ func (n *NodeTracker) HeartbeatRoutine() {
 	}
 }
 
-func NewNodeTracker(CallbackURI string) (*NodeTracker, error) {
+func NewNodeTracker(CallbackURI string, ResourceManagerURI string, SessionID string) (*NodeTracker, error) {
 	// Later these will come from the session configuration
 	nodeType := "small-4cpu-8gb"
 	nodeCount := 1
 
 	// We will need to get the nodes from the resource manager
-	resourceManager := NewNodeResourceManagerClient("localhost:50050")
+	resourceManager := NewNodeResourceManagerClient(ResourceManagerURI)
 	resourceManager.connect()
 	requestResponse, err := resourceManager.RequestNode(nodeType, nodeCount)
 	logger.Debug("Requesting node", "NODE-TRACKER", logrus.Fields{"RequestID": requestResponse.RequestID, "nodeCount": requestResponse.RequestStatus})
@@ -304,19 +346,10 @@ func NewNodeTracker(CallbackURI string) (*NodeTracker, error) {
 	}
 
 	for _, liveNode := range requestResponse.Nodes {
-		err = nodeTracker.AddNode(liveNode.NodeGRPCAddress)
+		// Add the node to the tracker (this will connect the node, register the callback and initialize the isolated environment)
+		err = nodeTracker.AddNode(liveNode.NodeGRPCAddress, CallbackURI, SessionID)
 		if err != nil {
-			logger.Error("Failed to add node", "NODE-TRACKER", err)
-			resourceManager.ReleaseNodes(requestResponse)
-			resourceManager.disconnect()
-			return nil, err
-		}
-	}
-	// For each node we need to register the callback server
-	for _, node := range nodeTracker.NodesList {
-		err := node.RegisterCallback(CallbackURI)
-		if err != nil {
-			logger.Error("Failed to register callback", "NODE-TRACKER", err)
+			logger.Error("Failed to add node", "NODE-TRACKER", err, logrus.Fields{"nodeID": liveNode.NodeID, "nodeGRPCAddress": liveNode.NodeGRPCAddress})
 			resourceManager.ReleaseNodes(requestResponse)
 			resourceManager.disconnect()
 			return nil, err
@@ -331,10 +364,12 @@ func NewNodeTracker(CallbackURI string) (*NodeTracker, error) {
 	return nodeTracker, nil
 }
 
-func (n *NodeTracker) AddNode(nodeURI string) error {
+func (n *NodeTracker) AddNode(nodeURI string, callbackURI string, SessionID string) error {
 	node := &Node{
-		nodeID:  uuid.New().String(),
-		NodeURI: nodeURI,
+		nodeID:      uuid.New().String(),
+		NodeURI:     nodeURI,
+		CallbackURI: callbackURI,
+		SessionID:   SessionID,
 	}
 	err := node.connect()
 	if err != nil {

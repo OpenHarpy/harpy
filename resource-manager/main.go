@@ -14,9 +14,21 @@ import (
 	"syscall"
 )
 
+// Required Configs for the resource manager
+var requiredConfigs = []string{
+	"harpy.resourceManager.grpcServer.servePort",
+	"harpy.resourceManager.grpcServer.serveHost",
+	"harpy.resourceManager.httpServer.servePort",
+	"harpy.resourceManager.httpServer.serveHost",
+	"harpy.resourceManager.nodeProvider",
+	"harpy.resourceManager.nodeCatalog.location",
+	"harpy.resourceManager.database.provider",
+	"harpy.resourceManager.database.uri",
+}
+
 func NodeLoader() error {
 	// Load the node catalog
-	catalogData := config.GetConfigs().GetConfigsWithDefault("node_catalog", "catalog.json")
+	catalogData := config.GetConfigs().GetConfigsWithDefault("harpy.resourceManager.nodeCatalog.location", "catalog.json")
 	// Read the json file
 	jsonFile, err := os.ReadFile(catalogData)
 	if err != nil {
@@ -46,10 +58,10 @@ func GetProvider() (providers.ProviderInterface, error) {
 	if err != nil {
 		return nil, err
 	}
-	nodeProvider := config.GetConfigs().GetConfigsWithDefault("node-provider", "local")
+	nodeProvider := config.GetConfigs().GetConfigsWithDefault("harpy.resourceManager.nodeProvider", "local")
 	var provider providers.ProviderInterface
 	if nodeProvider == "local" {
-		command, ok := config.GetConfigs().GetConfig("local-provider-command")
+		command, ok := config.GetConfigs().GetConfig("harpy.resourceManager.localProvider.command")
 		if !ok {
 			return nil, errors.New("local provider command not set, cannot continue")
 		}
@@ -64,44 +76,14 @@ func GetProvider() (providers.ProviderInterface, error) {
 	return provider, nil
 }
 
-// Load the default environment configurations
-func LoadDefaultConfigs() error {
-	confLocation := config.GetConfigs().GetConfigsWithDefault("default_env_configs", "default_env_configs.json")
-	// Read the json file
-	jsonFile, err := os.ReadFile(confLocation)
-	if err != nil {
-		logger.Error("Failed to open default environment configurations", "MAIN", err)
-		return err
-	}
-
-	// Parse the json file
-	var configs map[string]string
-	err = json.Unmarshal(jsonFile, &configs)
-	if err != nil {
-		logger.Error("Failed to parse default environment configurations", "MAIN", err)
-		return err
-	}
-
-	// Set the default configurations For each key value pair in the default configurations
-	for key, value := range configs {
-		// We add the key value pair on the database
-		conf := &objects.Config{
-			ConfigKey:   key,
-			ConfigValue: value,
-		}
-		conf.Sync()
-	}
-	return nil
-}
-
 func main() {
 	logger.SetupLogging()
 	logger.Info("Starting Resource Manager", "MAIN")
 
-	// Load the default configurations
-	err := LoadDefaultConfigs()
+	// Validate the required configs
+	err := config.GetConfigs().ValitateRequiredConfigs(requiredConfigs)
 	if err != nil {
-		logger.Error("Failed to load default configurations", "MAIN", err)
+		logger.Error("Failed to validate required configs", "MAIN", err)
 		return
 	}
 
@@ -118,7 +100,7 @@ func main() {
 
 	// Start the gRPC server
 	exitMainServer := make(chan bool)
-	port := config.GetConfigs().GetConfigsWithDefault("port", "50050")
+	port := config.GetConfigs().GetConfigsWithDefault("harpy.resourceManager.grpcServer.servePort", "50050")
 	err = NewResourceAllocServer(exitMainServer, &wg, port)
 	if err != nil {
 		logger.Error("Failed to start gRPC server", "MAIN", err)
@@ -139,8 +121,8 @@ func main() {
 
 	// Start the HTTP server
 	exitHttpServer := make(chan bool)
-	httpPort := config.GetConfigs().GetConfigsWithDefault("port", "8080")
-	staticFiles := config.GetConfigs().GetConfigsWithDefault("ui-static-files", "")
+	httpPort := config.GetConfigs().GetConfigsWithDefault("harpy.resourceManager.httpServer.servePort", "8080")
+	staticFiles := config.GetConfigs().GetConfigsWithDefault("harpy.resourceManager.ui.staticFiles", "")
 	err = StartServer(exitHttpServer, &wg, httpPort, staticFiles)
 	if err != nil {
 		logger.Error("Failed to start HTTP server", "MAIN", err)

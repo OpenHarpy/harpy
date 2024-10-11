@@ -68,8 +68,10 @@ type CEgRPCServer struct {
 // CreateSession implements
 func (s *CEgRPCServer) CreateSession(ctx context.Context, in *pb.SessionRequest) (*pb.SessionHandler, error) {
 	options := in.Options
-	options["harpy.clientEngine.callback.port"] = config.GetConfigs().GetConfigsWithDefault("callback_port", "50052")
-	options["harpy.clientEngine.callback.host"] = config.GetConfigs().GetConfigsWithDefault("callback_host", "localhost")
+	confgsToMerge := config.GetConfigs().GetAllConfigsWithPrefix("harpy.clientEngine")
+	for key, value := range confgsToMerge {
+		options[key] = value
+	}
 	sess := s.lm.CreateSession(options)
 	logger.Info("Created session", "SESSION-SERVICE", logrus.Fields{"session_id": sess.SessionId})
 	logger.Info("Session options", "SESSION-SERVICE", logrus.Fields{"options": in.Options})

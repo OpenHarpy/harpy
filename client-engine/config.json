@@ -1,6 +1,0 @@
-{
-    "log_level": "info",
-    "log_gc": "true",
-    "port": "50051",
-    "callback_port": "50052"
-}

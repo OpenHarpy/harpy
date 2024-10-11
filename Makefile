@@ -14,6 +14,10 @@ GO_PROJECT_RESOURCE_MANAGER := $(shell pwd)/resource-manager
 PYTHON_PROJECT_DIR := $(shell pwd)/pyharpy/harpy
 PYTHON_PROJECT_ROOT := $(shell pwd)/pyharpy
 
+COMPOSE_ROOT := $(shell pwd)/compose_engine
+
+DOCKER := sudo docker
+DOCKER_COMPOSE := sudo docker compose
 DISTRIBUTION_DIR := $(shell pwd)/dist
 
 # Protobuf files
@@ -61,6 +65,8 @@ clean-node-testing:
 	rm -rf $(NODE_TESTING_LIVE_DIR)
 move-sdk-dist:
 	cp $(DISTRIBUTION_DIR)/*.whl $(GO_PROJECT_REMOTE_RUNNER)/py_src
+clean-dist:
+	rm -rf $(DISTRIBUTION_DIR)
 build-sdk:
 	make clean-dist
 	make clean-node-testing
@@ -69,13 +75,11 @@ build-sdk:
 	cp $(PYTHON_PROJECT_ROOT)/dist/* $(DISTRIBUTION_DIR)
 	make clean-sdk-python
 	make move-sdk-dist
-
-build-docker-base-images:
-	docker build -t harpy-base-go-python:$(RELEASE_VERSION) -f ./images/base-image/go-python/Dockerfile ./images/base-image/go-python/
-
+# Build the docker images
 build-docker-images:
 	make clean-node-testing
-	docker build -t harpy:$(RELEASE_VERSION) -f ./images/harpy-image/Dockerfile .
+	$(DOCKER) build -t harpy-base-go-python:$(RELEASE_VERSION) -f ./images/base-image/Dockerfile ./images/base-image/
+	$(DOCKER) build -t harpy:$(RELEASE_VERSION) -f ./images/harpy-image/Dockerfile .
 
 # Prepare the environment
 prepare-env:
@@ -85,11 +89,11 @@ build:
 	make prepare-env
 	make build-proto
 	make build-sdk
-
-clean-dist:
-	rm -rf $(DISTRIBUTION_DIR)
+	make build-docker-base-images
 
 # These are testing calls (not used in the final version) - these may be unstable depending on how the environment is set up 
+run-compose:
+	cd $(COMPOSE_ROOT) && $(DOCKER_COMPOSE) up
 # Prefer to use the docker images instead
 run-resource-manager:
 	cd $(GO_PROJECT_RESOURCE_MANAGER) && $(GO) run .

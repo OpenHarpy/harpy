@@ -13,7 +13,6 @@ import (
 	"github.com/google/uuid"
 	"github.com/sirupsen/logrus"
 	"google.golang.org/grpc"
-	"google.golang.org/protobuf/types/known/emptypb"
 )
 
 const (
@@ -29,6 +28,45 @@ const (
 type NodeServer struct {
 	lm *LiveMemory
 	pb.UnimplementedNodeServer
+}
+
+func (s *NodeServer) InitIsolatedEnv(ctx context.Context, in *pb.IsolatedEnv) (*pb.Ack, error) {
+	// For now we are going to simply return the an error
+	isolatedEnv := NewIsolatedEnvironment(in.SessionID)
+	err := isolatedEnv.Begin()
+	if err != nil {
+		return &pb.Ack{
+			Success:      false,
+			ErrorMessage: err.Error(),
+		}, nil
+	}
+	s.lm.IsolatedEnvironment[in.SessionID] = isolatedEnv
+	return &pb.Ack{
+		Success:      true,
+		ErrorMessage: "",
+	}, nil
+}
+func (s *NodeServer) DestroyIsolatedEnv(ctx context.Context, in *pb.IsolatedEnv) (*pb.Ack, error) {
+	// For now we are going to simply return the an error
+	isolatedEnv, ok := s.lm.IsolatedEnvironment[in.SessionID]
+	if !ok {
+		return &pb.Ack{
+			Success:      false,
+			ErrorMessage: "Isolated environment not found",
+		}, nil
+	}
+	err := isolatedEnv.Cleanup()
+	if err != nil {
+		return &pb.Ack{
+			Success:      false,
+			ErrorMessage: err.Error(),
+		}, nil
+	}
+	delete(s.lm.IsolatedEnvironment, in.SessionID)
+	return &pb.Ack{
+		Success:      true,
+		ErrorMessage: "",
+	}, nil
 }
 
 func (s *NodeServer) InstallPackage(ctx context.Context, in *pb.PackageRequest) (*pb.PackageResponse, error) {
@@ -47,7 +85,7 @@ func (s *NodeServer) UninstallPackage(ctx context.Context, in *pb.PackageRequest
 	}, nil
 }
 
-func (s *NodeServer) ListPackages(ctx context.Context, in *emptypb.Empty) (*pb.PackageList, error) {
+func (s *NodeServer) ListPackages(ctx context.Context, in *pb.IsolatedEnv) (*pb.PackageList, error) {
 	// For now we are going to simply return the an error
 	return &pb.PackageList{
 		PackageURIs: []string{},
@@ -185,6 +223,16 @@ func (s *NodeServer) RunCommand(ctx context.Context, in *pb.CommandRequest) (*pb
 	// Mark the process for queuing
 	process.QueueProcess(callback.CallbackID)
 	s.lm.Process[in.CommandHandler.CommandID] = process
+	// Isolated environment ref
+	isolatedRef, ok := s.lm.IsolatedEnvironment[in.IsolatedEnv.SessionID]
+	if !ok {
+		return &pb.CommandRequestResponse{
+			Success:      false,
+			ErrorMessage: "Isolated environment not found",
+		}, nil
+	}
+	// Reference the isolated environment
+	s.lm.Process[in.CommandHandler.CommandID].EnvRef = isolatedRef
 	// We keep pooling the process until it is done
 	logger.Info("Process queued - Streaming process status", "SERVER", logrus.Fields{"process_id": in.CommandHandler.CommandID})
 	ReportToCallbackClient(s.lm, in.CommandHandler.CommandID, PROCESS_QUEUED)

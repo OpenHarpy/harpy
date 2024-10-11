@@ -9,10 +9,25 @@ import (
 	"syscall"
 )
 
+// Required Configs for the resource manager
+var requiredConfigs = []string{
+	"harpy.clientEngine.grpcServer.servePort",
+	"harpy.clientEngine.grpcServer.serveHost",
+	"harpy.clientEngine.grpcCallbackServer.serveHost",
+	"harpy.clientEngine.grpcCallbackServer.servePort",
+	"harpy.clientEngine.resourceManager.uri",
+}
+
 func main() {
 	logger.SetupLogging()
 	logger.Info("Starting Client Engine", "MAIN")
 	lm := NewLiveMemory()
+	// Validate the required configs
+	err := config.GetConfigs().ValitateRequiredConfigs(requiredConfigs)
+	if err != nil {
+		logger.Error("Failed to validate required configs", "MAIN", err)
+		return
+	}
 
 	// Create wait groups for the servers
 	var exitMainServerChan = make(chan bool)
@@ -21,15 +36,15 @@ func main() {
 	wg.Add(2)
 
 	// Start the gRPC server
-	port := config.GetConfigs().GetConfigsWithDefault("port", "50051")
-	err := NewCEServer(exitMainServerChan, &wg, lm, port)
+	port := config.GetConfigs().GetConfigsWithDefault("harpy.clientEngine.grpcServer.servePort", "50051")
+	err = NewCEServer(exitMainServerChan, &wg, lm, port)
 	if err != nil {
 		logger.Error("Failed to start gRPC server", "MAIN", err)
 		return
 	}
 
 	// Start the gRPC callback server
-	port = config.GetConfigs().GetConfigsWithDefault("callback_port", "50052")
+	port = config.GetConfigs().GetConfigsWithDefault("harpy.clientEngine.grpcCallbackServer.servePort", "50052")
 	err = StartCallbackServer(exitCallbackServerChan, &wg, lm, port)
 	if err != nil {
 		logger.Error("Failed to start gRPC callback server", "MAIN", err)

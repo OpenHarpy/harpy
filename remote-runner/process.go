@@ -19,6 +19,72 @@ const (
 	PROCESS_PANIC   = "panic"
 )
 
+type IsolatedEnvironment struct {
+	EnvironmentID string // The ID of the environment (Session ID)
+	// Later we can use this to store more info like maybe the packages installed or the instance id that requested the environment
+	LastAccessTime int64
+}
+
+func NewIsolatedEnvironment(environmentID string) *IsolatedEnvironment {
+	return &IsolatedEnvironment{
+		EnvironmentID: environmentID,
+	}
+}
+func (ie *IsolatedEnvironment) Cleanup() error {
+	// Cleanup the environment
+	root := config.GetConfigs().GetConfigsWithDefault("harpy.remoteRunner.scriptsRoot", "")
+	cleanupScript := config.GetConfigs().GetConfigsWithDefault("harpy.remoteRunner.isolatedEnvironmentCleanupScript", "")
+	fullPath := root + "/" + cleanupScript
+	if cleanupScript == "" || fullPath == "" {
+		err := fmt.Errorf("missing configuration")
+		logger.Error("Missing configuration", "ISOLATED_ENVIRONMENT", err)
+		return err
+	}
+	err := ExecCommandEcho(fullPath, ie.EnvironmentID)
+	if err != nil {
+		logger.Error("error running node cleanup script", "ISOLATED_ENVIRONMENT", err)
+		return err
+	}
+	logger.Info("node cleanup script executed", "ISOLATED_ENVIRONMENT")
+	return nil
+}
+func (ie *IsolatedEnvironment) InstallPackage(packageName string) error {
+	// Install the package
+	return nil
+}
+func (ie *IsolatedEnvironment) UninstallPackage(packageName string) error {
+	// Uninstall the package
+	return nil
+}
+func (ie *IsolatedEnvironment) Begin() error {
+	// Starting the environment
+	logger.Info("Setting up node", "ISOLATED_ENVIRONMENT")
+	// We will start by running the command
+	root := config.GetConfigs().GetConfigsWithDefault("harpy.remoteRunner.scriptsRoot", "")
+	setupScript := config.GetConfigs().GetConfigsWithDefault("harpy.remoteRunner.isolatedEnvironmentSetupScript", "")
+	entrypoint := config.GetConfigs().GetConfigsWithDefault("harpy.remoteRunner.commandEntrypoint", "")
+	fullPath := root + "/" + setupScript
+	entrypointFull := root + "/" + entrypoint
+	if entrypoint == "" || setupScript == "" || fullPath == "" {
+		err := fmt.Errorf("missing configuration")
+		logger.Error("Missing configuration", "ISOLATED_ENVIRONMENT", err)
+		return err
+	}
+	err := ExecCommandEcho(fullPath, ie.EnvironmentID, entrypointFull)
+	if err != nil {
+		logger.Error("error running node setup script", "ISOLATED_ENVIRONMENT", err)
+		return err
+	}
+	logger.Info("node setup script executed", "ISOLATED_ENVIRONMENT")
+	return nil
+}
+func (ie *IsolatedEnvironment) GetEntrypoint() string {
+	now := time.Now().Unix()
+	root := config.GetConfigs().GetConfigsWithDefault("harpy.remoteRunner.scriptsRoot", "")
+	ie.LastAccessTime = now
+	return root + "/isolated-" + ie.EnvironmentID + "/entrypoint.sh"
+}
+
 type Process struct {
 	ProcessID           string
 	ProcessStatus       string
@@ -34,6 +100,7 @@ type Process struct {
 	Success             bool
 	KillChan            chan bool
 	DoneChan            chan bool
+	EnvRef              *IsolatedEnvironment
 }
 
 func NewProcess(processID string, callableBinary []byte, argumentsBinary [][]byte, kwargsBinary map[string][]byte) *Process {
@@ -56,8 +123,8 @@ func NewProcess(processID string, callableBinary []byte, argumentsBinary [][]byt
 
 func RunProcess(killChan chan bool, doneChan chan bool, process *Process) {
 	// This function execute the process
-	entrypoint := config.GetConfigs().GetConfigsWithDefault("command_entrypoint", "")
-	binaryLocation := config.GetConfigs().GetConfigsWithDefault("temporary_binaries", "")
+	entrypoint := process.EnvRef.GetEntrypoint()
+	binaryLocation := config.GetConfigs().GetConfigsWithDefault("harpy.remoteRunner.temporaryBinariesLocation", "/tmp/harpy_live_objects")
 	if entrypoint == "" || binaryLocation == "" {
 		logger.Error("Missing configuration", "RunProcess", nil)
 		panic("Missing configuration")
@@ -116,7 +183,7 @@ func WriteBinary(location string, binary []byte) error {
 }
 
 func MakeBinariesForProcess(process *Process) {
-	binaryLocation := config.GetConfigs().GetConfigsWithDefault("temporary_binaries", "./_live_objects")
+	binaryLocation := config.GetConfigs().GetConfigsWithDefault("harpy.remoteRunner.temporaryBinariesLocation", "/tmp/harpy_live_objects")
 	// Make folder if not exists
 	root := binaryLocation + "/" + process.ProcessID
 	err := os.MkdirAll(root, os.ModePerm)
@@ -159,7 +226,7 @@ func MakeBinariesForProcess(process *Process) {
 }
 
 func CleanupBinaries(process *Process) {
-	binaryLocation := config.GetConfigs().GetConfigsWithDefault("temporary_binaries", "./_live_objects")
+	binaryLocation := config.GetConfigs().GetConfigsWithDefault("harpy.remoteRunner.temporaryBinariesLocation", "/tmp/harpy_live_objects")
 	root := binaryLocation + "/" + process.ProcessID
 	err := os.RemoveAll(root)
 	if err != nil {
@@ -192,5 +259,12 @@ func (p *Process) SetResultFetchTime() {
 }
 
 func ExitCleanAll(lm *LiveMemory) {
-	// TODO: Implement this function
+	// This function will clean up all the processes
+	for _, process := range lm.Process {
+		process.Cleanup()
+	}
+	// Cleanup the isolated environments
+	for _, env := range lm.IsolatedEnvironment {
+		env.Cleanup()
+	}
 }

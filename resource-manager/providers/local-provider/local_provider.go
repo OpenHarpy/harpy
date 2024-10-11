@@ -7,7 +7,9 @@ import (
 	"errors"
 	"os"
 	"os/exec"
+	"resource-manager/config"
 	"resource-manager/logger"
+	obj "resource-manager/objects"
 	"resource-manager/providers"
 	"sync"
 
@@ -17,12 +19,10 @@ import (
 // LocalProvider is a provider that is used for debugging/testing purposes
 // It allows the resource manager to create nodes locally on the same machine as the resource manager
 
-const commandToStartLocalNode = "cd ../remote-runner && go run . local-1 small-4cpu-8gb localhost:50050"
-
-func CreateAndManageLocalProcess(exitChan chan bool, wg *sync.WaitGroup) {
+func CreateAndManageLocalProcess(exitChan chan bool, wg *sync.WaitGroup, CommandToExecute string) {
 	logger.Info("Starting local node process", "CREATE_MANAGE_LOCAL_PROCESS")
 	// This function will be called as a goroutine and will manage the local process
-	cmd := exec.Command("sh", "-c", commandToStartLocalNode)
+	cmd := exec.Command("sh", "-c", CommandToExecute)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	err := cmd.Start()
@@ -63,10 +63,15 @@ type LocalProvider struct {
 	NodeAlreadyProvisioned bool
 	ExitChan               chan bool
 	Wg                     *sync.WaitGroup
+	CommandToExecute       string
 }
 
 func (l *LocalProvider) Begin() error {
 	// This function will initialize the provider
+	nodes := obj.GetLiveNodes()
+	for _, node := range nodes {
+		node.Delete()
+	}
 	return nil
 }
 
@@ -91,13 +96,15 @@ func (l *LocalProvider) ProvisionNodes(nodeType string, nodeCount int) ([]*provi
 	l.ExitChan = exitChan
 	l.Wg = &wg
 	logger.Info("Starting local node process", "PROVISION_NODES")
-	go CreateAndManageLocalProcess(exitChan, &wg)
+	go CreateAndManageLocalProcess(exitChan, &wg, l.CommandToExecute)
+
+	grpcAddress := config.GetConfigs().GetConfigsWithDefault("harpy.resourceManager.localProvider.node.uri", "localhost:50053")
 
 	return []*providers.ProviderProvisionResponse{
 		{
 			NodeType:        "small-4cpu-8gb",
 			NodeID:          "local-1",
-			NodeGRPCAddress: "localhost:50051",
+			NodeGRPCAddress: grpcAddress,
 		},
 	}, nil
 }
@@ -142,6 +149,8 @@ func (l *LocalProvider) GeneratedProviderDescription() providers.ProviderProps {
 	}
 }
 
-func NewLocalProvider() *LocalProvider {
-	return &LocalProvider{}
+func NewLocalProvider(CommandToExecute string) *LocalProvider {
+	return &LocalProvider{
+		CommandToExecute: CommandToExecute,
+	}
 }

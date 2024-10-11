@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"errors"
 	"os"
 	"os/signal"
 	"resource-manager/config"
@@ -13,83 +14,81 @@ import (
 	"syscall"
 )
 
-// Begin LiveMemory
-// For debugging purposes we will have a function to add some local running nodes
-//
-//	This will be changed to PROVIDERS in the future
-//	Providers will be the implementation of the node instancing and destruction process
-//	Examples of providers are AWS, GCP, Azure, local, etc.
-func AddLocalProvider() providers.ProviderInterface {
-	NodeCatalog := &objects.NodeCatalog{
-		NodeType:         "small-4cpu-8gb",
-		NumCores:         4,
-		AmountOfMemory:   8,
-		AmountOfStorage:  100,
-		NodeMaxCapacity:  1, // This is the maximum number of nodes that can be created of this type
-		NodeWarmpoolSize: 1,
-		NodeIdleTimeout:  60, // This is the time in seconds that a node can be idle before it is destroyed
-	}
-	NodeCatalog.Sync() // This will sync the node catalog to the database
-
-	// For the local provider we need to clean all the nodes
-	// This is because the local provider is used for debugging and testing purposes only
-	// We do not want to have any nodes in the database
-
-	// Get all the nodes
-	nodes := objects.GetLiveNodes()
-	for _, node := range nodes {
-		node.Delete()
-	}
-
-	// Create a new local provider
-	provider := lp.NewLocalProvider()
-	return provider
+// Required Configs for the resource manager
+var requiredConfigs = []string{
+	"harpy.resourceManager.grpcServer.servePort",
+	"harpy.resourceManager.grpcServer.serveHost",
+	"harpy.resourceManager.httpServer.servePort",
+	"harpy.resourceManager.httpServer.serveHost",
+	"harpy.resourceManager.nodeProvider",
+	"harpy.resourceManager.nodeCatalog.location",
+	"harpy.resourceManager.database.provider",
+	"harpy.resourceManager.database.uri",
 }
 
-// Load the default environment configurations
-func LoadDefaultConfigs() error {
-	confLocation := config.GetConfigs().GetConfigsWithDefault("default_env_configs", "default_env_configs.json")
+func NodeLoader() error {
+	// Load the node catalog
+	catalogData := config.GetConfigs().GetConfigsWithDefault("harpy.resourceManager.nodeCatalog.location", "catalog.json")
 	// Read the json file
-	jsonFile, err := os.ReadFile(confLocation)
+	jsonFile, err := os.ReadFile(catalogData)
 	if err != nil {
-		logger.Error("Failed to open default environment configurations", "MAIN", err)
+		logger.Error("Failed to open node catalog", "MAIN", err)
 		return err
 	}
 
 	// Parse the json file
-	var configs map[string]string
-	err = json.Unmarshal(jsonFile, &configs)
+	var nodes []objects.NodeCatalog
+	err = json.Unmarshal(jsonFile, &nodes)
 	if err != nil {
-		logger.Error("Failed to parse default environment configurations", "MAIN", err)
+		logger.Error("Failed to parse node catalog", "MAIN", err)
 		return err
 	}
 
 	// Set the default configurations For each key value pair in the default configurations
-	for key, value := range configs {
+	for _, node := range nodes {
 		// We add the key value pair on the database
-		conf := &objects.Config{
-			ConfigKey:   key,
-			ConfigValue: value,
-		}
-		conf.Sync()
+		node.Sync()
 	}
 	return nil
+}
+
+func GetProvider() (providers.ProviderInterface, error) {
+	// Load the node catalog
+	err := NodeLoader()
+	if err != nil {
+		return nil, err
+	}
+	nodeProvider := config.GetConfigs().GetConfigsWithDefault("harpy.resourceManager.nodeProvider", "local")
+	var provider providers.ProviderInterface
+	if nodeProvider == "local" {
+		command, ok := config.GetConfigs().GetConfig("harpy.resourceManager.localProvider.command")
+		if !ok {
+			return nil, errors.New("local provider command not set, cannot continue")
+		}
+		provider = lp.NewLocalProvider(command)
+	} else {
+		return nil, errors.New("invalid provider option was set")
+	}
+	err = providers.StartProvider(provider)
+	if err != nil {
+		return nil, err
+	}
+	return provider, nil
 }
 
 func main() {
 	logger.SetupLogging()
 	logger.Info("Starting Resource Manager", "MAIN")
 
-	// Load the default configurations
-	err := LoadDefaultConfigs()
+	// Validate the required configs
+	err := config.GetConfigs().ValitateRequiredConfigs(requiredConfigs)
 	if err != nil {
-		logger.Error("Failed to load default configurations", "MAIN", err)
+		logger.Error("Failed to validate required configs", "MAIN", err)
 		return
 	}
 
 	// Add some local nodes
-	runningProvider := AddLocalProvider()
-	err = providers.StartProvider(runningProvider)
+	runningProvider, err := GetProvider()
 	if err != nil {
 		logger.Error("Failed to initialize provider", "MAIN", err)
 		return
@@ -101,7 +100,7 @@ func main() {
 
 	// Start the gRPC server
 	exitMainServer := make(chan bool)
-	port := config.GetConfigs().GetConfigsWithDefault("port", "50050")
+	port := config.GetConfigs().GetConfigsWithDefault("harpy.resourceManager.grpcServer.servePort", "50050")
 	err = NewResourceAllocServer(exitMainServer, &wg, port)
 	if err != nil {
 		logger.Error("Failed to start gRPC server", "MAIN", err)
@@ -122,7 +121,9 @@ func main() {
 
 	// Start the HTTP server
 	exitHttpServer := make(chan bool)
-	err = StartServer(exitHttpServer, &wg)
+	httpPort := config.GetConfigs().GetConfigsWithDefault("harpy.resourceManager.httpServer.servePort", "8080")
+	staticFiles := config.GetConfigs().GetConfigsWithDefault("harpy.resourceManager.ui.staticFiles", "")
+	err = StartServer(exitHttpServer, &wg, httpPort, staticFiles)
 	if err != nil {
 		logger.Error("Failed to start HTTP server", "MAIN", err)
 		exitMainServer <- true

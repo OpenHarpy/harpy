@@ -1,8 +1,0 @@
-{
-    "log_level": "info",
-    "log_gc": "true",
-    "node-provider": "local",
-    "database-provider": "sqlite",
-    "database-uri": "sqlite:///resource-manager.db",
-    "default_env_configs": "default_env_configs.json"
-}

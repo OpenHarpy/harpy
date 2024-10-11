@@ -1,6 +1,7 @@
 # Project specific
 dist/
 remote-runner/_live_objects/
+isolated-*/
 _*/
 *.cloudpickle
 todo

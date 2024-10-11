@@ -57,7 +57,7 @@ func EvalNodeAllocation(runningProvider providers.ProviderInterface) {
 	// If they are idle then it will check if the idle time has passed
 	// If the idle time has passed then it will remove the node from the pool
 	//nodeRequests := lm.ResourceAssignments
-	nodeRequests := obj.GetResourceAssignmentsByStatus(obj.ResourceRequestStatusEnum_RESOURCE_REQUESTED)
+	nodeRequests := obj.GetResourceAssignmentsByStatus(obj.ResourceAssignmentStatusEnum_RESOURCE_REQUESTED)
 
 	for _, nodeRequest := range nodeRequests {
 		// Check if there are nodes of the requested type available in the pool
@@ -79,7 +79,7 @@ func EvalNodeAllocation(runningProvider providers.ProviderInterface) {
 				node.Sync()
 			}
 		}
-		nodeRequest.ServingStatus = obj.ResourceRequestStatusEnum_RESOURCE_ALLOCATING
+		nodeRequest.ServingStatus = obj.ResourceAssignmentStatusEnum_RESOURCE_ALLOCATING
 		nodeRequest.Sync()
 	}
 }
@@ -87,7 +87,7 @@ func EvalNodeAllocation(runningProvider providers.ProviderInterface) {
 func EvalNodesReady() {
 	// This function will get any request that is in the RESOURCE_ALLOCATING state and check if the nodes are ready
 	// If all the nodes are ready then we will transition the request to RESOURCE_ALLOCATED
-	nodeRequests := obj.GetResourceAssignmentsByStatus(obj.ResourceRequestStatusEnum_RESOURCE_ALLOCATING)
+	nodeRequests := obj.GetResourceAssignmentsByStatus(obj.ResourceAssignmentStatusEnum_RESOURCE_ALLOCATING)
 	for _, nodeRequest := range nodeRequests {
 		// Check if all the nodes are ready
 		nodesServingThisRequest := obj.GetLiveNodesServingRequest(nodeRequest.RequestID)
@@ -103,7 +103,7 @@ func EvalNodesReady() {
 			}
 		}
 		if ready {
-			nodeRequest.ServingStatus = obj.ResourceRequestStatusEnum_RESOURCE_ALLOCATED
+			nodeRequest.ServingStatus = obj.ResourceAssignmentStatusEnum_RESOURCE_ALLOCATED
 			nodeRequest.Sync()
 		}
 	}
@@ -112,9 +112,9 @@ func EvalNodesReady() {
 func EvalResourceReleaseRequest() {
 	// This function will loop through all the requests and check if they are in the RESOURCE_RELEASE_REQUESTED state
 	// If they are in the RESOURCE_RELEASE_REQUESTED state then it will release the nodes
-	nodeRequests := obj.GetResourceAssignmentsByStatus(obj.ResourceRequestStatusEnum_RESOURCE_RELEASE_REQUESTED)
+	nodeRequests := obj.GetResourceAssignmentsByStatus(obj.ResourceAssignmentStatusEnum_RESOURCE_RELEASE_REQUESTED)
 	for _, nodeRequest := range nodeRequests {
-		if nodeRequest.ServingStatus == obj.ResourceRequestStatusEnum_RESOURCE_RELEASE_REQUESTED {
+		if nodeRequest.ServingStatus == obj.ResourceAssignmentStatusEnum_RESOURCE_RELEASE_REQUESTED {
 			// Release the nodes
 			nodesServing := obj.GetLiveNodesServingRequest(nodeRequest.RequestID)
 			for _, node := range nodesServing {
@@ -125,7 +125,7 @@ func EvalResourceReleaseRequest() {
 			}
 			// We now remove the node from the ServingRequest
 			// Transition the request to RESOURCE_RELEASED
-			nodeRequest.ServingStatus = obj.ResourceRequestStatusEnum_RESOURCE_RELEASED
+			nodeRequest.ServingStatus = obj.ResourceAssignmentStatusEnum_RESOURCE_RELEASED
 			nodeRequest.Sync()
 		}
 	}
@@ -134,7 +134,7 @@ func EvalResourceReleaseRequest() {
 func EvalResourceRequestReleasedTimeout() {
 	// This function will loop through all the requests and check if they are in the RESOURCE_RELEASED state
 	// If their heartbeat crosses a certain threshold then we will remove the request from the database
-	nodeRequests := obj.GetResourceAssignmentsByStatus(obj.ResourceRequestStatusEnum_RESOURCE_RELEASED)
+	nodeRequests := obj.GetResourceAssignmentsByStatus(obj.ResourceAssignmentStatusEnum_RESOURCE_RELEASED)
 	for _, nodeRequest := range nodeRequests {
 		// Check if the heartbeat has crossed a certain threshold
 		// If it has then we will remove the request from the database
@@ -150,7 +150,7 @@ func EvalResourceRequestReleasedTimeout() {
 func EvalRequestIdleTimeout() {
 	// This function will loop through all the requests and check if they are in the RESOURCE_ALLOCATED state
 	// If their heartbeat crosses a certain threshold then we will remove the request from the database
-	nodeRequests := obj.GetResourceAssignmentsByStatus(obj.ResourceRequestStatusEnum_RESOURCE_ALLOCATED)
+	nodeRequests := obj.GetResourceAssignmentsByStatus(obj.ResourceAssignmentStatusEnum_RESOURCE_ALLOCATED)
 	for _, nodeRequest := range nodeRequests {
 		// Check if the heartbeat has crossed a certain threshold
 		// If it has then we will remove the request from the database
@@ -162,7 +162,7 @@ func EvalRequestIdleTimeout() {
 		if timeSince > requestIdleTimeout {
 			logger.Info("Request has been idle for too long", "EVAL_REQUEST_IDLE_TIMEOUT", logrus.Fields{"request_id": nodeRequest.RequestID, "time_since": timeSince})
 			// Transition the request to RESOURCE_RELEASE_REQUESTED
-			nodeRequest.ServingStatus = obj.ResourceRequestStatusEnum_RESOURCE_RELEASE_REQUESTED
+			nodeRequest.ServingStatus = obj.ResourceAssignmentStatusEnum_RESOURCE_RELEASE_REQUESTED
 			nodeRequest.Sync()
 		}
 	}

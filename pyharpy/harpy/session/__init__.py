@@ -31,8 +31,8 @@ class Session(metaclass=SingletonMeta):
         self.conf.set('sdk.remote.controller.grpcHost', 'localhost')
         self.conf.set('sdk.remote.controller.grpcPort', '50051')
         self.conf.set('tasks.node.request.type', 'small-4cpu-1gb')
-        self.conf.set('tasks.node.request.count', '1')       
-        self.conf.set('tasks.callback.port', '50052') 
+        self.conf.set('tasks.node.request.count', '1')
+        self.conf.set('tasks.callback.port', '50052')
         self._session_stub: SessionStub = None
         self._session_handler: SessionHandler = None
         self._session_tasksets: List[TaskSet] = []

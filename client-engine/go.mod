@@ -7,8 +7,6 @@ require (
 	github.com/sirupsen/logrus v1.9.3
 )
 
-require github.com/golang/protobuf v1.5.4
-
 require (
 	golang.org/x/net v0.26.0 // indirect
 	golang.org/x/sys v0.21.0 // indirect

@@ -2,7 +2,9 @@ package config
 
 import (
 	"encoding/json"
+	"errors"
 	"os"
+	"strings"
 	"sync"
 
 	"github.com/google/uuid"
@@ -20,9 +22,9 @@ func GetConfigs() *Configs {
 	once.Do(func() {
 		var instanceID = uuid.New().String()
 		var options map[string]string
-		var usingConfigFileLocation string = "config.json"
+		var usingConfigFileLocation string = "../default/global_config.json"
 		// First we check if the enviroment variable is set
-		configFileLocation, ok := os.LookupEnv("CONFIG_FILE")
+		configFileLocation, ok := os.LookupEnv("GLOBAL_CONFIG_FILE")
 		if !ok {
 			println("(PRELOGGER) [WARNING] - No config file location set, using default location")
 		} else {
@@ -39,6 +41,11 @@ func GetConfigs() *Configs {
 		if err != nil {
 			println("(PRELOGGER) [ERROR] - Error unmarshalling config file", err)
 			os.Exit(1)
+		}
+
+		// Print all configs
+		for key, value := range options {
+			println("(PRELOGGER) [INFO] - Config Key: ", key, " Config Value: ", value)
 		}
 
 		instance = &Configs{
@@ -65,4 +72,31 @@ func (c *Configs) GetConfigsWithDefault(ks string, defaultVal string) string {
 
 func (c *Configs) GetInstanceID() string {
 	return c.InstanceID
+}
+
+func (c *Configs) ValitateRequiredConfigs(keys []string) error {
+	missing_configs := []string{}
+	for _, key := range keys {
+		_, ok := c.Configs[key]
+		if !ok {
+			missing_configs = append(missing_configs, key)
+		}
+	}
+	if len(missing_configs) > 0 {
+		return errors.New("Missing required configs: " + strings.Join(missing_configs, ", "))
+	}
+	return nil
+}
+
+func (c *Configs) GetAllConfigsWithPrefix(prefix string) map[string]string {
+	if prefix == "" {
+		return c.Configs
+	}
+	configs := make(map[string]string)
+	for key, value := range c.Configs {
+		if len(key) >= len(prefix) && key[:len(prefix)] == prefix {
+			configs[key] = value
+		}
+	}
+	return configs
 }

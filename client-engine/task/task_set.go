@@ -141,7 +141,8 @@ func (t *TaskSet) Execute() (TaskSetResult, error) {
 			//result, err := nextNode.Execute(lastResult, t.Session)
 			result, err := nextNode.RemoteGRPCExecute(lastResult, t.Session)
 			if err != nil {
-				logger.Error("Error executing TaskGroup[%s]: %s", nextNode.TaskGroupID, err)
+				errorString := fmt.Sprintf("Error executing TaskGroup[%s]", nextNode.TaskGroupID)
+				logger.Error(errorString, "TASKSET", err)
 				return TaskSetResult{}, err
 			}
 			lastResult = result

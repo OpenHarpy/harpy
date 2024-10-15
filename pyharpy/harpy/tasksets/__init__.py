@@ -86,8 +86,8 @@ def deserialize_result(task_result: ResultBinary) -> Result:
     return Result(
         task_run_id = task_result.task_run_id,
         result = cloudpickle.loads(task_result.result) if len(task_result.result) > 0 else None,
-        std_out = task_result.std_out,
-        std_err = task_result.std_err,
+        std_out = task_result.std_out.decode(),
+        std_err = task_result.std_err.decode(),
         success = task_result.success        
     )
 

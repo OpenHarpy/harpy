@@ -78,6 +78,7 @@ build-sdk:
 # Build the docker images
 build-docker-images:
 	make clean-node-testing
+	$(DOCKER) system prune -f
 	$(DOCKER) build -t harpy-base-go-python:$(RELEASE_VERSION) -f ./images/base-image/Dockerfile ./images/base-image/
 	$(DOCKER) build -t harpy:$(RELEASE_VERSION) -f ./images/harpy-image/Dockerfile .
 
@@ -89,7 +90,7 @@ build:
 	make prepare-env
 	make build-proto
 	make build-sdk
-	make build-docker-base-images
+	make build-docker-images
 
 # These are testing calls (not used in the final version) - these may be unstable depending on how the environment is set up 
 run-compose:

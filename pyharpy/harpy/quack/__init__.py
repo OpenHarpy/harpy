@@ -2,8 +2,14 @@ import duckdb
 
 from harpy.primitives import SingletonMeta
 
+# Quack can implement a context to be used like this:
+# with QuackContext() as qc:
+#     qc.sql("SELECT * FROM table")
+# for this to work, QuackContext must implement __enter__ and __exit__ methods
+# QuackContext must also implement a close method to close the connection
 class QuackContext(metaclass=SingletonMeta):
     def __init__(self):
+        print("QuackContext created")
         self.duck = duckdb.connect(':memory:')
     
     def restart_session(self):
@@ -17,3 +23,11 @@ class QuackContext(metaclass=SingletonMeta):
     
     def close(self):
         self.duck.close()
+    
+    def __enter__(self):
+        print("QuackContext entered")
+        return self
+    
+    def __exit__(self, exc_type, exc_value, traceback):
+        print("QuackContext exited")
+        # For now we do not need to do anything here

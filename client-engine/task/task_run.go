@@ -17,6 +17,7 @@ const (
 	STATUS_DEFINED   Status = "defined"
 	STATUS_QUEUED    Status = "queued"
 	STATUS_RUNNING   Status = "running"
+	STATUS_FETCHING  Status = "fetching"
 	STATUS_DONE      Status = "done"
 	STATUS_PANIC     Status = "panic"
 	STATUS_KILLING   Status = "killing"

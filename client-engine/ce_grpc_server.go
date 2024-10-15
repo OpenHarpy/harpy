@@ -335,7 +335,7 @@ func (s *CEgRPCServer) Execute(in *pb.TaskSetHandler, stream pb.TaskSet_ExecuteS
 
 	result, err := ts.Execute()
 	if err != nil {
-		logger.Error("task_execution_error", "Error executing task set", err)
+		logger.Error("Error executing task set", "TASKSET-SERVICE", err)
 		return err
 	}
 

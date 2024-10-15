@@ -239,9 +239,9 @@ func (n *Node) RunCommand(commandID string) error {
 func (n *Node) GetTaskOutput(commandID string, taskRun *TaskRun) error {
 	//    rpc GetCommandOutput (CommandHandler) returns (stream CommandOutputChunk) {}
 	commandHandler := pb.CommandHandler{CommandID: commandID}
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second*10)
-	defer cancel()
-	stream, err := n.client.GetCommandOutput(ctx, &commandHandler)
+
+	// Initialize the stream (without timeout here)
+	stream, err := n.client.GetCommandOutput(context.Background(), &commandHandler)
 	if err != nil {
 		return err
 	}
@@ -250,15 +250,34 @@ func (n *Node) GetTaskOutput(commandID string, taskRun *TaskRun) error {
 	stdoutBinary := []byte{}
 	stderrBinary := []byte{}
 	success := false
+	chunksGathered := 0
+	reportEvery := 100 // Report every 100 chunks
+	logger.Info("Getting command output", "NODE", logrus.Fields{"commandID": commandID})
 
 	for {
+		// Create a new context for each chunk with a timeout of 10 seconds
+		ctx, cancel := context.WithTimeout(context.Background(), time.Second*10)
+
+		// Always cancel the context to avoid memory leaks
+		defer cancel()
+
+		// Try to receive a chunk within the timeout
 		chunk, err := stream.Recv()
+
+		// Check for timeout or other errors
 		if err != nil {
+			if ctx.Err() == context.DeadlineExceeded {
+				logger.Error("Timeout when receiving chunk", "NODE", err, logrus.Fields{"commandID": commandID})
+				return ctx.Err() // Return timeout error if exceeded
+			}
 			if err.Error() == "EOF" {
 				break
 			}
+			logger.Error("Failed to get command output", "NODE", err, logrus.Fields{"commandID": commandID})
 			return err
 		}
+
+		// Process the chunk
 		if chunk.ObjectReturnBinaryChunk != nil {
 			objectReturnBinary = append(objectReturnBinary, chunk.ObjectReturnBinaryChunk...)
 		}
@@ -271,8 +290,15 @@ func (n *Node) GetTaskOutput(commandID string, taskRun *TaskRun) error {
 		if chunk.Success {
 			success = true
 		}
+
+		chunksGathered++
+		if chunksGathered%reportEvery == 0 {
+			logger.Debug("Gathered chunks", "NODE", logrus.Fields{"objectReturnBinary": len(objectReturnBinary), "stdoutBinary": len(stdoutBinary), "stderrBinary": len(stderrBinary)})
+			taskRun.Report() // Report progress to avoid downstream timeout
+		}
 	}
 
+	// Set final result after the loop
 	taskRun.SetResult(objectReturnBinary, stdoutBinary, stderrBinary, success)
 	return nil
 }

@@ -2,17 +2,17 @@ package main
 
 import (
 	"context"
+	"errors"
 	"io"
 	"net"
 	pb "remote-runner/grpc_node_protocol"
 	"remote-runner/logger"
 	"time"
 
-	"remote-runner/chunker"
-
 	"github.com/google/uuid"
 	"github.com/sirupsen/logrus"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/status"
 )
 
 const (
@@ -30,7 +30,8 @@ type NodeServer struct {
 	pb.UnimplementedNodeServer
 }
 
-func (s *NodeServer) InitIsolatedEnv(ctx context.Context, in *pb.IsolatedEnv) (*pb.Ack, error) {
+// Isolated enviroment
+func (s *NodeServer) IsolatedEnvInit(ctx context.Context, in *pb.IsolatedEnv) (*pb.Ack, error) {
 	// For now we are going to simply return the an error
 	isolatedEnv := NewIsolatedEnvironment(in.SessionID)
 	err := isolatedEnv.Begin()
@@ -46,7 +47,7 @@ func (s *NodeServer) InitIsolatedEnv(ctx context.Context, in *pb.IsolatedEnv) (*
 		ErrorMessage: "",
 	}, nil
 }
-func (s *NodeServer) DestroyIsolatedEnv(ctx context.Context, in *pb.IsolatedEnv) (*pb.Ack, error) {
+func (s *NodeServer) IsolatedEnvDestroy(ctx context.Context, in *pb.IsolatedEnv) (*pb.Ack, error) {
 	// For now we are going to simply return the an error
 	isolatedEnv, ok := s.lm.IsolatedEnvironment[in.SessionID]
 	if !ok {
@@ -68,30 +69,28 @@ func (s *NodeServer) DestroyIsolatedEnv(ctx context.Context, in *pb.IsolatedEnv)
 		ErrorMessage: "",
 	}, nil
 }
-
-func (s *NodeServer) InstallPackage(ctx context.Context, in *pb.PackageRequest) (*pb.PackageResponse, error) {
+func (s *NodeServer) IsolatedEnvInstallPackage(ctx context.Context, in *pb.IsolatedEnvPackageRequest) (*pb.IsolatedEnvPackageResponse, error) {
 	// For now we are going to simply return the an error
-	return &pb.PackageResponse{
+	return &pb.IsolatedEnvPackageResponse{
 		Success:      false,
 		ErrorMessage: "Not implemented",
 	}, nil
 }
-
-func (s *NodeServer) UninstallPackage(ctx context.Context, in *pb.PackageRequest) (*pb.PackageResponse, error) {
+func (s *NodeServer) IsolatedEnvUninstallPackage(ctx context.Context, in *pb.IsolatedEnvPackageRequest) (*pb.IsolatedEnvPackageResponse, error) {
 	// For now we are going to simply return the an error
-	return &pb.PackageResponse{
+	return &pb.IsolatedEnvPackageResponse{
 		Success:      false,
 		ErrorMessage: "Not implemented",
 	}, nil
 }
-
-func (s *NodeServer) ListPackages(ctx context.Context, in *pb.IsolatedEnv) (*pb.PackageList, error) {
+func (s *NodeServer) IsolatedEnvListPackages(ctx context.Context, in *pb.IsolatedEnv) (*pb.IsolatedEnvPackageList, error) {
 	// For now we are going to simply return the an error
-	return &pb.PackageList{
+	return &pb.IsolatedEnvPackageList{
 		PackageURIs: []string{},
 	}, nil
 }
 
+// Callbacks
 func (s *NodeServer) RegisterCallback(ctx context.Context, in *pb.CallbackRegistration) (*pb.CallbackHandler, error) {
 	// Create a new callback
 	callback := &Callback{
@@ -146,57 +145,64 @@ func (s *NodeServer) UnregisterCallback(ctx context.Context, in *pb.CallbackHand
 	}, nil
 }
 
-func (s *NodeServer) RegisterCommand(stream pb.Node_RegisterCommandServer) error {
-	callableBinary := []byte{}
-	argumentsBinary := map[uint32][]byte{}
-	kwargsBinary := map[string][]byte{}
-	for {
-		chunk, err := stream.Recv()
-		if err == io.EOF {
-			break
-		}
-		if err != nil {
-			return err
-		}
-		if chunk.CallableBinaryChunk != nil {
-			callableBinary = append(callableBinary, chunk.CallableBinaryChunk...)
-		}
-		if chunk.ArgumentsBinaryChunk != nil {
-			for k, v := range chunk.ArgumentsBinaryChunk {
-				_, ok := argumentsBinary[k]
-				if ok {
-					argumentsBinary[k] = append(argumentsBinary[k], v...)
-				} else {
-					argumentsBinary[k] = v
-				}
-			}
-		}
-		if chunk.KwargsBinaryChunk != nil {
-			for k, v := range chunk.KwargsBinaryChunk {
-				_, ok := kwargsBinary[k]
-				if ok {
-					kwargsBinary[k] = append(kwargsBinary[k], v...)
-				} else {
-					kwargsBinary[k] = v
-				}
-			}
-		}
+func (s *NodeServer) RegisterCommand(ctx context.Context, in *pb.CommandRegistration) (*pb.CommandHandler, error) {
+	// Validate the input
+	callableBlock := s.lm.Blocks[in.CallableBlockHandler.BlockID]
+	if callableBlock == nil {
+		return &pb.CommandHandler{
+			CommandID: "",
+		}, status.Errorf(404, "Callable block not found")
 	}
-	// Convert the argumentsBinary to a slice
-	argumentsSlice := make([][]byte, len(argumentsBinary))
-	for key, value := range argumentsBinary {
-		argumentsSlice[key] = value
+	argumentsBlocks := []*Block{}
+	for _, block := range in.ArgumentsBlocksHandlers {
+		argumentsBlock := s.lm.Blocks[block.BlockID]
+		if argumentsBlock == nil {
+			return &pb.CommandHandler{
+				CommandID: "",
+			}, status.Errorf(404, "Arguments block not found")
+		}
+		argumentsBlocks = append(argumentsBlocks, argumentsBlock)
 	}
-	processId := uuid.New().String()
+	keywordArgumentsBlocks := map[string]*Block{}
+	for key, block := range in.KwargsBlocksHandlers {
+		keywordArgumentsBlock := s.lm.Blocks[block.BlockID]
+		if keywordArgumentsBlock == nil {
+			return &pb.CommandHandler{
+				CommandID: "",
+			}, status.Errorf(404, "Keyword arguments block not found")
+		}
+		keywordArgumentsBlocks[key] = keywordArgumentsBlock
+	}
 	// Create a new process
-	process := NewProcess(processId, callableBinary, argumentsSlice, kwargsBinary)
+	processID := uuid.New().String()
+	// Build blocks for the process
+	StdOutBlock := NewBlock(uuid.New().String())
+	StdErrBlock := NewBlock(uuid.New().String())
+	OutputBlock := NewBlock(uuid.New().String())
+
+	s.lm.Blocks[StdOutBlock.BlockID] = StdOutBlock
+	s.lm.Blocks[StdErrBlock.BlockID] = StdErrBlock
+	s.lm.Blocks[OutputBlock.BlockID] = OutputBlock
+
+	// Create a new process
+	process := NewProcess(
+		processID,
+		callableBlock,
+		argumentsBlocks,
+		keywordArgumentsBlocks,
+		OutputBlock,
+		StdOutBlock,
+		StdErrBlock,
+	)
 	// Add the process to the live memory
-	s.lm.Process[process.ProcessID] = process
-	return stream.SendAndClose(&pb.CommandHandler{
-		CommandID: process.ProcessID,
-	})
+	s.lm.Process[processID] = process
+	logger.Info("Process registered", "SERVER", logrus.Fields{"process_id": processID})
+	return &pb.CommandHandler{
+		CommandID: processID,
+	}, nil
 }
 
+// Commands
 func (s *NodeServer) RunCommand(ctx context.Context, in *pb.CommandRequest) (*pb.CommandRequestResponse, error) {
 	// Cannot run a command if the callback is not set
 	if s.lm.Callback == nil {
@@ -275,50 +281,100 @@ func (s *NodeServer) KillCommand(ctx context.Context, in *pb.CommandRequest) (*p
 	}, nil
 }
 
-func (s *NodeServer) GetCommandOutput(in *pb.CommandHandler, stream pb.Node_GetCommandOutputServer) error {
+/*
+message CommandOutput {
+    string CommandID = 1;
+    BlockHandler ObjectReturnBlockHandler = 2;
+    BlockHandler StdoutBlockHandler = 3;
+    BlockHandler StderrBlockHandler = 4;
+    bool Success = 5;
+    bool Panic = 6;
+    string ErrorMessage = 7;
+}
+*/
+
+func (s *NodeServer) GetCommandOutput(ctx context.Context, in *pb.CommandHandler) (*pb.CommandOutput, error) {
+	// Get the process from the live memory
 	process, ok := s.lm.Process[in.CommandID]
 	if !ok {
-		stream.Send(&pb.CommandOutputChunk{
-			CommandID:               in.CommandID,
-			ObjectReturnBinaryChunk: nil,
-			StdoutBinaryChunk:       nil,
-			StderrBinaryChunk:       nil,
-			Success:                 false,
-			Panic:                   true,
-			ErrorMessage:            "Process not found",
-		})
+		return nil, status.Errorf(404, "Process not found")
 	}
-	streamedAll := false
-	objectChunkIndex := 0
-	stdoutChunkIndex := 0
-	stderrChunkIndex := 0
+	// Send the output blocks and the status
+	return &pb.CommandOutput{
+		CommandID:                process.ProcessID,
+		ObjectReturnBlockHandler: &pb.BlockHandler{BlockID: process.OutputBlock.BlockID},
+		StdoutBlockHandler:       &pb.BlockHandler{BlockID: process.StdoutBlock.BlockID},
+		StderrBlockHandler:       &pb.BlockHandler{BlockID: process.StderrBlock.BlockID},
+		Success:                  process.Success,
+	}, nil
+}
+
+// Blocks
+func (s *NodeServer) StreamInBlock(stream pb.Node_StreamInBlockServer) error {
+	// Start by creating a new block
+	blockID := uuid.New().String()
+	block := NewBlock(blockID)
+	blockWriter, err := NewBlockWriter(block)
+	if err != nil {
+		logger.Error("Failed to create block", "SERVER", err)
+		return status.Errorf(500, "Failed to create block")
+	}
+	// Stream the block
 	for {
-		objectOutputChunk := chunker.ChunkBytes(process.ObjectReturnBinary, &objectChunkIndex)
-		stdoutOutputChunk := chunker.ChunkBytes(process.StdoutBinary, &stdoutChunkIndex)
-		stderrOutputChunk := chunker.ChunkBytes(process.StderrBinary, &stderrChunkIndex)
-		if len(objectOutputChunk) == 0 && len(stdoutOutputChunk) == 0 && len(stderrOutputChunk) == 0 {
-			streamedAll = true
-		}
-		stream.Send(
-			&pb.CommandOutputChunk{
-				CommandID:               in.CommandID,
-				ObjectReturnBinaryChunk: objectOutputChunk,
-				StdoutBinaryChunk:       stdoutOutputChunk,
-				StderrBinaryChunk:       stderrOutputChunk,
-				Success:                 process.Success,
-				Panic:                   false,
-				ErrorMessage:            "",
-			},
-		)
-		if streamedAll {
+		chunk, err := stream.Recv()
+		if err == io.EOF {
 			break
 		}
+		if err != nil {
+			logger.Error("Failed to receive block chunk", "SERVER", err)
+			return status.Errorf(500, "Failed to receive block chunk")
+		}
+		blockWriter.AppendChunk(chunk.BlockChunk)
 	}
-	// Process was streamed back to the client we mark the time served
-	// We will keep the process in memory for a while before we clean it up
-	// The event loop will clean up the process
-	process.SetResultFetchTime()
-	s.lm.Process[in.CommandID] = process
+	// Seal the block
+	err = blockWriter.SealBlock()
+	if err != nil {
+		return err
+	}
+	// Add the block to the live memory
+	s.lm.Blocks[blockID] = block
+	// Return the block ID
+	blockHandler := &pb.BlockHandler{BlockID: blockID}
+	return stream.SendAndClose(blockHandler)
+}
+
+func (s *NodeServer) StreamOutBlock(in *pb.BlockHandler, stream pb.Node_StreamOutBlockServer) error {
+	// Get the block from the live memory
+	block := s.lm.Blocks[in.BlockID]
+	if block == nil {
+		logger.Error("Block not found", "SERVER", errors.New("Block not found"), logrus.Fields{"block_id": in.BlockID})
+		return status.Errorf(404, "Block not found")
+	}
+	// Stream the block
+	blockReader, err := NewBlockReader(block)
+	hasReader := true
+	if err != nil {
+		logger.Error("Failed to create block reader", "SERVER", err)
+		logger.Warn("This usually means the block is not found under the file system - Streaming back an empty block", "SERVER")
+		hasReader = false
+	}
+	if !hasReader {
+		chunk := []byte{}
+		stream.Send(&pb.BlockChunk{BlockChunk: chunk})
+	} else {
+		for {
+			if blockReader.State == BlockReaderStateStreamEnd {
+				break
+			}
+			chunk, err := blockReader.ReadChunk()
+			if err != nil {
+				logger.Error("Failed to read block chunk", "SERVER", err)
+				return status.Errorf(500, "Failed to read block")
+			}
+			stream.Send(&pb.BlockChunk{BlockChunk: chunk})
+		}
+	}
+	// We are done now we can close the stream (EOF)
 	return nil
 }
 
@@ -369,5 +425,4 @@ func NewNodeServer(exit chan bool, panicMainServer chan bool, waitServerExitChan
 		panicMainServer <- true
 		waitServerExitChan <- true
 	}
-
 }

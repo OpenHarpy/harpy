@@ -31,6 +31,7 @@ type LiveMemory struct {
 	IsolatedEnvironment    map[string]*IsolatedEnvironment
 	Callback               map[string]*Callback
 	CallbackClients        map[string]*CallbackClient
+	Blocks                 map[string]*Block
 	NodeStatusUpdateClient *NodeStatusUpdateClient
 }
 
@@ -89,8 +90,9 @@ func main() {
 		Process:                make(map[string]*Process),
 		Callback:               make(map[string]*Callback),
 		CallbackClients:        make(map[string]*CallbackClient),
-		NodeStatusUpdateClient: nodeStatusUpdateClient,
+		Blocks:                 make(map[string]*Block),
 		IsolatedEnvironment:    make(map[string]*IsolatedEnvironment),
+		NodeStatusUpdateClient: nodeStatusUpdateClient,
 	}
 
 	// Start the gRPC server

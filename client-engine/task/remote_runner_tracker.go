@@ -25,6 +25,8 @@ import (
 	"client-engine/logger"
 	"context"
 	"errors"
+	"io"
+	"strconv"
 	"sync"
 	"time"
 
@@ -39,12 +41,18 @@ const (
 	REQUEST_HEARTBEAT_INTERVAL = 30 * time.Second
 )
 
+type BlockInternalReference struct {
+	BlockID         string
+	BlockIdentifier string
+}
+
 type Node struct {
 	nodeID      string
 	NodeURI     string
 	CallbackURI string
 	CallbackID  string
 	SessionID   string
+	Blocks      []BlockInternalReference
 	conn        *grpc.ClientConn
 	client      pb.NodeClient
 }
@@ -86,7 +94,7 @@ func (n *Node) InitIsolatedEnv() error {
 	// We need to make sure that the node can isolate the enviroment for the task
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*300) // Higher timeout because this can take a while
 	defer cancel()
-	res, err := n.client.InitIsolatedEnv(ctx, &pb.IsolatedEnv{SessionID: n.SessionID})
+	res, err := n.client.IsolatedEnvInit(ctx, &pb.IsolatedEnv{SessionID: n.SessionID})
 	if err != nil {
 		return err
 	}
@@ -100,7 +108,7 @@ func (n *Node) DestroyIsolatedEnv() error {
 	// We need to make sure that the node can isolate the enviroment for the task
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*300) // Higher timeout because this can take a while
 	defer cancel()
-	res, err := n.client.DestroyIsolatedEnv(ctx, &pb.IsolatedEnv{SessionID: n.SessionID})
+	res, err := n.client.IsolatedEnvDestroy(ctx, &pb.IsolatedEnv{SessionID: n.SessionID})
 	if err != nil {
 		return err
 	}
@@ -141,82 +149,94 @@ func (n *Node) UnregisterCallback() error {
 	return nil
 }
 
-func (n *Node) RegisterTask(task *TaskDefinition) (string, error) {
-	// Establish a connection to the node
-	context := context.Background()
-	stream, err := n.client.RegisterCommand(context)
+func (n *Node) StreamOutBlock(task *[]byte) (string, error) {
+	// This is reversed from the server side
+	stream, err := n.client.StreamInBlock(context.Background())
 	if err != nil {
 		return "", err
 	}
-
-	// Send the task to the node
-	chunkIndexCallableBinary := 0
-	chunkIndexArgumentsBinary := map[uint32]*int{}
-	chunkIndexKeywordArgumentsBinary := map[string]*int{}
-
-	doneStreamArguments := map[uint32]bool{}
-	doneStreamKeywordArguments := map[string]bool{}
-
-	streamDone := false
+	chunkIndex := 0
 	for {
-		argumentsBinaryChunk := make(map[uint32][]byte)
-		keywordArgumentsBinaryChunk := make(map[string][]byte)
-
-		chunkCallableBinary := chunker.ChunkBytes(task.CallableBinary, &chunkIndexCallableBinary)
-		for index, argumentsBinary := range task.ArgumentsBinary {
-			idx := uint32(index)
-			_, exists := chunkIndexArgumentsBinary[idx]
-			if !exists {
-				// We then initialize the index in the map
-				chunkIndexArgumentsBinary[idx] = new(int)
-				doneStreamArguments[idx] = false
-			}
-			argumentsBinaryChunk[idx] = chunker.ChunkBytes(argumentsBinary, chunkIndexArgumentsBinary[idx])
-			if len(argumentsBinaryChunk[idx]) == 0 {
-				doneStreamArguments[idx] = true
-			}
-		}
-		for key, keywordArgumentsBinary := range task.KwargsBinary {
-			_, exists := chunkIndexKeywordArgumentsBinary[key]
-			if !exists {
-				chunkIndexKeywordArgumentsBinary[key] = new(int)
-				doneStreamKeywordArguments[key] = false
-			}
-			keywordArgumentsBinaryChunk[key] = chunker.ChunkBytes(keywordArgumentsBinary, chunkIndexKeywordArgumentsBinary[key])
-			if len(keywordArgumentsBinaryChunk[key]) == 0 {
-				doneStreamKeywordArguments[key] = true
-			}
-		}
-
-		commandChunk := pb.CommandRequestChunk{
-			CallableBinaryChunk:  chunkCallableBinary,
-			ArgumentsBinaryChunk: argumentsBinaryChunk,
-			KwargsBinaryChunk:    keywordArgumentsBinaryChunk,
-		}
-		err := stream.Send(&commandChunk)
+		chunk := chunker.ChunkBytes(*task, &chunkIndex)
+		err := stream.Send(&pb.BlockChunk{BlockChunk: chunk})
 		if err != nil {
+			logger.Error("Failed to send block chunk", "NODE", err)
 			return "", err
 		}
-		doneStreamingArguments := true
-		for _, done := range doneStreamArguments {
-			doneStreamingArguments = doneStreamingArguments && done
-		}
-		doneStreamingKeywordArguments := true
-		for _, done := range doneStreamKeywordArguments {
-			doneStreamingKeywordArguments = doneStreamingKeywordArguments && done
-		}
-		streamDone = doneStreamingArguments && doneStreamingKeywordArguments && len(chunkCallableBinary) == 0
-		if streamDone {
+		if len(chunk) == 0 {
 			break
 		}
 	}
-
-	// Get the response from the node
+	// Send the EOF
 	response, err := stream.CloseAndRecv()
+	if err != nil {
+		logger.Error("Failed to close stream", "NODE", err)
+		return "", err
+	}
+	return response.BlockID, nil
+}
+
+func (n *Node) StreamInBlock(blockID string) ([]byte, error) {
+	// The client will receive the block that is streamed
+	buffer := []byte{}
+	stream, err := n.client.StreamOutBlock(context.Background(), &pb.BlockHandler{BlockID: blockID})
+	if err != nil {
+		logger.Error("Failed to initiate stream", "NODE", err)
+		return nil, err
+	}
+	for {
+		chunk, err := stream.Recv()
+		if err == io.EOF {
+			break
+		} else if err != nil {
+			logger.Error("Failed to receive block chunk", "NODE", err)
+			return nil, err
+		}
+		buffer = append(buffer, chunk.BlockChunk...)
+	}
+	return buffer, nil
+}
+
+func (n *Node) RegisterTask(task *TaskDefinition) (string, error) {
+	// We start by streaming each block
+	functionBlockID, err := n.StreamOutBlock(&task.CallableBinary)
 	if err != nil {
 		return "", err
 	}
-	return response.CommandID, nil
+	n.Blocks = append(n.Blocks, BlockInternalReference{BlockID: functionBlockID, BlockIdentifier: "function-" + task.Name})
+	argumentsBlockIDs := make(map[uint32]*pb.BlockHandler)
+	for index, argument := range task.ArgumentsBinary {
+		argumentBlockID, err := n.StreamOutBlock(&argument)
+		if err != nil {
+			return "", err
+		}
+		argumentsBlockIDs[uint32(index)] = &pb.BlockHandler{BlockID: argumentBlockID}
+		idAsString := strconv.Itoa(index)
+		n.Blocks = append(n.Blocks, BlockInternalReference{BlockID: argumentBlockID, BlockIdentifier: "argument-" + idAsString + "-" + task.Name})
+	}
+	kwargsBockIDs := make(map[string]*pb.BlockHandler)
+	for key, value := range task.KwargsBinary {
+		kwargsBlockID, err := n.StreamOutBlock(&value)
+		if err != nil {
+			return "", err
+		}
+		kwargsBockIDs[key] = &pb.BlockHandler{BlockID: kwargsBlockID}
+		n.Blocks = append(n.Blocks, BlockInternalReference{BlockID: kwargsBlockID, BlockIdentifier: "kwargs-" + key + "-" + task.Name})
+	}
+
+	// Now we can register the command
+	commandRegistration := pb.CommandRegistration{
+		CallableBlockHandler:    &pb.BlockHandler{BlockID: functionBlockID},
+		ArgumentsBlocksHandlers: argumentsBlockIDs,
+		KwargsBlocksHandlers:    kwargsBockIDs,
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*10)
+	defer cancel()
+	res, err := n.client.RegisterCommand(ctx, &commandRegistration)
+	if err != nil {
+		return "", err
+	}
+	return res.CommandID, nil
 }
 
 func (n *Node) RunCommand(commandID string) error {
@@ -237,69 +257,34 @@ func (n *Node) RunCommand(commandID string) error {
 }
 
 func (n *Node) GetTaskOutput(commandID string, taskRun *TaskRun) error {
-	//    rpc GetCommandOutput (CommandHandler) returns (stream CommandOutputChunk) {}
+	//    rpc GetCommandOutput (CommandHandler) returns (CommandOutputChunk) {}
 	commandHandler := pb.CommandHandler{CommandID: commandID}
-
-	// Initialize the stream (without timeout here)
-	stream, err := n.client.GetCommandOutput(context.Background(), &commandHandler)
+	// We need to get the block handlers for the output
+	context, cancel := context.WithTimeout(context.Background(), time.Second*10)
+	defer cancel()
+	output, err := n.client.GetCommandOutput(context, &commandHandler)
 	if err != nil {
 		return err
 	}
-
-	objectReturnBinary := []byte{}
-	stdoutBinary := []byte{}
-	stderrBinary := []byte{}
-	success := false
-	chunksGathered := 0
-	reportEvery := 100 // Report every 100 chunks
-	logger.Info("Getting command output", "NODE", logrus.Fields{"commandID": commandID})
-
-	for {
-		// Create a new context for each chunk with a timeout of 10 seconds
-		ctx, cancel := context.WithTimeout(context.Background(), time.Second*10)
-
-		// Always cancel the context to avoid memory leaks
-		defer cancel()
-
-		// Try to receive a chunk within the timeout
-		chunk, err := stream.Recv()
-
-		// Check for timeout or other errors
-		if err != nil {
-			if ctx.Err() == context.DeadlineExceeded {
-				logger.Error("Timeout when receiving chunk", "NODE", err, logrus.Fields{"commandID": commandID})
-				return ctx.Err() // Return timeout error if exceeded
-			}
-			if err.Error() == "EOF" {
-				break
-			}
-			logger.Error("Failed to get command output", "NODE", err, logrus.Fields{"commandID": commandID})
-			return err
-		}
-
-		// Process the chunk
-		if chunk.ObjectReturnBinaryChunk != nil {
-			objectReturnBinary = append(objectReturnBinary, chunk.ObjectReturnBinaryChunk...)
-		}
-		if chunk.StdoutBinaryChunk != nil {
-			stdoutBinary = append(stdoutBinary, chunk.StdoutBinaryChunk...)
-		}
-		if chunk.StderrBinaryChunk != nil {
-			stderrBinary = append(stderrBinary, chunk.StderrBinaryChunk...)
-		}
-		if chunk.Success {
-			success = true
-		}
-
-		chunksGathered++
-		if chunksGathered%reportEvery == 0 {
-			logger.Debug("Gathered chunks", "NODE", logrus.Fields{"objectReturnBinary": len(objectReturnBinary), "stdoutBinary": len(stdoutBinary), "stderrBinary": len(stderrBinary)})
-			taskRun.Report() // Report progress to avoid downstream timeout
-		}
+	OutputBlockID := output.ObjectReturnBlockHandler.BlockID
+	StdoutBlockHandler := output.StdoutBlockHandler
+	StdErrBlockHandler := output.StderrBlockHandler
+	// We need to stream the output
+	outputBuffer, err := n.StreamInBlock(OutputBlockID)
+	if err != nil {
+		return err
 	}
-
-	// Set final result after the loop
-	taskRun.SetResult(objectReturnBinary, stdoutBinary, stderrBinary, success)
+	// We need to stream the stdout
+	stdoutBuffer, err := n.StreamInBlock(StdoutBlockHandler.BlockID)
+	if err != nil {
+		return err
+	}
+	// We need to stream the stderr
+	stderrBuffer, err := n.StreamInBlock(StdErrBlockHandler.BlockID)
+	if err != nil {
+		return err
+	}
+	taskRun.SetResult(outputBuffer, stdoutBuffer, stderrBuffer, output.Success)
 	return nil
 }
 

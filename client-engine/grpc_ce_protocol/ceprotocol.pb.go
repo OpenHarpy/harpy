@@ -73,7 +73,7 @@ func (ProgressType) EnumDescriptor() ([]byte, []int) {
 	return file_grpc_ce_protocol_ceprotocol_proto_rawDescGZIP(), []int{0}
 }
 
-// Session service
+// Session
 type SessionRequest struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache

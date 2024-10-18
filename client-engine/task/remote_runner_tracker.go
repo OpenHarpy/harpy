@@ -94,7 +94,7 @@ func (n *Node) InitIsolatedEnv() error {
 	// We need to make sure that the node can isolate the enviroment for the task
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*300) // Higher timeout because this can take a while
 	defer cancel()
-	res, err := n.client.IsolatedEnvInit(ctx, &pb.IsolatedEnv{SessionID: n.SessionID})
+	res, err := n.client.IsolatedEnvInit(ctx, &pb.IsolatedEnv{IsolatedEnvID: n.SessionID})
 	if err != nil {
 		return err
 	}
@@ -108,7 +108,7 @@ func (n *Node) DestroyIsolatedEnv() error {
 	// We need to make sure that the node can isolate the enviroment for the task
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*300) // Higher timeout because this can take a while
 	defer cancel()
-	res, err := n.client.IsolatedEnvDestroy(ctx, &pb.IsolatedEnv{SessionID: n.SessionID})
+	res, err := n.client.IsolatedEnvDestroy(ctx, &pb.IsolatedEnv{IsolatedEnvID: n.SessionID})
 	if err != nil {
 		return err
 	}
@@ -242,7 +242,7 @@ func (n *Node) RegisterTask(task *TaskDefinition) (string, error) {
 func (n *Node) RunCommand(commandID string) error {
 	commandHandler := pb.CommandHandler{CommandID: commandID}
 	callbackHandler := pb.CallbackHandler{CallbackID: n.CallbackID}
-	isolatedEnv := pb.IsolatedEnv{SessionID: n.SessionID}
+	isolatedEnv := pb.IsolatedEnv{IsolatedEnvID: n.SessionID}
 	commandRequest := pb.CommandRequest{CommandHandler: &commandHandler, CallbackHandler: &callbackHandler, IsolatedEnv: &isolatedEnv}
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*10)
 	defer cancel()

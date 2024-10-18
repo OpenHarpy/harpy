@@ -5,6 +5,7 @@ import (
 	"os"
 	"remote-runner/config"
 	"strings"
+	"time"
 )
 
 const BlockBufferSizeInBytes = 1024 * 1024 * 4 // 4MB
@@ -26,12 +27,34 @@ const (
 
 // ** Block ** //
 type Block struct {
-	BlockID       string
-	BlockLocation string
+	BlockID        string
+	BlockLocation  string
+	LastAccessTime int64
+}
+
+func (b *Block) Cleanup() error {
+	if b.BlockLocation == "" {
+		return errors.New("block location is empty")
+	} else if b.BlockLocation == "/" {
+		return errors.New("block location is root")
+	} else if b.BlockLocation == "." {
+		return errors.New("block location is current directory")
+	} else if b.BlockLocation == ".." {
+		return errors.New("block location is parent directory")
+	} else if b.BlockLocation == "./" {
+		return errors.New("block location is current directory")
+	} else if b.BlockLocation == "../" {
+		return errors.New("block location is parent directory")
+	}
+	err := os.Remove(b.BlockLocation)
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 func NewBlock(blockID string) *Block {
-	blockLocationRoot := config.GetConfigs().GetConfigsWithDefault("harpy.remoteRunner.blockLocation", "./_blocks")
+	blockLocationRoot := config.GetConfigs().GetConfigsWithDefault("harpy.remoteRunner.blockMountLocation", "./_blocks")
 	blockFilePath := strings.ReplaceAll(blockLocationRoot+"/"+blockID+".block", "//", "/")
 	return &Block{
 		BlockID:       blockID,
@@ -103,6 +126,7 @@ func (br *BlockReader) StartReading() error {
 		return err
 	}
 	br.BlockEndAt = int(blockEndAt)
+	br.Block.LastAccessTime = time.Now().Unix()
 	return nil
 }
 
@@ -134,6 +158,7 @@ func (bw *BlockWriter) StartWriting() error {
 	}
 	bw.IOHandler = file
 	bw.BlockState = BlockWriterStateStreaming
+	bw.Block.LastAccessTime = time.Now().Unix()
 	return nil
 }
 

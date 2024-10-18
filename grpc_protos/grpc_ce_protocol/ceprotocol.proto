@@ -2,7 +2,7 @@ syntax = "proto3";
 
 package proto;
 
-// Session service
+// Session
 message SessionRequest {
     map<string, string> Options = 1;
 }

@@ -17,12 +17,15 @@ import (
 
 const (
 	// TODO: Make these configurable via the configs
-	port                       = ":50053"
-	processPoolingInterval     = 200 * time.Millisecond
-	timeoutAfterGettingResult  = 30 * time.Second
-	timeoutProcessNotTriggered = 120 * time.Second
-	heartbeatInterval          = 10 * time.Second
-	allowParallelProcesses     = 4
+	port                        = ":50053"
+	processPoolingInterval      = 200 * time.Millisecond
+	timeoutAfterGettingResult   = 30 * time.Second
+	timeoutProcessNotTriggered  = 120 * time.Second
+	heartbeatInterval           = 10 * time.Second
+	blockAccessTimeout          = 600 * time.Second
+	blockCleanerTriggerInterval = 120 * time.Second
+
+	allowParallelProcesses = 4
 )
 
 type NodeServer struct {
@@ -33,7 +36,7 @@ type NodeServer struct {
 // Isolated enviroment
 func (s *NodeServer) IsolatedEnvInit(ctx context.Context, in *pb.IsolatedEnv) (*pb.Ack, error) {
 	// For now we are going to simply return the an error
-	isolatedEnv := NewIsolatedEnvironment(in.SessionID)
+	isolatedEnv := NewIsolatedEnvironment(in.IsolatedEnvID)
 	err := isolatedEnv.Begin()
 	if err != nil {
 		return &pb.Ack{
@@ -41,7 +44,7 @@ func (s *NodeServer) IsolatedEnvInit(ctx context.Context, in *pb.IsolatedEnv) (*
 			ErrorMessage: err.Error(),
 		}, nil
 	}
-	s.lm.IsolatedEnvironment[in.SessionID] = isolatedEnv
+	s.lm.IsolatedEnvironment[in.IsolatedEnvID] = isolatedEnv
 	return &pb.Ack{
 		Success:      true,
 		ErrorMessage: "",
@@ -49,7 +52,7 @@ func (s *NodeServer) IsolatedEnvInit(ctx context.Context, in *pb.IsolatedEnv) (*
 }
 func (s *NodeServer) IsolatedEnvDestroy(ctx context.Context, in *pb.IsolatedEnv) (*pb.Ack, error) {
 	// For now we are going to simply return the an error
-	isolatedEnv, ok := s.lm.IsolatedEnvironment[in.SessionID]
+	isolatedEnv, ok := s.lm.IsolatedEnvironment[in.IsolatedEnvID]
 	if !ok {
 		return &pb.Ack{
 			Success:      false,
@@ -63,7 +66,7 @@ func (s *NodeServer) IsolatedEnvDestroy(ctx context.Context, in *pb.IsolatedEnv)
 			ErrorMessage: err.Error(),
 		}, nil
 	}
-	delete(s.lm.IsolatedEnvironment, in.SessionID)
+	delete(s.lm.IsolatedEnvironment, in.IsolatedEnvID)
 	return &pb.Ack{
 		Success:      true,
 		ErrorMessage: "",
@@ -230,7 +233,7 @@ func (s *NodeServer) RunCommand(ctx context.Context, in *pb.CommandRequest) (*pb
 	process.QueueProcess(callback.CallbackID)
 	s.lm.Process[in.CommandHandler.CommandID] = process
 	// Isolated environment ref
-	isolatedRef, ok := s.lm.IsolatedEnvironment[in.IsolatedEnv.SessionID]
+	isolatedRef, ok := s.lm.IsolatedEnvironment[in.IsolatedEnv.IsolatedEnvID]
 	if !ok {
 		return &pb.CommandRequestResponse{
 			Success:      false,

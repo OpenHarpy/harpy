@@ -14,7 +14,7 @@ enum CommandStatusEnum {
 
 // Isolated Env
 message IsolatedEnv {
-    string SessionID = 1;
+    string IsolatedEnvID = 1;
 }
 
 message IsolatedEnvPackageRequest {

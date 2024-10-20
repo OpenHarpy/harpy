@@ -192,9 +192,9 @@ class TaskSetStub(object):
         Args:
             channel: A grpc.Channel.
         """
-        self.DefineTask = channel.stream_unary(
+        self.DefineTask = channel.unary_unary(
                 '/proto.TaskSet/DefineTask',
-                request_serializer=ceprotocol__pb2.TaskDefinitionChunk.SerializeToString,
+                request_serializer=ceprotocol__pb2.TaskDefinition.SerializeToString,
                 response_deserializer=ceprotocol__pb2.TaskHandler.FromString,
                 _registered_method=True)
         self.AddMap = channel.unary_unary(
@@ -222,17 +222,17 @@ class TaskSetStub(object):
                 request_serializer=ceprotocol__pb2.TaskSetHandler.SerializeToString,
                 response_deserializer=ceprotocol__pb2.TaskSetHandler.FromString,
                 _registered_method=True)
-        self.GetTaskSetResults = channel.unary_stream(
+        self.GetTaskSetResults = channel.unary_unary(
                 '/proto.TaskSet/GetTaskSetResults',
                 request_serializer=ceprotocol__pb2.TaskSetHandler.SerializeToString,
-                response_deserializer=ceprotocol__pb2.TaskSetResultChunk.FromString,
+                response_deserializer=ceprotocol__pb2.TaskSetResult.FromString,
                 _registered_method=True)
 
 
 class TaskSetServicer(object):
     """Missing associated documentation comment in .proto file."""
 
-    def DefineTask(self, request_iterator, context):
+    def DefineTask(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
@@ -277,9 +277,9 @@ class TaskSetServicer(object):
 
 def add_TaskSetServicer_to_server(servicer, server):
     rpc_method_handlers = {
-            'DefineTask': grpc.stream_unary_rpc_method_handler(
+            'DefineTask': grpc.unary_unary_rpc_method_handler(
                     servicer.DefineTask,
-                    request_deserializer=ceprotocol__pb2.TaskDefinitionChunk.FromString,
+                    request_deserializer=ceprotocol__pb2.TaskDefinition.FromString,
                     response_serializer=ceprotocol__pb2.TaskHandler.SerializeToString,
             ),
             'AddMap': grpc.unary_unary_rpc_method_handler(
@@ -307,10 +307,10 @@ def add_TaskSetServicer_to_server(servicer, server):
                     request_deserializer=ceprotocol__pb2.TaskSetHandler.FromString,
                     response_serializer=ceprotocol__pb2.TaskSetHandler.SerializeToString,
             ),
-            'GetTaskSetResults': grpc.unary_stream_rpc_method_handler(
+            'GetTaskSetResults': grpc.unary_unary_rpc_method_handler(
                     servicer.GetTaskSetResults,
                     request_deserializer=ceprotocol__pb2.TaskSetHandler.FromString,
-                    response_serializer=ceprotocol__pb2.TaskSetResultChunk.SerializeToString,
+                    response_serializer=ceprotocol__pb2.TaskSetResult.SerializeToString,
             ),
     }
     generic_handler = grpc.method_handlers_generic_handler(
@@ -324,7 +324,7 @@ class TaskSet(object):
     """Missing associated documentation comment in .proto file."""
 
     @staticmethod
-    def DefineTask(request_iterator,
+    def DefineTask(request,
             target,
             options=(),
             channel_credentials=None,
@@ -334,11 +334,11 @@ class TaskSet(object):
             wait_for_ready=None,
             timeout=None,
             metadata=None):
-        return grpc.experimental.stream_unary(
-            request_iterator,
+        return grpc.experimental.unary_unary(
+            request,
             target,
             '/proto.TaskSet/DefineTask',
-            ceprotocol__pb2.TaskDefinitionChunk.SerializeToString,
+            ceprotocol__pb2.TaskDefinition.SerializeToString,
             ceprotocol__pb2.TaskHandler.FromString,
             options,
             channel_credentials,
@@ -496,12 +496,127 @@ class TaskSet(object):
             wait_for_ready=None,
             timeout=None,
             metadata=None):
-        return grpc.experimental.unary_stream(
+        return grpc.experimental.unary_unary(
             request,
             target,
             '/proto.TaskSet/GetTaskSetResults',
             ceprotocol__pb2.TaskSetHandler.SerializeToString,
-            ceprotocol__pb2.TaskSetResultChunk.FromString,
+            ceprotocol__pb2.TaskSetResult.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+
+class BlockProxyStub(object):
+    """Missing associated documentation comment in .proto file."""
+
+    def __init__(self, channel):
+        """Constructor.
+
+        Args:
+            channel: A grpc.Channel.
+        """
+        self.GetBlock = channel.unary_stream(
+                '/proto.BlockProxy/GetBlock',
+                request_serializer=ceprotocol__pb2.ProxyBlockHandler.SerializeToString,
+                response_deserializer=ceprotocol__pb2.ProxyBlockChunk.FromString,
+                _registered_method=True)
+        self.PutBlock = channel.stream_unary(
+                '/proto.BlockProxy/PutBlock',
+                request_serializer=ceprotocol__pb2.ProxyBlockChunk.SerializeToString,
+                response_deserializer=ceprotocol__pb2.ProxyBlockHandler.FromString,
+                _registered_method=True)
+
+
+class BlockProxyServicer(object):
+    """Missing associated documentation comment in .proto file."""
+
+    def GetBlock(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def PutBlock(self, request_iterator, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+
+def add_BlockProxyServicer_to_server(servicer, server):
+    rpc_method_handlers = {
+            'GetBlock': grpc.unary_stream_rpc_method_handler(
+                    servicer.GetBlock,
+                    request_deserializer=ceprotocol__pb2.ProxyBlockHandler.FromString,
+                    response_serializer=ceprotocol__pb2.ProxyBlockChunk.SerializeToString,
+            ),
+            'PutBlock': grpc.stream_unary_rpc_method_handler(
+                    servicer.PutBlock,
+                    request_deserializer=ceprotocol__pb2.ProxyBlockChunk.FromString,
+                    response_serializer=ceprotocol__pb2.ProxyBlockHandler.SerializeToString,
+            ),
+    }
+    generic_handler = grpc.method_handlers_generic_handler(
+            'proto.BlockProxy', rpc_method_handlers)
+    server.add_generic_rpc_handlers((generic_handler,))
+    server.add_registered_method_handlers('proto.BlockProxy', rpc_method_handlers)
+
+
+ # This class is part of an EXPERIMENTAL API.
+class BlockProxy(object):
+    """Missing associated documentation comment in .proto file."""
+
+    @staticmethod
+    def GetBlock(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_stream(
+            request,
+            target,
+            '/proto.BlockProxy/GetBlock',
+            ceprotocol__pb2.ProxyBlockHandler.SerializeToString,
+            ceprotocol__pb2.ProxyBlockChunk.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def PutBlock(request_iterator,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.stream_unary(
+            request_iterator,
+            target,
+            '/proto.BlockProxy/PutBlock',
+            ceprotocol__pb2.ProxyBlockChunk.SerializeToString,
+            ceprotocol__pb2.ProxyBlockHandler.FromString,
             options,
             channel_credentials,
             insecure,

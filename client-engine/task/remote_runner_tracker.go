@@ -20,7 +20,6 @@
 package task
 
 import (
-	"client-engine/chunker"
 	pb "client-engine/grpc_node_protocol"
 	"client-engine/logger"
 	"context"
@@ -39,7 +38,128 @@ import (
 const (
 	REQUEST_POOLING_INTERVAL   = 200 * time.Millisecond
 	REQUEST_HEARTBEAT_INTERVAL = 30 * time.Second
+	BLOCK_READER_BUFFER_SIZE   = 1024 * 1024 // 1MB
 )
+
+/* Node */
+type BlockReaderStatus int
+type BlockWriterStatus int
+
+const (
+	// Block reader status
+	BlockReaderStatusOpen   BlockReaderStatus = 0
+	BlockReaderStatusClosed BlockReaderStatus = 1
+	BlockReaderStatusError  BlockReaderStatus = 2
+	// Block writter status
+	BlockWriterStatusOpen   BlockWriterStatus = 0
+	BlockWriterStatusClosed BlockWriterStatus = 1
+	BlockWriterStatusError  BlockWriterStatus = 2
+)
+
+type BlockStreamingWriter struct {
+	Status        BlockWriterStatus
+	StreamHandler grpc.ClientStreamingClient[pb.BlockChunk, pb.BlockHandler]
+	BlockID       string
+}
+
+type BlockStreamingReader struct {
+	BlockID    string
+	Status     BlockReaderStatus
+	BufferFIFO [][]byte
+	Buffer     []byte
+}
+
+func NewBlockStreamingWriter(n *Node) *BlockStreamingWriter {
+	stream, err := n.client.StreamInBlock(context.Background())
+	if err != nil {
+		logger.Error("Failed to initiate stream", "NODE", err)
+		return nil
+	}
+	return &BlockStreamingWriter{
+		Status:        BlockWriterStatusOpen,
+		StreamHandler: stream,
+	}
+}
+
+func (b *BlockStreamingWriter) Write(buffer []byte) error {
+	if b.Status != BlockWriterStatusOpen {
+		return errors.New("BlockReader is not open")
+	}
+	err := b.StreamHandler.Send(&pb.BlockChunk{BlockChunk: buffer})
+	if err != nil {
+		logger.Error("Failed to send block chunk", "BLOCK-STREAM-WRITER", err)
+		b.Status = BlockWriterStatusError
+		return err
+	}
+	return nil
+}
+
+func (b *BlockStreamingWriter) Close() error {
+	if b.Status != BlockWriterStatusOpen {
+		return errors.New("BlockReader is not open")
+	}
+	response, err := b.StreamHandler.CloseAndRecv()
+	if err != nil {
+		logger.Error("Failed to close stream", "NODE", err)
+		b.Status = BlockWriterStatusError
+		return err
+	}
+	b.Status = BlockWriterStatusClosed
+	b.BlockID = response.BlockID
+	return nil
+}
+
+func BlockStreamInRoutine(sr *BlockStreamingReader, n *Node) {
+	stream, err := n.client.StreamOutBlock(context.Background(), &pb.BlockHandler{BlockID: sr.BlockID})
+	if err != nil {
+		logger.Error("Failed to initiate stream", "BLOCK-STREAM-READER", err)
+		sr.Status = BlockReaderStatusError
+		return
+	}
+	for {
+		chunk, err := stream.Recv()
+		if err == io.EOF {
+			break
+		} else if err != nil {
+			logger.Error("Failed to receive block chunk", "BLOCK-STREAM-READER", err)
+			sr.Status = BlockReaderStatusError
+			break
+		}
+		sr.Buffer = append(sr.Buffer, chunk.BlockChunk...)
+		if len(sr.Buffer) > BLOCK_READER_BUFFER_SIZE {
+			// We need to flush the buffer
+			sr.BufferFIFO = append(sr.BufferFIFO, sr.Buffer)
+			sr.Buffer = []byte{}
+		}
+	}
+	if len(sr.Buffer) > 0 {
+		sr.BufferFIFO = append(sr.BufferFIFO, sr.Buffer)
+	}
+	sr.Status = BlockReaderStatusClosed
+}
+
+func NewBlockStreamingReader(blockID string, n *Node) *BlockStreamingReader {
+	sr := &BlockStreamingReader{
+		BlockID: blockID,
+		Status:  BlockReaderStatusOpen,
+		Buffer:  []byte{},
+	}
+	go BlockStreamInRoutine(sr, n)
+	return sr
+}
+
+func (sr *BlockStreamingReader) Read() ([]byte, bool) {
+	if sr.Status == BlockReaderStatusError {
+		return nil, true
+	} else if sr.Status == BlockReaderStatusClosed && len(sr.BufferFIFO) == 0 {
+		return nil, true
+	} else if len(sr.BufferFIFO) == 0 {
+		return nil, false
+	}
+	buffer := sr.BufferFIFO[0]
+	sr.BufferFIFO = sr.BufferFIFO[1:]
+	return buffer, false
+}
 
 type BlockInternalReference struct {
 	BlockID         string
@@ -149,84 +269,24 @@ func (n *Node) UnregisterCallback() error {
 	return nil
 }
 
-func (n *Node) StreamOutBlock(task *[]byte) (string, error) {
-	// This is reversed from the server side
-	stream, err := n.client.StreamInBlock(context.Background())
-	if err != nil {
-		return "", err
-	}
-	chunkIndex := 0
-	for {
-		chunk := chunker.ChunkBytes(*task, &chunkIndex)
-		err := stream.Send(&pb.BlockChunk{BlockChunk: chunk})
-		if err != nil {
-			logger.Error("Failed to send block chunk", "NODE", err)
-			return "", err
-		}
-		if len(chunk) == 0 {
-			break
-		}
-	}
-	// Send the EOF
-	response, err := stream.CloseAndRecv()
-	if err != nil {
-		logger.Error("Failed to close stream", "NODE", err)
-		return "", err
-	}
-	return response.BlockID, nil
-}
-
-func (n *Node) StreamInBlock(blockID string) ([]byte, error) {
-	// The client will receive the block that is streamed
-	buffer := []byte{}
-	stream, err := n.client.StreamOutBlock(context.Background(), &pb.BlockHandler{BlockID: blockID})
-	if err != nil {
-		logger.Error("Failed to initiate stream", "NODE", err)
-		return nil, err
-	}
-	for {
-		chunk, err := stream.Recv()
-		if err == io.EOF {
-			break
-		} else if err != nil {
-			logger.Error("Failed to receive block chunk", "NODE", err)
-			return nil, err
-		}
-		buffer = append(buffer, chunk.BlockChunk...)
-	}
-	return buffer, nil
-}
-
 func (n *Node) RegisterTask(task *TaskDefinition) (string, error) {
 	// We start by streaming each block
-	functionBlockID, err := n.StreamOutBlock(&task.CallableBinary)
-	if err != nil {
-		return "", err
-	}
-	n.Blocks = append(n.Blocks, BlockInternalReference{BlockID: functionBlockID, BlockIdentifier: "function-" + task.Name})
+	n.Blocks = append(n.Blocks, BlockInternalReference{BlockID: string(task.CallableBlockID), BlockIdentifier: "function-" + task.Name})
 	argumentsBlockIDs := make(map[uint32]*pb.BlockHandler)
-	for index, argument := range task.ArgumentsBinary {
-		argumentBlockID, err := n.StreamOutBlock(&argument)
-		if err != nil {
-			return "", err
-		}
-		argumentsBlockIDs[uint32(index)] = &pb.BlockHandler{BlockID: argumentBlockID}
+	for index, argument := range task.ArgumentsBlockIDs {
+		argumentsBlockIDs[uint32(index)] = &pb.BlockHandler{BlockID: string(argument)}
 		idAsString := strconv.Itoa(index)
-		n.Blocks = append(n.Blocks, BlockInternalReference{BlockID: argumentBlockID, BlockIdentifier: "argument-" + idAsString + "-" + task.Name})
+		n.Blocks = append(n.Blocks, BlockInternalReference{BlockID: string(argument), BlockIdentifier: "argument-" + idAsString + "-" + task.Name})
 	}
 	kwargsBockIDs := make(map[string]*pb.BlockHandler)
-	for key, value := range task.KwargsBinary {
-		kwargsBlockID, err := n.StreamOutBlock(&value)
-		if err != nil {
-			return "", err
-		}
-		kwargsBockIDs[key] = &pb.BlockHandler{BlockID: kwargsBlockID}
-		n.Blocks = append(n.Blocks, BlockInternalReference{BlockID: kwargsBlockID, BlockIdentifier: "kwargs-" + key + "-" + task.Name})
+	for key, value := range task.KwargsBlockIDs {
+		kwargsBockIDs[key] = &pb.BlockHandler{BlockID: string(value)}
+		n.Blocks = append(n.Blocks, BlockInternalReference{BlockID: string(value), BlockIdentifier: "kwargs-" + key + "-" + task.Name})
 	}
 
 	// Now we can register the command
 	commandRegistration := pb.CommandRegistration{
-		CallableBlockHandler:    &pb.BlockHandler{BlockID: functionBlockID},
+		CallableBlockHandler:    &pb.BlockHandler{BlockID: string(task.CallableBlockID)},
 		ArgumentsBlocksHandlers: argumentsBlockIDs,
 		KwargsBlocksHandlers:    kwargsBockIDs,
 	}
@@ -269,24 +329,11 @@ func (n *Node) GetTaskOutput(commandID string, taskRun *TaskRun) error {
 	OutputBlockID := output.ObjectReturnBlockHandler.BlockID
 	StdoutBlockHandler := output.StdoutBlockHandler
 	StdErrBlockHandler := output.StderrBlockHandler
-	// We need to stream the output
-	outputBuffer, err := n.StreamInBlock(OutputBlockID)
-	if err != nil {
-		return err
-	}
-	// We need to stream the stdout
-	stdoutBuffer, err := n.StreamInBlock(StdoutBlockHandler.BlockID)
-	if err != nil {
-		return err
-	}
-	// We need to stream the stderr
-	stderrBuffer, err := n.StreamInBlock(StdErrBlockHandler.BlockID)
-	if err != nil {
-		return err
-	}
-	taskRun.SetResult(outputBuffer, stdoutBuffer, stderrBuffer, output.Success)
+	taskRun.SetResult(BlockID(OutputBlockID), BlockID(StdoutBlockHandler.BlockID), BlockID(StdErrBlockHandler.BlockID), output.Success)
 	return nil
 }
+
+/* NodeTracker */
 
 type NodeTracker struct {
 	NodesList                     []*Node

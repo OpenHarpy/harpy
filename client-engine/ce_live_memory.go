@@ -14,9 +14,10 @@ type LiveMemory struct {
 	// It is used to store all the live data of the server
 	Sessions               map[string]*task.Session
 	TaskSetDefinitions     map[string]*task.TaskSet
-	TaskDefinitions        map[string]*TaskDefinition
+	TaskDefinitions        map[string]*task.Definition
 	CallbackPointers       map[string]func(string, task.Status) error
 	CommandCallbackPointer map[string]string
+	BlocksMapping          map[string]*string // This is a map of blockID and sessionID
 }
 
 func NewLiveMemory() *LiveMemory {
@@ -24,9 +25,10 @@ func NewLiveMemory() *LiveMemory {
 	return &LiveMemory{
 		Sessions:               make(map[string]*task.Session),
 		TaskSetDefinitions:     make(map[string]*task.TaskSet),
-		TaskDefinitions:        make(map[string]*TaskDefinition),
+		TaskDefinitions:        make(map[string]*task.Definition),
 		CallbackPointers:       make(map[string]func(string, task.Status) error),
 		CommandCallbackPointer: make(map[string]string),
+		BlocksMapping:          make(map[string]*string),
 	}
 }
 

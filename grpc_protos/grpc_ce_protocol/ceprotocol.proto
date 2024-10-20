@@ -12,13 +12,18 @@ message SessionHandler {
   bool Success = 2;
 }
 
+service Session {
+  rpc CreateSession (SessionRequest) returns (SessionHandler) {}
+  rpc CreateTaskSet (SessionHandler) returns (TaskSetHandler) {}
+  rpc CloseSession (SessionHandler) returns (SessionHandler) {}
+}
 
 // Task definitions
-message TaskDefinitionChunk {
+message TaskDefinition {
   string Name = 1;
-  bytes CallableBinary = 2;
-  map<uint32, bytes> ArgumentsBinary = 3;
-  map<string, bytes> KwargsBinary = 4;
+  string CallableBlock = 2;
+  map<uint32, string> ArgumentsBlocks = 3;
+  map<string, string> KwargsBlocks = 4;
 }
 
 message TaskHandler {
@@ -36,18 +41,18 @@ message TaskSetStatus {
   string TaskSetStatus = 2;
 }
 
-message TaskSetResultChunk {
+message TaskResult {
   string TaskRunID = 1;
-  bytes ObjectReturnBinaryChunk = 2;
-  bytes StdoutBinaryChunk = 3;
-  bytes StderrBinaryChunk = 4;
+  string ObjectReturnBlock = 2;
+  string StdoutBlock = 3;
+  string StderrBlock = 4;
   bool Success = 5;
 }
 
-service Session {
-  rpc CreateSession (SessionRequest) returns (SessionHandler) {}
-  rpc CreateTaskSet (SessionHandler) returns (TaskSetHandler) {}
-  rpc CloseSession (SessionHandler) returns (SessionHandler) {}
+message TaskSetResult {
+  string TaskSetID = 1;
+  bool OverallSuccess = 2;
+  repeated TaskResult TaskResults = 3;
 }
 
 message TaskAdderResult {
@@ -88,7 +93,7 @@ message TaskSetProgressReport {
 }
 
 service TaskSet {
-  rpc DefineTask (stream TaskDefinitionChunk) returns (TaskHandler) {}
+  rpc DefineTask (TaskDefinition) returns (TaskHandler) {}
 
   rpc AddMap (MapAdder) returns (TaskAdderResult) {}
   rpc AddReduce (ReduceAdder) returns (TaskAdderResult) {}
@@ -96,5 +101,19 @@ service TaskSet {
   rpc Execute (TaskSetHandler) returns (stream TaskSetProgressReport) {}
   rpc Dismantle (TaskSetHandler) returns (TaskSetHandler) {}
 
-  rpc GetTaskSetResults (TaskSetHandler) returns (stream TaskSetResultChunk) {}
+  rpc GetTaskSetResults (TaskSetHandler) returns (TaskSetResult) {}
+}
+
+// Block Proxy
+message ProxyBlockChunk {
+  SessionHandler SessionHandler = 1;
+  bytes BlockChunk = 2;
+}
+message ProxyBlockHandler {
+  SessionHandler SessionHandler = 1;
+  string BlockID = 2;
+}
+service BlockProxy {
+  rpc GetBlock (ProxyBlockHandler) returns (stream ProxyBlockChunk) {}
+  rpc PutBlock (stream ProxyBlockChunk) returns (ProxyBlockHandler) {}
 }

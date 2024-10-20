@@ -1,11 +1,11 @@
 package main
 
 import (
-	"client-engine/chunker"
 	"client-engine/config"
 	"client-engine/logger"
 	"client-engine/task"
 	"context"
+	"errors"
 	"io"
 	"net"
 	"runtime"
@@ -16,23 +16,8 @@ import (
 	"github.com/google/uuid"
 	"github.com/sirupsen/logrus"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/status"
 )
-
-type TaskDefinition struct {
-	Name            string
-	CallableBinary  []byte
-	ArgumentsBinary [][]byte
-	KwargsBinary    map[string][]byte
-}
-
-func NewTaskDefinition(name string, callableBinary []byte, argumentsBinary [][]byte, kwargsBinary map[string][]byte) TaskDefinition {
-	return TaskDefinition{
-		Name:            name,
-		CallableBinary:  callableBinary,
-		ArgumentsBinary: argumentsBinary,
-		KwargsBinary:    kwargsBinary,
-	}
-}
 
 func (lm *LiveMemory) CreateSession(options map[string]string) *task.Session {
 	// Create a new session
@@ -63,6 +48,7 @@ type CEgRPCServer struct {
 	lm *LiveMemory
 	pb.UnimplementedSessionServer
 	pb.UnimplementedTaskSetServer
+	pb.UnimplementedBlockProxyServer
 }
 
 // CreateSession implements
@@ -102,66 +88,27 @@ func (s *CEgRPCServer) CreateTaskSet(ctx context.Context, in *pb.SessionHandler)
 	return &pb.TaskSetHandler{TaskSetId: ts.TaskSetId}, nil
 }
 
-type TaskDefinitionFull struct {
-	Name            string
-	CallableBinary  []byte
-	ArgumentsBinary [][]byte
-	KwargsBinary    map[string][]byte
-}
-
-func (s *CEgRPCServer) DefineTask(stream pb.TaskSet_DefineTaskServer) error {
-	callableBinary := []byte{}
-	argumentsBinary := map[uint32][]byte{}
-	kwargsBinary := map[string][]byte{}
-	name := ""
-
-	for {
-		in, err := stream.Recv()
-		if err == io.EOF {
-			break
-		}
-		if err != nil {
-			return err
-		}
-		name = in.Name
-		// The callable binary will be sent in chunks
-		callableBinary = append(callableBinary, in.CallableBinary...)
-		// The arguments binary will also be sent in chunks but there will be multiple arguments per chunk
-		// It will be sent as a map of integer corresponding tp the index of the argument
-		for key, value := range in.ArgumentsBinary {
-			arg, ok := argumentsBinary[key]
-			if !ok {
-				argumentsBinary[key] = []byte{}
-			}
-			argumentsBinary[key] = append(arg, value...)
-		}
-		// Similarly the kwargs binary will be sent in chunks but there will be multiple kwargs per chunk
-		// It will be sent as a map of string corresponding to the key of the kwarg
-		for key, value := range in.KwargsBinary {
-			kwarg, ok := kwargsBinary[key]
-			if !ok {
-				kwargsBinary[key] = []byte{}
-			}
-			kwargsBinary[key] = append(kwarg, value...)
-		}
+func (s *CEgRPCServer) DefineTask(ctx context.Context, taskDefinition *pb.TaskDefinition) (*pb.TaskHandler, error) {
+	taskDefID := uuid.New().String()
+	Arguments := make([]task.BlockID, len(taskDefinition.ArgumentsBlocks))
+	for i, block := range taskDefinition.ArgumentsBlocks {
+		Arguments[i] = task.BlockID(block)
 	}
-
-	// once the stream is done we will create a task definition in the live memory
-	argumentsSlice := make([][]byte, len(argumentsBinary))
-	for key, value := range argumentsBinary {
-		argumentsSlice[key] = value
+	Kwargs := make(map[string]task.BlockID)
+	for key, block := range taskDefinition.KwargsBlocks {
+		Kwargs[key] = task.BlockID(block)
 	}
-
-	taskDef := NewTaskDefinition(
-		name,
-		callableBinary,
-		argumentsSlice,
-		kwargsBinary,
-	)
-	taskDefId := uuid.New().String()
-	s.lm.TaskDefinitions[taskDefId] = &taskDef
-	logger.Info("Defined task", "TASKSET-SERVICE", logrus.Fields{"task_id": taskDefId})
-	return stream.SendAndClose(&pb.TaskHandler{TaskID: taskDefId})
+	taskDef := task.Definition{
+		Id:                taskDefID,
+		Name:              taskDefinition.Name,
+		ExecutionType:     "remote",
+		CallableBlockID:   task.BlockID(taskDefinition.CallableBlock),
+		ArgumentsBlockIDs: Arguments,
+		KwargsBlockIDs:    Kwargs,
+	}
+	s.lm.TaskDefinitions[taskDefID] = &taskDef
+	logger.Info("Defined task", "TASKSET-SERVICE", logrus.Fields{"task_id": taskDefID})
+	return &pb.TaskHandler{TaskID: taskDefID}, nil
 }
 
 func (s *CEgRPCServer) AddMap(ctx context.Context, in *pb.MapAdder) (*pb.TaskAdderResult, error) {
@@ -179,13 +126,7 @@ func (s *CEgRPCServer) AddMap(ctx context.Context, in *pb.MapAdder) (*pb.TaskAdd
 			logger.Warn("task_definition_not_found", "TASKSET-SERVICE", logrus.Fields{"task_id": taskHandler.TaskID})
 			return &pb.TaskAdderResult{Success: false, ErrorMesssage: "Task Definition not found"}, nil
 		}
-		taskDef := task.NewMapperDefinition(
-			taskInMem.Name,
-			taskInMem.CallableBinary,
-			"remote",
-			taskInMem.ArgumentsBinary,
-			taskInMem.KwargsBinary,
-		)
+		taskDef := task.NewMapperDefinition(*taskInMem)
 		taskDefinitions = append(taskDefinitions, taskDef)
 		// We can now flush the task definition from the live memory
 		delete(s.lm.TaskDefinitions, taskHandler.TaskID)
@@ -210,13 +151,7 @@ func (s *CEgRPCServer) AddReduce(ctx context.Context, in *pb.ReduceAdder) (*pb.T
 		logger.Warn("task_definition_not_found", "TASKSET-SERVICE", logrus.Fields{"task_id": taskHandler.TaskID})
 		return &pb.TaskAdderResult{Success: false, ErrorMesssage: "Task Definition not found"}, nil
 	}
-	taskDef := task.NewReducerDefinition(
-		taskInMem.Name,
-		taskInMem.CallableBinary,
-		"remote",
-		taskInMem.ArgumentsBinary,
-		taskInMem.KwargsBinary,
-	)
+	taskDef := task.NewReducerDefinition(*taskInMem)
 	// We can now flush the task definition from the live memory
 	delete(s.lm.TaskDefinitions, taskHandler.TaskID)
 	opt := map[string]string{}
@@ -239,13 +174,7 @@ func (s *CEgRPCServer) AddTransform(ctx context.Context, in *pb.TransformAdder) 
 		logger.Warn("task_definition_not_found", "TASKSET-SERVICE", logrus.Fields{"task_id": taskHandler.TaskID})
 		return &pb.TaskAdderResult{Success: false, ErrorMesssage: "Task Definition not found"}, nil
 	}
-	taskDef := task.NewTransformerDefinition(
-		taskInMem.Name,
-		taskInMem.CallableBinary,
-		"remote",
-		taskInMem.ArgumentsBinary,
-		taskInMem.KwargsBinary,
-	)
+	taskDef := task.NewTransformerDefinition(*taskInMem)
 	// We can now flush the task definition from the live memory
 	delete(s.lm.TaskDefinitions, taskHandler.TaskID)
 	opt := map[string]string{}
@@ -344,76 +273,31 @@ func (s *CEgRPCServer) Execute(in *pb.TaskSetHandler, stream pb.TaskSet_ExecuteS
 	return nil
 }
 
-// GetTaskSetResults implements (Streaming)
-//
-//	rpc GetTaskSetResults (TaskSetHandler) returns (stream TaskSetResult) {}
-func (s *CEgRPCServer) GetTaskSetResults(in *pb.TaskSetHandler, stream pb.TaskSet_GetTaskSetResultsServer) error {
-	ts := s.lm.TaskSetDefinitions[in.TaskSetId]
-	logger.Info("Getting task set result", "TASKSET-SERVICE", logrus.Fields{"task_set_id": ts.TaskSetId})
-
-	tsResult := ts.GetTaskSetResult()
-	if tsResult.OverallStatus == "pending" {
-		// If the task set is still pending then we will just return
-		return nil
-	} else {
-		// If the task set is completed then we will stream the results
-		binary_index_map := map[int]*int{}  // map of result index to chunk index
-		binary_stdout_map := map[int]*int{} // map of result index to chunk index
-		binary_stderr_map := map[int]*int{} // map of result index to chunk index
-
-		done_stream := map[int]bool{} // map of result index to done status
-		all_streamed := false
-		aggBytes := 0
-		for !all_streamed {
-			// While not all results ended
-			for index, result := range tsResult.Results {
-				_, ok := binary_index_map[index]
-				if !ok {
-					binary_index_map[index] = new(int)
-					*binary_index_map[index] = 0
-					binary_stdout_map[index] = new(int)
-					*binary_stdout_map[index] = 0
-					binary_stderr_map[index] = new(int)
-					*binary_stderr_map[index] = 0
-				}
-				_, ok = done_stream[index]
-				if !ok {
-					done_stream[index] = false
-				}
-
-				current_done := done_stream[index]
-				if !current_done {
-					taskSetResultChunk := &pb.TaskSetResultChunk{
-						TaskRunID:               result.TaskRunID,
-						ObjectReturnBinaryChunk: chunker.ChunkBytes(result.ObjectReturnBinary, binary_index_map[index]),
-						StdoutBinaryChunk:       chunker.ChunkBytes(result.StdoutBinary, binary_stdout_map[index]),
-						StderrBinaryChunk:       chunker.ChunkBytes(result.StderrBinary, binary_stderr_map[index]),
-						Success:                 result.Success,
-					}
-
-					aggBytes += len(taskSetResultChunk.ObjectReturnBinaryChunk)
-					if len(taskSetResultChunk.ObjectReturnBinaryChunk) == 0 && len(taskSetResultChunk.StdoutBinaryChunk) == 0 && len(taskSetResultChunk.StderrBinaryChunk) == 0 {
-						done_stream[index] = true
-					}
-					// Send the chunk
-					err := stream.Send(taskSetResultChunk)
-					if err != nil {
-						return err
-					}
-				}
-				// Check if all results are done
-				exit_next := true
-				for _, done := range done_stream {
-					if !done {
-						exit_next = false
-						break
-					}
-				}
-				all_streamed = exit_next
-			}
-		}
+func (s *CEgRPCServer) GetTaskSetResults(ctx context.Context, in *pb.TaskSetHandler) (*pb.TaskSetResult, error) {
+	ts, ok := s.lm.TaskSetDefinitions[in.TaskSetId]
+	if !ok {
+		logger.Warn("task_set_not_found", "TASKSET-SERVICE", logrus.Fields{"task_set_id": in.TaskSetId})
+		return &pb.TaskSetResult{TaskSetID: in.TaskSetId, OverallSuccess: false}, nil
 	}
-	return nil
+	logger.Info("Getting task set results", "TASKSET-SERVICE", logrus.Fields{"task_set_id": ts.TaskSetId})
+	results := ts.GetTaskSetResult()
+	taskResults := []*pb.TaskResult{}
+	for _, result := range results.Results {
+		taskResult := &pb.TaskResult{
+			TaskRunID:         result.TaskRunID,
+			ObjectReturnBlock: string(result.ObjectReturnBlockID),
+			StdoutBlock:       string(result.StdoutBlockID),
+			StderrBlock:       string(result.StderrBlockID),
+			Success:           result.Success,
+		}
+		taskResults = append(taskResults, taskResult)
+	}
+	return &pb.TaskSetResult{
+		TaskSetID:      ts.TaskSetId,
+		OverallSuccess: results.OverallStatus == "success",
+		TaskResults:    taskResults,
+	}, nil
+
 }
 
 func (s *CEgRPCServer) Dismantle(ctx context.Context, in *pb.TaskSetHandler) (*pb.TaskSetHandler, error) {
@@ -422,6 +306,79 @@ func (s *CEgRPCServer) Dismantle(ctx context.Context, in *pb.TaskSetHandler) (*p
 	delete(s.lm.TaskSetDefinitions, in.TaskSetId)
 	logger.Info("Dismantled task set", "TASKSET-SERVICE", logrus.Fields{"task_set_id": in.TaskSetId})
 	return &pb.TaskSetHandler{TaskSetId: "", Success: true}, nil
+}
+
+// rpc PutBlock (stream ProxyBlockChunk) returns (ProxyBlockHandler) {}
+func (s *CEgRPCServer) PutBlock(stream pb.BlockProxy_PutBlockServer) error {
+	sessionID := ""
+	var blockWritter *task.BlockStreamingWriter = nil
+	for {
+		in, err := stream.Recv()
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			return err
+		}
+		sessionID = in.SessionHandler.SessionId
+		if blockWritter == nil {
+			session := s.lm.Sessions[sessionID]
+			if session == nil {
+				logger.Warn("session_not_found", "BLOCK-PROXY", logrus.Fields{"session_id": sessionID})
+				return status.Error(404, "Session not found")
+			}
+			blockWritter = session.GetBlockWriter()
+			if blockWritter == nil {
+				err := errors.New("failed to create block writter")
+				logger.Error("Failed to create block writter", "BLOCK-PROXY", err)
+				return status.Error(500, "Unexpected error, unable to create block writter")
+			}
+		}
+		blockWritter.Write(in.BlockChunk)
+	}
+	if blockWritter != nil {
+		blockWritter.Close()
+		stream.SendAndClose(&pb.ProxyBlockHandler{SessionHandler: &pb.SessionHandler{SessionId: sessionID}, BlockID: blockWritter.BlockID})
+	} else {
+		stream.SendAndClose(&pb.ProxyBlockHandler{SessionHandler: &pb.SessionHandler{SessionId: sessionID}, BlockID: ""})
+	}
+	return nil
+}
+
+// rpc GetBlock (ProxyBlockHandler) returns (stream ProxyBlockChunk) {}
+func (s *CEgRPCServer) GetBlock(in *pb.ProxyBlockHandler, stream pb.BlockProxy_GetBlockServer) error {
+	sessionID := in.SessionHandler.SessionId
+	blockID := in.BlockID
+	logger.Info("Getting block", "BLOCK-PROXY", logrus.Fields{"session_id": sessionID, "block_id": blockID})
+
+	session := s.lm.Sessions[sessionID]
+	if session == nil {
+		logger.Warn("session_not_found", "BLOCK-PROXY", logrus.Fields{"session_id": sessionID})
+		return status.Error(404, "Session not found")
+	}
+
+	blockReader := session.GetBlockReaderForBlock(blockID)
+	if blockReader == nil {
+		err := errors.New("failed to create block reader")
+		logger.Error("Failed to create block reader", "BLOCK-PROXY", err)
+		return status.Error(500, "Unexpected error, unable to create block reader")
+	}
+
+	sessionHandler := &pb.SessionHandler{SessionId: sessionID}
+
+	for {
+		chunk, done := blockReader.Read()
+		if chunk != nil {
+			err := stream.Send(&pb.ProxyBlockChunk{SessionHandler: sessionHandler, BlockChunk: chunk})
+			if err != nil {
+				return err
+			}
+		}
+		if done {
+			break
+		}
+	}
+	return nil
 }
 
 func NewCEServer(exit chan bool, wg *sync.WaitGroup, lm *LiveMemory, port string) error {
@@ -434,6 +391,7 @@ func NewCEServer(exit chan bool, wg *sync.WaitGroup, lm *LiveMemory, port string
 	}
 	pb.RegisterSessionServer(s, ceServer)
 	pb.RegisterTaskSetServer(s, ceServer)
+	pb.RegisterBlockProxyServer(s, ceServer)
 
 	lis, err := net.Listen("tcp", port)
 	if err != nil {

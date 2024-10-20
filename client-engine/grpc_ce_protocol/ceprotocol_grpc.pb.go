@@ -210,13 +210,13 @@ const (
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type TaskSetClient interface {
-	DefineTask(ctx context.Context, opts ...grpc.CallOption) (grpc.ClientStreamingClient[TaskDefinitionChunk, TaskHandler], error)
+	DefineTask(ctx context.Context, in *TaskDefinition, opts ...grpc.CallOption) (*TaskHandler, error)
 	AddMap(ctx context.Context, in *MapAdder, opts ...grpc.CallOption) (*TaskAdderResult, error)
 	AddReduce(ctx context.Context, in *ReduceAdder, opts ...grpc.CallOption) (*TaskAdderResult, error)
 	AddTransform(ctx context.Context, in *TransformAdder, opts ...grpc.CallOption) (*TaskAdderResult, error)
 	Execute(ctx context.Context, in *TaskSetHandler, opts ...grpc.CallOption) (grpc.ServerStreamingClient[TaskSetProgressReport], error)
 	Dismantle(ctx context.Context, in *TaskSetHandler, opts ...grpc.CallOption) (*TaskSetHandler, error)
-	GetTaskSetResults(ctx context.Context, in *TaskSetHandler, opts ...grpc.CallOption) (grpc.ServerStreamingClient[TaskSetResultChunk], error)
+	GetTaskSetResults(ctx context.Context, in *TaskSetHandler, opts ...grpc.CallOption) (*TaskSetResult, error)
 }
 
 type taskSetClient struct {
@@ -227,18 +227,15 @@ func NewTaskSetClient(cc grpc.ClientConnInterface) TaskSetClient {
 	return &taskSetClient{cc}
 }
 
-func (c *taskSetClient) DefineTask(ctx context.Context, opts ...grpc.CallOption) (grpc.ClientStreamingClient[TaskDefinitionChunk, TaskHandler], error) {
+func (c *taskSetClient) DefineTask(ctx context.Context, in *TaskDefinition, opts ...grpc.CallOption) (*TaskHandler, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	stream, err := c.cc.NewStream(ctx, &TaskSet_ServiceDesc.Streams[0], TaskSet_DefineTask_FullMethodName, cOpts...)
+	out := new(TaskHandler)
+	err := c.cc.Invoke(ctx, TaskSet_DefineTask_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
-	x := &grpc.GenericClientStream[TaskDefinitionChunk, TaskHandler]{ClientStream: stream}
-	return x, nil
+	return out, nil
 }
-
-// This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
-type TaskSet_DefineTaskClient = grpc.ClientStreamingClient[TaskDefinitionChunk, TaskHandler]
 
 func (c *taskSetClient) AddMap(ctx context.Context, in *MapAdder, opts ...grpc.CallOption) (*TaskAdderResult, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
@@ -272,7 +269,7 @@ func (c *taskSetClient) AddTransform(ctx context.Context, in *TransformAdder, op
 
 func (c *taskSetClient) Execute(ctx context.Context, in *TaskSetHandler, opts ...grpc.CallOption) (grpc.ServerStreamingClient[TaskSetProgressReport], error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	stream, err := c.cc.NewStream(ctx, &TaskSet_ServiceDesc.Streams[1], TaskSet_Execute_FullMethodName, cOpts...)
+	stream, err := c.cc.NewStream(ctx, &TaskSet_ServiceDesc.Streams[0], TaskSet_Execute_FullMethodName, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -299,36 +296,27 @@ func (c *taskSetClient) Dismantle(ctx context.Context, in *TaskSetHandler, opts 
 	return out, nil
 }
 
-func (c *taskSetClient) GetTaskSetResults(ctx context.Context, in *TaskSetHandler, opts ...grpc.CallOption) (grpc.ServerStreamingClient[TaskSetResultChunk], error) {
+func (c *taskSetClient) GetTaskSetResults(ctx context.Context, in *TaskSetHandler, opts ...grpc.CallOption) (*TaskSetResult, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	stream, err := c.cc.NewStream(ctx, &TaskSet_ServiceDesc.Streams[2], TaskSet_GetTaskSetResults_FullMethodName, cOpts...)
+	out := new(TaskSetResult)
+	err := c.cc.Invoke(ctx, TaskSet_GetTaskSetResults_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
-	x := &grpc.GenericClientStream[TaskSetHandler, TaskSetResultChunk]{ClientStream: stream}
-	if err := x.ClientStream.SendMsg(in); err != nil {
-		return nil, err
-	}
-	if err := x.ClientStream.CloseSend(); err != nil {
-		return nil, err
-	}
-	return x, nil
+	return out, nil
 }
-
-// This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
-type TaskSet_GetTaskSetResultsClient = grpc.ServerStreamingClient[TaskSetResultChunk]
 
 // TaskSetServer is the server API for TaskSet service.
 // All implementations must embed UnimplementedTaskSetServer
 // for forward compatibility.
 type TaskSetServer interface {
-	DefineTask(grpc.ClientStreamingServer[TaskDefinitionChunk, TaskHandler]) error
+	DefineTask(context.Context, *TaskDefinition) (*TaskHandler, error)
 	AddMap(context.Context, *MapAdder) (*TaskAdderResult, error)
 	AddReduce(context.Context, *ReduceAdder) (*TaskAdderResult, error)
 	AddTransform(context.Context, *TransformAdder) (*TaskAdderResult, error)
 	Execute(*TaskSetHandler, grpc.ServerStreamingServer[TaskSetProgressReport]) error
 	Dismantle(context.Context, *TaskSetHandler) (*TaskSetHandler, error)
-	GetTaskSetResults(*TaskSetHandler, grpc.ServerStreamingServer[TaskSetResultChunk]) error
+	GetTaskSetResults(context.Context, *TaskSetHandler) (*TaskSetResult, error)
 	mustEmbedUnimplementedTaskSetServer()
 }
 
@@ -339,8 +327,8 @@ type TaskSetServer interface {
 // pointer dereference when methods are called.
 type UnimplementedTaskSetServer struct{}
 
-func (UnimplementedTaskSetServer) DefineTask(grpc.ClientStreamingServer[TaskDefinitionChunk, TaskHandler]) error {
-	return status.Errorf(codes.Unimplemented, "method DefineTask not implemented")
+func (UnimplementedTaskSetServer) DefineTask(context.Context, *TaskDefinition) (*TaskHandler, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method DefineTask not implemented")
 }
 func (UnimplementedTaskSetServer) AddMap(context.Context, *MapAdder) (*TaskAdderResult, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method AddMap not implemented")
@@ -357,8 +345,8 @@ func (UnimplementedTaskSetServer) Execute(*TaskSetHandler, grpc.ServerStreamingS
 func (UnimplementedTaskSetServer) Dismantle(context.Context, *TaskSetHandler) (*TaskSetHandler, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Dismantle not implemented")
 }
-func (UnimplementedTaskSetServer) GetTaskSetResults(*TaskSetHandler, grpc.ServerStreamingServer[TaskSetResultChunk]) error {
-	return status.Errorf(codes.Unimplemented, "method GetTaskSetResults not implemented")
+func (UnimplementedTaskSetServer) GetTaskSetResults(context.Context, *TaskSetHandler) (*TaskSetResult, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetTaskSetResults not implemented")
 }
 func (UnimplementedTaskSetServer) mustEmbedUnimplementedTaskSetServer() {}
 func (UnimplementedTaskSetServer) testEmbeddedByValue()                 {}
@@ -381,12 +369,23 @@ func RegisterTaskSetServer(s grpc.ServiceRegistrar, srv TaskSetServer) {
 	s.RegisterService(&TaskSet_ServiceDesc, srv)
 }
 
-func _TaskSet_DefineTask_Handler(srv interface{}, stream grpc.ServerStream) error {
-	return srv.(TaskSetServer).DefineTask(&grpc.GenericServerStream[TaskDefinitionChunk, TaskHandler]{ServerStream: stream})
+func _TaskSet_DefineTask_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(TaskDefinition)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(TaskSetServer).DefineTask(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: TaskSet_DefineTask_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(TaskSetServer).DefineTask(ctx, req.(*TaskDefinition))
+	}
+	return interceptor(ctx, in, info, handler)
 }
-
-// This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
-type TaskSet_DefineTaskServer = grpc.ClientStreamingServer[TaskDefinitionChunk, TaskHandler]
 
 func _TaskSet_AddMap_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(MapAdder)
@@ -471,16 +470,23 @@ func _TaskSet_Dismantle_Handler(srv interface{}, ctx context.Context, dec func(i
 	return interceptor(ctx, in, info, handler)
 }
 
-func _TaskSet_GetTaskSetResults_Handler(srv interface{}, stream grpc.ServerStream) error {
-	m := new(TaskSetHandler)
-	if err := stream.RecvMsg(m); err != nil {
-		return err
+func _TaskSet_GetTaskSetResults_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(TaskSetHandler)
+	if err := dec(in); err != nil {
+		return nil, err
 	}
-	return srv.(TaskSetServer).GetTaskSetResults(m, &grpc.GenericServerStream[TaskSetHandler, TaskSetResultChunk]{ServerStream: stream})
+	if interceptor == nil {
+		return srv.(TaskSetServer).GetTaskSetResults(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: TaskSet_GetTaskSetResults_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(TaskSetServer).GetTaskSetResults(ctx, req.(*TaskSetHandler))
+	}
+	return interceptor(ctx, in, info, handler)
 }
-
-// This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
-type TaskSet_GetTaskSetResultsServer = grpc.ServerStreamingServer[TaskSetResultChunk]
 
 // TaskSet_ServiceDesc is the grpc.ServiceDesc for TaskSet service.
 // It's only intended for direct use with grpc.RegisterService,
@@ -489,6 +495,10 @@ var TaskSet_ServiceDesc = grpc.ServiceDesc{
 	ServiceName: "proto.TaskSet",
 	HandlerType: (*TaskSetServer)(nil),
 	Methods: []grpc.MethodDesc{
+		{
+			MethodName: "DefineTask",
+			Handler:    _TaskSet_DefineTask_Handler,
+		},
 		{
 			MethodName: "AddMap",
 			Handler:    _TaskSet_AddMap_Handler,
@@ -505,22 +515,152 @@ var TaskSet_ServiceDesc = grpc.ServiceDesc{
 			MethodName: "Dismantle",
 			Handler:    _TaskSet_Dismantle_Handler,
 		},
+		{
+			MethodName: "GetTaskSetResults",
+			Handler:    _TaskSet_GetTaskSetResults_Handler,
+		},
 	},
 	Streams: []grpc.StreamDesc{
-		{
-			StreamName:    "DefineTask",
-			Handler:       _TaskSet_DefineTask_Handler,
-			ClientStreams: true,
-		},
 		{
 			StreamName:    "Execute",
 			Handler:       _TaskSet_Execute_Handler,
 			ServerStreams: true,
 		},
+	},
+	Metadata: "grpc_ce_protocol/ceprotocol.proto",
+}
+
+const (
+	BlockProxy_GetBlock_FullMethodName = "/proto.BlockProxy/GetBlock"
+	BlockProxy_PutBlock_FullMethodName = "/proto.BlockProxy/PutBlock"
+)
+
+// BlockProxyClient is the client API for BlockProxy service.
+//
+// For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
+type BlockProxyClient interface {
+	GetBlock(ctx context.Context, in *ProxyBlockHandler, opts ...grpc.CallOption) (grpc.ServerStreamingClient[ProxyBlockChunk], error)
+	PutBlock(ctx context.Context, opts ...grpc.CallOption) (grpc.ClientStreamingClient[ProxyBlockChunk, ProxyBlockHandler], error)
+}
+
+type blockProxyClient struct {
+	cc grpc.ClientConnInterface
+}
+
+func NewBlockProxyClient(cc grpc.ClientConnInterface) BlockProxyClient {
+	return &blockProxyClient{cc}
+}
+
+func (c *blockProxyClient) GetBlock(ctx context.Context, in *ProxyBlockHandler, opts ...grpc.CallOption) (grpc.ServerStreamingClient[ProxyBlockChunk], error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	stream, err := c.cc.NewStream(ctx, &BlockProxy_ServiceDesc.Streams[0], BlockProxy_GetBlock_FullMethodName, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	x := &grpc.GenericClientStream[ProxyBlockHandler, ProxyBlockChunk]{ClientStream: stream}
+	if err := x.ClientStream.SendMsg(in); err != nil {
+		return nil, err
+	}
+	if err := x.ClientStream.CloseSend(); err != nil {
+		return nil, err
+	}
+	return x, nil
+}
+
+// This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
+type BlockProxy_GetBlockClient = grpc.ServerStreamingClient[ProxyBlockChunk]
+
+func (c *blockProxyClient) PutBlock(ctx context.Context, opts ...grpc.CallOption) (grpc.ClientStreamingClient[ProxyBlockChunk, ProxyBlockHandler], error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	stream, err := c.cc.NewStream(ctx, &BlockProxy_ServiceDesc.Streams[1], BlockProxy_PutBlock_FullMethodName, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	x := &grpc.GenericClientStream[ProxyBlockChunk, ProxyBlockHandler]{ClientStream: stream}
+	return x, nil
+}
+
+// This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
+type BlockProxy_PutBlockClient = grpc.ClientStreamingClient[ProxyBlockChunk, ProxyBlockHandler]
+
+// BlockProxyServer is the server API for BlockProxy service.
+// All implementations must embed UnimplementedBlockProxyServer
+// for forward compatibility.
+type BlockProxyServer interface {
+	GetBlock(*ProxyBlockHandler, grpc.ServerStreamingServer[ProxyBlockChunk]) error
+	PutBlock(grpc.ClientStreamingServer[ProxyBlockChunk, ProxyBlockHandler]) error
+	mustEmbedUnimplementedBlockProxyServer()
+}
+
+// UnimplementedBlockProxyServer must be embedded to have
+// forward compatible implementations.
+//
+// NOTE: this should be embedded by value instead of pointer to avoid a nil
+// pointer dereference when methods are called.
+type UnimplementedBlockProxyServer struct{}
+
+func (UnimplementedBlockProxyServer) GetBlock(*ProxyBlockHandler, grpc.ServerStreamingServer[ProxyBlockChunk]) error {
+	return status.Errorf(codes.Unimplemented, "method GetBlock not implemented")
+}
+func (UnimplementedBlockProxyServer) PutBlock(grpc.ClientStreamingServer[ProxyBlockChunk, ProxyBlockHandler]) error {
+	return status.Errorf(codes.Unimplemented, "method PutBlock not implemented")
+}
+func (UnimplementedBlockProxyServer) mustEmbedUnimplementedBlockProxyServer() {}
+func (UnimplementedBlockProxyServer) testEmbeddedByValue()                    {}
+
+// UnsafeBlockProxyServer may be embedded to opt out of forward compatibility for this service.
+// Use of this interface is not recommended, as added methods to BlockProxyServer will
+// result in compilation errors.
+type UnsafeBlockProxyServer interface {
+	mustEmbedUnimplementedBlockProxyServer()
+}
+
+func RegisterBlockProxyServer(s grpc.ServiceRegistrar, srv BlockProxyServer) {
+	// If the following call pancis, it indicates UnimplementedBlockProxyServer was
+	// embedded by pointer and is nil.  This will cause panics if an
+	// unimplemented method is ever invoked, so we test this at initialization
+	// time to prevent it from happening at runtime later due to I/O.
+	if t, ok := srv.(interface{ testEmbeddedByValue() }); ok {
+		t.testEmbeddedByValue()
+	}
+	s.RegisterService(&BlockProxy_ServiceDesc, srv)
+}
+
+func _BlockProxy_GetBlock_Handler(srv interface{}, stream grpc.ServerStream) error {
+	m := new(ProxyBlockHandler)
+	if err := stream.RecvMsg(m); err != nil {
+		return err
+	}
+	return srv.(BlockProxyServer).GetBlock(m, &grpc.GenericServerStream[ProxyBlockHandler, ProxyBlockChunk]{ServerStream: stream})
+}
+
+// This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
+type BlockProxy_GetBlockServer = grpc.ServerStreamingServer[ProxyBlockChunk]
+
+func _BlockProxy_PutBlock_Handler(srv interface{}, stream grpc.ServerStream) error {
+	return srv.(BlockProxyServer).PutBlock(&grpc.GenericServerStream[ProxyBlockChunk, ProxyBlockHandler]{ServerStream: stream})
+}
+
+// This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
+type BlockProxy_PutBlockServer = grpc.ClientStreamingServer[ProxyBlockChunk, ProxyBlockHandler]
+
+// BlockProxy_ServiceDesc is the grpc.ServiceDesc for BlockProxy service.
+// It's only intended for direct use with grpc.RegisterService,
+// and not to be introspected or modified (even as a copy)
+var BlockProxy_ServiceDesc = grpc.ServiceDesc{
+	ServiceName: "proto.BlockProxy",
+	HandlerType: (*BlockProxyServer)(nil),
+	Methods:     []grpc.MethodDesc{},
+	Streams: []grpc.StreamDesc{
 		{
-			StreamName:    "GetTaskSetResults",
-			Handler:       _TaskSet_GetTaskSetResults_Handler,
+			StreamName:    "GetBlock",
+			Handler:       _BlockProxy_GetBlock_Handler,
 			ServerStreams: true,
+		},
+		{
+			StreamName:    "PutBlock",
+			Handler:       _BlockProxy_PutBlock_Handler,
+			ClientStreams: true,
 		},
 	},
 	Metadata: "grpc_ce_protocol/ceprotocol.proto",

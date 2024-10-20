@@ -5,20 +5,17 @@ from typing import List
 
 from harpy.primitives import check_variable
 
-from harpy.grpc_ce_protocol.ceprotocol_pb2 import (
-    SessionRequest,
-    SessionHandler,
-    
+from harpy.grpc_ce_protocol.ceprotocol_pb2 import (  
     TaskHandler,
-    TaskDefinitionChunk,
+    TaskDefinition,
     TaskSetHandler,
-    TaskSetResultChunk,
+    TaskSetResult,
+    TaskResult,
     TaskSetProgressReport,
     
     MapAdder,
     ReduceAdder,
     TransformAdder,
-    # Enums
     
     ProgressType
 )
@@ -29,6 +26,7 @@ from harpy.processing.types import (
     MapTask, ReduceTask, TransformTask, TaskSetResults, Result
 )
 from harpy.tasksets.code_quality_check import validate_function, get_output_type
+from harpy.session.block_read_write_proxy import BlockReadWriteProxy
 
 INVALID_TASKSET_MESSAGE = "TaskSet is not valid, please make sure to create a taskset before using it"
 STREAM_CHUNK_SIZE = 1024*1024 # 1MB
@@ -36,91 +34,23 @@ STREAM_CHUNK_SIZE = 1024*1024 # 1MB
 class TaskSetDefinitionError(Exception):
     pass
 
-@dataclass
-class TaskDefinitionFull:
-    name: str
-    fun: bytes
-    args: List[bytes]
-    kwargs: dict[str, bytes]
-
-@dataclass
-class ChunkTaskMapping:
-    func_chunk_index: int
-    args_chunk_indexes: List[int]
-    kwargs_chunk_indexes: dict[str, int]
-    def increment(self):
-        self.func_chunk_index += 1
-        for idx in range(len(self.args_chunk_indexes)):
-            self.args_chunk_indexes[idx] += 1
-        for key in self.kwargs_chunk_indexes:
-            self.kwargs_chunk_indexes[key] += 1
-
-@dataclass
-class ResultBinary:
-    task_run_id: str
-    result: bytes
-    std_out: bytes
-    std_err: bytes
-    success: bool
-
-def make_chunk(data: bytes, chunk_size: int, chunk_index: int) -> bytes:
-    # If the chunk index is out of bounds, return an empty byte string
-    start = chunk_index * chunk_size
-    end = start + chunk_size
-    if start >= len(data):
-        return b''
-    return data[start:end]
-
-def serialize_definition(task_definition: MapTask | ReduceTask | TransformTask) -> TaskDefinitionFull:
-    serialized_function = cloudpickle.dumps(task_definition.fun)
-    serialized_args = [cloudpickle.dumps(arg) for arg in task_definition.args]
-    serialized_kwargs = {key: cloudpickle.dumps(value) for key, value in task_definition.kwargs.items()}
-    return TaskDefinitionFull(
-        name=task_definition.name,
-        fun=serialized_function,
-        args=serialized_args,
-        kwargs=serialized_kwargs
-    )
-
-def deserialize_result(task_result: ResultBinary) -> Result:
+def deserialize_result(result: TaskResult, block_proxy:BlockReadWriteProxy) -> Result:
+    output_binary = block_proxy.read_block(result.ObjectReturnBlock)
+    stdout_binary = block_proxy.read_block(result.StdoutBlock)
+    stderr_binary = block_proxy.read_block(result.StderrBlock)
+    # If outputBinary is empty, we return None
+    if len(output_binary) == 0:
+        py_output = None
+    else:
+        py_output = cloudpickle.loads(output_binary)
+    
     return Result(
-        task_run_id = task_result.task_run_id,
-        result = cloudpickle.loads(task_result.result) if len(task_result.result) > 0 else None,
-        std_out = task_result.std_out.decode(),
-        std_err = task_result.std_err.decode(),
-        success = task_result.success        
+        task_run_id=result.TaskRunID,
+        result=py_output,
+        std_out=stdout_binary.decode(),
+        std_err=stderr_binary.decode(),
+        success=result.Success
     )
-
-def taskdefinition_generator(task: TaskDefinitionFull):
-    task_serialized = serialize_definition(task)
-    chunk_mapping = ChunkTaskMapping(
-        func_chunk_index=0,
-        args_chunk_indexes=[0] * len(task_serialized.args),
-        kwargs_chunk_indexes={key: 0 for key in task_serialized.kwargs}
-    )
-    while True:
-        chunk = TaskDefinitionChunk(
-            Name=task_serialized.name,
-            CallableBinary=make_chunk(task_serialized.fun, STREAM_CHUNK_SIZE, chunk_mapping.func_chunk_index),
-            ArgumentsBinary={
-                i: make_chunk(arg, STREAM_CHUNK_SIZE, chunk_mapping.args_chunk_indexes[i]) 
-                for i, arg in enumerate(task_serialized.args)
-            },
-            KwargsBinary={
-                key: make_chunk(value, STREAM_CHUNK_SIZE, chunk_mapping.kwargs_chunk_indexes[key])
-                for key, value in task_serialized.kwargs.items()
-            }
-        )
-        
-        # If all the chunks are empty, we are done
-        yield chunk
-        if (
-            (chunk.CallableBinary == b'') and 
-            (all(arg == b'' for arg in chunk.ArgumentsBinary.values())) and 
-            (all(arg == b'' for arg in chunk.KwargsBinary.values()))
-        ):
-            break
-        chunk_mapping.increment()
 
 class TaskSet:
     def __init__(self, session, taskSetHandler: TaskSetHandler):
@@ -132,10 +62,25 @@ class TaskSet:
         self._last_function_type = None
         self._number_of_nodes_added = 0
     
-    def __stream_task__(self, task_definition: MapTask | ReduceTask | TransformTask) -> TaskHandler:
+    def __define_task__(self, task_definition: MapTask | ReduceTask | TransformTask) -> TaskHandler:
+        # We start by getting blockIDs for the function and the arguments
+        callableBinary = cloudpickle.dumps(task_definition.fun)
+        argsBinary = [cloudpickle.dumps(arg) for arg in task_definition.args]
+        kwargsBinary = {key: cloudpickle.dumps(value) for key, value in task_definition.kwargs.items()}
+        # We then stream all the blocks
+        block_proxy = self._session.get_block_read_write_proxy()
+        callableBlock = block_proxy.write_block(callableBinary)
+        argsBlocks = [block_proxy.write_block(arg) for arg in argsBinary]
+        kwargsBlocks = {key: block_proxy.write_block(value) for key, value in kwargsBinary.items()}
+        # We then create the task definition chunk
         response:TaskHandler = self._taskset_stub.DefineTask(
-            taskdefinition_generator(task_definition)
-        )
+            TaskDefinition(
+                Name=task_definition.name,
+                CallableBlock=callableBlock,
+                ArgumentsBlocks=argsBlocks,
+                KwargsBlocks=kwargsBlocks
+            )
+        )                   
         return response
     
     @check_variable('_taskset_handler', INVALID_TASKSET_MESSAGE)
@@ -163,7 +108,7 @@ class TaskSet:
         self._last_function_type = output_types[0]        
         # Map definition passed all the checks
         task_handlers = [
-            self.__stream_task__(map_task)
+            self.__define_task__(map_task)
             for map_task in map_tasks
         ]           
         map_adder = MapAdder(
@@ -192,7 +137,7 @@ class TaskSet:
         self._last_function_type = get_output_type(reduce_task.fun)
         
         # Reduce definition passed all the checks        
-        task_handler = self.__stream_task__(reduce_task)
+        task_handler = self.__define_task__(reduce_task)
         reduce_adder = ReduceAdder(
             taskSetHandler=self._taskset_handler,
             ReducerDefinition=task_handler
@@ -219,7 +164,7 @@ class TaskSet:
         self._last_function_type = get_output_type(transform_task.fun)
         # Transform definition passed all the checks
         
-        task_handler = self.__stream_task__(transform_task)
+        task_handler = self.__define_task__(transform_task)
         transform_adder = TransformAdder(
             taskSetHandler=self._taskset_handler,
             TransformerDefinition=task_handler
@@ -249,36 +194,16 @@ class TaskSet:
             elif taskSetStatus.ProgressType == ProgressType.TaskProgress:
                 print(f"Task {taskSetStatus.RelatedID}: {taskSetStatus.StatusMessage}")
             
-        # self._taskset_stub.GetTaskSetResults defines a stream of TaskSetResult
-        # We need to iterate over the stream to get the results
         print("Getting results")
-        responseStream: TaskSetResultChunk = self._taskset_stub.GetTaskSetResults(self._taskset_handler)
-        results = {}
-        for response in responseStream:
-            if response.TaskRunID in results:
-                task_result = results[response.TaskRunID]
-                task_result.result += response.ObjectReturnBinaryChunk
-                task_result.std_out += response.StdoutBinaryChunk
-                task_result.std_err += response.StderrBinaryChunk
-                task_result.success = response.Success
-            else:
-                task_result = ResultBinary(
-                    task_run_id = response.TaskRunID,
-                    result = response.ObjectReturnBinaryChunk,
-                    std_out = response.StdoutBinaryChunk,
-                    std_err = response.StderrBinaryChunk,
-                    success = response.Success
-                )
-                results[response.TaskRunID] = task_result
-
+        response: TaskSetResult = self._taskset_stub.GetTaskSetResults(self._taskset_handler)
         return TaskSetResults(
             task_set_id=taskset_id,
             results=[
-                deserialize_result(result)
-                for result in results.values()
+                deserialize_result(result, self._session.get_block_read_write_proxy())
+                for result in response.TaskResults
             ],
             overall_status = last_taskset_status,
-            success = True if last_taskset_status == "success" else False
+            success = response.OverallSuccess
         )
     
     def __dismantle__(self):

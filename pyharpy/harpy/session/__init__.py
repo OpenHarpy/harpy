@@ -19,7 +19,8 @@ from harpy.tasksets import TaskSet
 from harpy.processing.types import MapTask, TaskSetResults
 from harpy.quack import QuackContext
 from harpy.exceptions.user_facing import SQLException
-from harpy.session.FileSystem import FileSystem
+from harpy.session.file_system import FileSystem
+from harpy.session.block_read_write_proxy import BlockReadWriteProxy
 
 INVALID_SESSION_MESSAGE = "Session is not valid, please make sure to create a session before using it"
 
@@ -41,11 +42,18 @@ class Session(metaclass=SingletonMeta):
         self.conf.set('tasks.node.request.count', '1')
         self._session_stub: SessionStub = None
         self._session_handler: SessionHandler = None
+        self._controller_channel: grpc.Channel = None
+        self._block_read_write_proxy: BlockReadWriteProxy = None
         self._session_tasksets: List[TaskSet] = []
         self._quack_ctx = QuackContext()
         self.fs = FileSystem(self)
         # Register onexit function to close the session
         atexit.register(self.close)
+
+    def __create_controller_channel__(self):
+        if self._controller_channel is None:
+            self._controller_channel = grpc.insecure_channel(f"{self.conf.get('sdk.remote.controller.grpcHost')}:{self.conf.get('sdk.remote.controller.grpcPort')}")
+        return
     
     def sql(self, query, return_type='pandas', rows_per_batch=1000000):
         if return_type == 'pandas':
@@ -70,10 +78,9 @@ class Session(metaclass=SingletonMeta):
             raise SQLException(f"Query failed with error", error_text=result.results[0].std_err)
     
     def create_session(self,) -> 'Session':
-        if self._session_stub is None:            
-            self._session_stub = SessionStub(grpc.insecure_channel(
-                f"{self.conf.get('sdk.remote.controller.grpcHost')}:{self.conf.get('sdk.remote.controller.grpcPort')}"
-            ))
+        self.__create_controller_channel__()
+        if self._session_stub is None:
+            self._session_stub = SessionStub(self._controller_channel)
             session_request: SessionRequest = SessionRequest(Options=self.conf.getAllConfigs())
             self._session_handler = self._session_stub.CreateSession(session_request)
             return self
@@ -82,7 +89,7 @@ class Session(metaclass=SingletonMeta):
     
     @check_variable('_session_handler', INVALID_SESSION_MESSAGE)
     def get_session_id(self):
-        return self._session_handler.SessionId
+        return self._session_handler.sessionId
     
     @check_variable('_session_handler', INVALID_SESSION_MESSAGE)
     def get_session_handler(self) -> SessionHandler:
@@ -95,15 +102,26 @@ class Session(metaclass=SingletonMeta):
         self._session_tasksets.append(inst)
         return inst
     
+    @check_variable('_session_handler', INVALID_SESSION_MESSAGE)
+    def get_block_read_write_proxy(self) -> BlockReadWriteProxy:
+        if self._block_read_write_proxy is None:
+            self._block_read_write_proxy = BlockReadWriteProxy(self._controller_channel, self._session_handler)
+        return self._block_read_write_proxy
+    
     def dismantle_taskset(self, taskset: TaskSet):
         taskset.__dismantle__()
         self._session_tasksets.remove(taskset)
     
     def close(self):
+        # Clear all the tasksets
         if self._session_handler is None:
             return self
         for taskset in self._session_tasksets:
             taskset.__dismantle__()
+        # Close the block read write proxy
+        if self._block_read_write_proxy is not None:
+            self._block_read_write_proxy = None
+        # Close the session
         result = self._session_stub.CloseSession(self._session_handler)
         if result.Success:
             self._session_handler = None

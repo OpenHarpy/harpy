@@ -9,7 +9,6 @@ from harpy.primitives import SingletonMeta
 # QuackContext must also implement a close method to close the connection
 class QuackContext(metaclass=SingletonMeta):
     def __init__(self):
-        print("QuackContext created")
         self.duck = duckdb.connect(':memory:')
     
     def restart_session(self):
@@ -25,7 +24,6 @@ class QuackContext(metaclass=SingletonMeta):
         self.duck.close()
     
     def __enter__(self):
-        print("QuackContext entered")
         return self
     
     def __exit__(self, exc_type, exc_value, traceback):

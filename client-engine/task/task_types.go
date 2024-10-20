@@ -10,9 +10,9 @@ package task
 
 import (
 	"fmt"
-
-	"github.com/google/uuid"
 )
+
+type BlockID string
 
 // DefinitionInterface defines the abstract method
 type DefinitionInterface interface {
@@ -25,12 +25,12 @@ type Definition struct {
 	//	This will be the same for the kwargs
 	// 	This changes the structure of the definition so we will need to update the RPM calls to reflect this
 	//  TODO: Update the RPM calls to reflect the new structure
-	Id              string
-	Name            string
-	CallableBinary  []byte
-	ExecutionType   string
-	ArgumentsBinary [][]byte
-	KwargsBinary    map[string][]byte
+	Id                string
+	Name              string
+	CallableBlockID   BlockID
+	ExecutionType     string
+	ArgumentsBlockIDs []BlockID
+	KwargsBlockIDs    map[string]BlockID
 }
 
 // TransformerDefinition --> This is used to define a transformer that will belong to a task group
@@ -42,17 +42,9 @@ func (t TransformerDefinition) String() string {
 	return fmt.Sprintf("TransformerDefinition[%s]", t.Name)
 }
 
-func NewTransformerDefinition(name string, callableBinary []byte, executionType string, argumentsBinary [][]byte, kwargsBinary map[string][]byte) TransformerDefinition {
-	idx := fmt.Sprintf("tf-%s", uuid.New().String())
+func NewTransformerDefinition(definition Definition) TransformerDefinition {
 	return TransformerDefinition{
-		Definition: Definition{
-			Id:              idx,
-			Name:            name,
-			CallableBinary:  callableBinary,
-			ExecutionType:   executionType,
-			ArgumentsBinary: argumentsBinary,
-			KwargsBinary:    kwargsBinary,
-		},
+		Definition: definition,
 	}
 }
 
@@ -65,17 +57,9 @@ func (r ReducerDefinition) String() string {
 	return fmt.Sprintf("ReducerDefinition[%s]", r.Name)
 }
 
-func NewReducerDefinition(name string, callableBinary []byte, executionType string, argumentsBinary [][]byte, kwargsBinary map[string][]byte) ReducerDefinition {
-	idx := fmt.Sprintf("rd-%s", uuid.New().String())
+func NewReducerDefinition(definition Definition) ReducerDefinition {
 	return ReducerDefinition{
-		Definition: Definition{
-			Id:              idx,
-			Name:            name,
-			CallableBinary:  callableBinary,
-			ExecutionType:   executionType,
-			ArgumentsBinary: argumentsBinary,
-			KwargsBinary:    kwargsBinary,
-		},
+		Definition: definition,
 	}
 }
 
@@ -89,18 +73,9 @@ func (m MapperDefinition) String() string {
 	return fmt.Sprintf("MapperDefinition[%s]", m.Name)
 }
 
-func NewMapperDefinition(name string, callableBinary []byte, executionType string, argumentsBinary [][]byte, kwargsBinary map[string][]byte) MapperDefinition {
-	idx := fmt.Sprintf("mp-%s", uuid.New().String())
-
+func NewMapperDefinition(definition Definition) MapperDefinition {
 	return MapperDefinition{
-		Definition: Definition{
-			Id:              idx,
-			Name:            name,
-			CallableBinary:  callableBinary,
-			ExecutionType:   executionType,
-			ArgumentsBinary: argumentsBinary,
-			KwargsBinary:    kwargsBinary,
-		},
+		Definition: definition,
 	}
 }
 

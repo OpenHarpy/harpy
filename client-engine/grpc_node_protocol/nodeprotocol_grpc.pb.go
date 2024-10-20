@@ -121,17 +121,20 @@ var NodeController_ServiceDesc = grpc.ServiceDesc{
 }
 
 const (
-	Node_InitIsolatedEnv_FullMethodName    = "/proto.Node/InitIsolatedEnv"
-	Node_InstallPackage_FullMethodName     = "/proto.Node/InstallPackage"
-	Node_UninstallPackage_FullMethodName   = "/proto.Node/UninstallPackage"
-	Node_ListPackages_FullMethodName       = "/proto.Node/ListPackages"
-	Node_RegisterCallback_FullMethodName   = "/proto.Node/RegisterCallback"
-	Node_UnregisterCallback_FullMethodName = "/proto.Node/UnregisterCallback"
-	Node_DestroyIsolatedEnv_FullMethodName = "/proto.Node/DestroyIsolatedEnv"
-	Node_RegisterCommand_FullMethodName    = "/proto.Node/RegisterCommand"
-	Node_RunCommand_FullMethodName         = "/proto.Node/RunCommand"
-	Node_KillCommand_FullMethodName        = "/proto.Node/KillCommand"
-	Node_GetCommandOutput_FullMethodName   = "/proto.Node/GetCommandOutput"
+	Node_IsolatedEnvInit_FullMethodName             = "/proto.Node/IsolatedEnvInit"
+	Node_IsolatedEnvListPackages_FullMethodName     = "/proto.Node/IsolatedEnvListPackages"
+	Node_IsolatedEnvDestroy_FullMethodName          = "/proto.Node/IsolatedEnvDestroy"
+	Node_IsolatedEnvInstallPackage_FullMethodName   = "/proto.Node/IsolatedEnvInstallPackage"
+	Node_IsolatedEnvUninstallPackage_FullMethodName = "/proto.Node/IsolatedEnvUninstallPackage"
+	Node_RegisterCallback_FullMethodName            = "/proto.Node/RegisterCallback"
+	Node_UnregisterCallback_FullMethodName          = "/proto.Node/UnregisterCallback"
+	Node_RegisterCommand_FullMethodName             = "/proto.Node/RegisterCommand"
+	Node_RunCommand_FullMethodName                  = "/proto.Node/RunCommand"
+	Node_KillCommand_FullMethodName                 = "/proto.Node/KillCommand"
+	Node_GetCommandOutput_FullMethodName            = "/proto.Node/GetCommandOutput"
+	Node_StreamInBlock_FullMethodName               = "/proto.Node/StreamInBlock"
+	Node_StreamOutBlock_FullMethodName              = "/proto.Node/StreamOutBlock"
+	Node_DestroyBlock_FullMethodName                = "/proto.Node/DestroyBlock"
 )
 
 // NodeClient is the client API for Node service.
@@ -139,18 +142,24 @@ const (
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type NodeClient interface {
 	// Packages / Setup
-	InitIsolatedEnv(ctx context.Context, in *IsolatedEnv, opts ...grpc.CallOption) (*Ack, error)
-	InstallPackage(ctx context.Context, in *PackageRequest, opts ...grpc.CallOption) (*PackageResponse, error)
-	UninstallPackage(ctx context.Context, in *PackageRequest, opts ...grpc.CallOption) (*PackageResponse, error)
-	ListPackages(ctx context.Context, in *IsolatedEnv, opts ...grpc.CallOption) (*PackageList, error)
+	IsolatedEnvInit(ctx context.Context, in *IsolatedEnv, opts ...grpc.CallOption) (*Ack, error)
+	IsolatedEnvListPackages(ctx context.Context, in *IsolatedEnv, opts ...grpc.CallOption) (*IsolatedEnvPackageList, error)
+	IsolatedEnvDestroy(ctx context.Context, in *IsolatedEnv, opts ...grpc.CallOption) (*Ack, error)
+	IsolatedEnvInstallPackage(ctx context.Context, in *IsolatedEnvPackageRequest, opts ...grpc.CallOption) (*IsolatedEnvPackageResponse, error)
+	IsolatedEnvUninstallPackage(ctx context.Context, in *IsolatedEnvPackageRequest, opts ...grpc.CallOption) (*IsolatedEnvPackageResponse, error)
+	// Callbacks
 	RegisterCallback(ctx context.Context, in *CallbackRegistration, opts ...grpc.CallOption) (*CallbackHandler, error)
 	UnregisterCallback(ctx context.Context, in *CallbackHandler, opts ...grpc.CallOption) (*Ack, error)
 	// Commands
-	DestroyIsolatedEnv(ctx context.Context, in *IsolatedEnv, opts ...grpc.CallOption) (*Ack, error)
-	RegisterCommand(ctx context.Context, opts ...grpc.CallOption) (grpc.ClientStreamingClient[CommandRequestChunk, CommandHandler], error)
+	// rpc RegisterCommand (stream CommandRequestChunk) returns (CommandHandler) {}
+	RegisterCommand(ctx context.Context, in *CommandRegistration, opts ...grpc.CallOption) (*CommandHandler, error)
 	RunCommand(ctx context.Context, in *CommandRequest, opts ...grpc.CallOption) (*CommandRequestResponse, error)
 	KillCommand(ctx context.Context, in *CommandRequest, opts ...grpc.CallOption) (*CommandRequestResponse, error)
-	GetCommandOutput(ctx context.Context, in *CommandHandler, opts ...grpc.CallOption) (grpc.ServerStreamingClient[CommandOutputChunk], error)
+	GetCommandOutput(ctx context.Context, in *CommandHandler, opts ...grpc.CallOption) (*CommandOutput, error)
+	// Blocks
+	StreamInBlock(ctx context.Context, opts ...grpc.CallOption) (grpc.ClientStreamingClient[BlockChunk, BlockHandler], error)
+	StreamOutBlock(ctx context.Context, in *BlockHandler, opts ...grpc.CallOption) (grpc.ServerStreamingClient[BlockChunk], error)
+	DestroyBlock(ctx context.Context, in *BlockHandler, opts ...grpc.CallOption) (*Ack, error)
 }
 
 type nodeClient struct {
@@ -161,40 +170,50 @@ func NewNodeClient(cc grpc.ClientConnInterface) NodeClient {
 	return &nodeClient{cc}
 }
 
-func (c *nodeClient) InitIsolatedEnv(ctx context.Context, in *IsolatedEnv, opts ...grpc.CallOption) (*Ack, error) {
+func (c *nodeClient) IsolatedEnvInit(ctx context.Context, in *IsolatedEnv, opts ...grpc.CallOption) (*Ack, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(Ack)
-	err := c.cc.Invoke(ctx, Node_InitIsolatedEnv_FullMethodName, in, out, cOpts...)
+	err := c.cc.Invoke(ctx, Node_IsolatedEnvInit_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func (c *nodeClient) InstallPackage(ctx context.Context, in *PackageRequest, opts ...grpc.CallOption) (*PackageResponse, error) {
+func (c *nodeClient) IsolatedEnvListPackages(ctx context.Context, in *IsolatedEnv, opts ...grpc.CallOption) (*IsolatedEnvPackageList, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	out := new(PackageResponse)
-	err := c.cc.Invoke(ctx, Node_InstallPackage_FullMethodName, in, out, cOpts...)
+	out := new(IsolatedEnvPackageList)
+	err := c.cc.Invoke(ctx, Node_IsolatedEnvListPackages_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func (c *nodeClient) UninstallPackage(ctx context.Context, in *PackageRequest, opts ...grpc.CallOption) (*PackageResponse, error) {
+func (c *nodeClient) IsolatedEnvDestroy(ctx context.Context, in *IsolatedEnv, opts ...grpc.CallOption) (*Ack, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	out := new(PackageResponse)
-	err := c.cc.Invoke(ctx, Node_UninstallPackage_FullMethodName, in, out, cOpts...)
+	out := new(Ack)
+	err := c.cc.Invoke(ctx, Node_IsolatedEnvDestroy_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func (c *nodeClient) ListPackages(ctx context.Context, in *IsolatedEnv, opts ...grpc.CallOption) (*PackageList, error) {
+func (c *nodeClient) IsolatedEnvInstallPackage(ctx context.Context, in *IsolatedEnvPackageRequest, opts ...grpc.CallOption) (*IsolatedEnvPackageResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	out := new(PackageList)
-	err := c.cc.Invoke(ctx, Node_ListPackages_FullMethodName, in, out, cOpts...)
+	out := new(IsolatedEnvPackageResponse)
+	err := c.cc.Invoke(ctx, Node_IsolatedEnvInstallPackage_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *nodeClient) IsolatedEnvUninstallPackage(ctx context.Context, in *IsolatedEnvPackageRequest, opts ...grpc.CallOption) (*IsolatedEnvPackageResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(IsolatedEnvPackageResponse)
+	err := c.cc.Invoke(ctx, Node_IsolatedEnvUninstallPackage_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -221,28 +240,15 @@ func (c *nodeClient) UnregisterCallback(ctx context.Context, in *CallbackHandler
 	return out, nil
 }
 
-func (c *nodeClient) DestroyIsolatedEnv(ctx context.Context, in *IsolatedEnv, opts ...grpc.CallOption) (*Ack, error) {
+func (c *nodeClient) RegisterCommand(ctx context.Context, in *CommandRegistration, opts ...grpc.CallOption) (*CommandHandler, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	out := new(Ack)
-	err := c.cc.Invoke(ctx, Node_DestroyIsolatedEnv_FullMethodName, in, out, cOpts...)
+	out := new(CommandHandler)
+	err := c.cc.Invoke(ctx, Node_RegisterCommand_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
-
-func (c *nodeClient) RegisterCommand(ctx context.Context, opts ...grpc.CallOption) (grpc.ClientStreamingClient[CommandRequestChunk, CommandHandler], error) {
-	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	stream, err := c.cc.NewStream(ctx, &Node_ServiceDesc.Streams[0], Node_RegisterCommand_FullMethodName, cOpts...)
-	if err != nil {
-		return nil, err
-	}
-	x := &grpc.GenericClientStream[CommandRequestChunk, CommandHandler]{ClientStream: stream}
-	return x, nil
-}
-
-// This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
-type Node_RegisterCommandClient = grpc.ClientStreamingClient[CommandRequestChunk, CommandHandler]
 
 func (c *nodeClient) RunCommand(ctx context.Context, in *CommandRequest, opts ...grpc.CallOption) (*CommandRequestResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
@@ -264,13 +270,36 @@ func (c *nodeClient) KillCommand(ctx context.Context, in *CommandRequest, opts .
 	return out, nil
 }
 
-func (c *nodeClient) GetCommandOutput(ctx context.Context, in *CommandHandler, opts ...grpc.CallOption) (grpc.ServerStreamingClient[CommandOutputChunk], error) {
+func (c *nodeClient) GetCommandOutput(ctx context.Context, in *CommandHandler, opts ...grpc.CallOption) (*CommandOutput, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	stream, err := c.cc.NewStream(ctx, &Node_ServiceDesc.Streams[1], Node_GetCommandOutput_FullMethodName, cOpts...)
+	out := new(CommandOutput)
+	err := c.cc.Invoke(ctx, Node_GetCommandOutput_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
-	x := &grpc.GenericClientStream[CommandHandler, CommandOutputChunk]{ClientStream: stream}
+	return out, nil
+}
+
+func (c *nodeClient) StreamInBlock(ctx context.Context, opts ...grpc.CallOption) (grpc.ClientStreamingClient[BlockChunk, BlockHandler], error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	stream, err := c.cc.NewStream(ctx, &Node_ServiceDesc.Streams[0], Node_StreamInBlock_FullMethodName, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	x := &grpc.GenericClientStream[BlockChunk, BlockHandler]{ClientStream: stream}
+	return x, nil
+}
+
+// This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
+type Node_StreamInBlockClient = grpc.ClientStreamingClient[BlockChunk, BlockHandler]
+
+func (c *nodeClient) StreamOutBlock(ctx context.Context, in *BlockHandler, opts ...grpc.CallOption) (grpc.ServerStreamingClient[BlockChunk], error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	stream, err := c.cc.NewStream(ctx, &Node_ServiceDesc.Streams[1], Node_StreamOutBlock_FullMethodName, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	x := &grpc.GenericClientStream[BlockHandler, BlockChunk]{ClientStream: stream}
 	if err := x.ClientStream.SendMsg(in); err != nil {
 		return nil, err
 	}
@@ -281,25 +310,41 @@ func (c *nodeClient) GetCommandOutput(ctx context.Context, in *CommandHandler, o
 }
 
 // This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
-type Node_GetCommandOutputClient = grpc.ServerStreamingClient[CommandOutputChunk]
+type Node_StreamOutBlockClient = grpc.ServerStreamingClient[BlockChunk]
+
+func (c *nodeClient) DestroyBlock(ctx context.Context, in *BlockHandler, opts ...grpc.CallOption) (*Ack, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(Ack)
+	err := c.cc.Invoke(ctx, Node_DestroyBlock_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
 
 // NodeServer is the server API for Node service.
 // All implementations must embed UnimplementedNodeServer
 // for forward compatibility.
 type NodeServer interface {
 	// Packages / Setup
-	InitIsolatedEnv(context.Context, *IsolatedEnv) (*Ack, error)
-	InstallPackage(context.Context, *PackageRequest) (*PackageResponse, error)
-	UninstallPackage(context.Context, *PackageRequest) (*PackageResponse, error)
-	ListPackages(context.Context, *IsolatedEnv) (*PackageList, error)
+	IsolatedEnvInit(context.Context, *IsolatedEnv) (*Ack, error)
+	IsolatedEnvListPackages(context.Context, *IsolatedEnv) (*IsolatedEnvPackageList, error)
+	IsolatedEnvDestroy(context.Context, *IsolatedEnv) (*Ack, error)
+	IsolatedEnvInstallPackage(context.Context, *IsolatedEnvPackageRequest) (*IsolatedEnvPackageResponse, error)
+	IsolatedEnvUninstallPackage(context.Context, *IsolatedEnvPackageRequest) (*IsolatedEnvPackageResponse, error)
+	// Callbacks
 	RegisterCallback(context.Context, *CallbackRegistration) (*CallbackHandler, error)
 	UnregisterCallback(context.Context, *CallbackHandler) (*Ack, error)
 	// Commands
-	DestroyIsolatedEnv(context.Context, *IsolatedEnv) (*Ack, error)
-	RegisterCommand(grpc.ClientStreamingServer[CommandRequestChunk, CommandHandler]) error
+	// rpc RegisterCommand (stream CommandRequestChunk) returns (CommandHandler) {}
+	RegisterCommand(context.Context, *CommandRegistration) (*CommandHandler, error)
 	RunCommand(context.Context, *CommandRequest) (*CommandRequestResponse, error)
 	KillCommand(context.Context, *CommandRequest) (*CommandRequestResponse, error)
-	GetCommandOutput(*CommandHandler, grpc.ServerStreamingServer[CommandOutputChunk]) error
+	GetCommandOutput(context.Context, *CommandHandler) (*CommandOutput, error)
+	// Blocks
+	StreamInBlock(grpc.ClientStreamingServer[BlockChunk, BlockHandler]) error
+	StreamOutBlock(*BlockHandler, grpc.ServerStreamingServer[BlockChunk]) error
+	DestroyBlock(context.Context, *BlockHandler) (*Ack, error)
 	mustEmbedUnimplementedNodeServer()
 }
 
@@ -310,17 +355,20 @@ type NodeServer interface {
 // pointer dereference when methods are called.
 type UnimplementedNodeServer struct{}
 
-func (UnimplementedNodeServer) InitIsolatedEnv(context.Context, *IsolatedEnv) (*Ack, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method InitIsolatedEnv not implemented")
+func (UnimplementedNodeServer) IsolatedEnvInit(context.Context, *IsolatedEnv) (*Ack, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method IsolatedEnvInit not implemented")
 }
-func (UnimplementedNodeServer) InstallPackage(context.Context, *PackageRequest) (*PackageResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method InstallPackage not implemented")
+func (UnimplementedNodeServer) IsolatedEnvListPackages(context.Context, *IsolatedEnv) (*IsolatedEnvPackageList, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method IsolatedEnvListPackages not implemented")
 }
-func (UnimplementedNodeServer) UninstallPackage(context.Context, *PackageRequest) (*PackageResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method UninstallPackage not implemented")
+func (UnimplementedNodeServer) IsolatedEnvDestroy(context.Context, *IsolatedEnv) (*Ack, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method IsolatedEnvDestroy not implemented")
 }
-func (UnimplementedNodeServer) ListPackages(context.Context, *IsolatedEnv) (*PackageList, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method ListPackages not implemented")
+func (UnimplementedNodeServer) IsolatedEnvInstallPackage(context.Context, *IsolatedEnvPackageRequest) (*IsolatedEnvPackageResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method IsolatedEnvInstallPackage not implemented")
+}
+func (UnimplementedNodeServer) IsolatedEnvUninstallPackage(context.Context, *IsolatedEnvPackageRequest) (*IsolatedEnvPackageResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method IsolatedEnvUninstallPackage not implemented")
 }
 func (UnimplementedNodeServer) RegisterCallback(context.Context, *CallbackRegistration) (*CallbackHandler, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method RegisterCallback not implemented")
@@ -328,11 +376,8 @@ func (UnimplementedNodeServer) RegisterCallback(context.Context, *CallbackRegist
 func (UnimplementedNodeServer) UnregisterCallback(context.Context, *CallbackHandler) (*Ack, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method UnregisterCallback not implemented")
 }
-func (UnimplementedNodeServer) DestroyIsolatedEnv(context.Context, *IsolatedEnv) (*Ack, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method DestroyIsolatedEnv not implemented")
-}
-func (UnimplementedNodeServer) RegisterCommand(grpc.ClientStreamingServer[CommandRequestChunk, CommandHandler]) error {
-	return status.Errorf(codes.Unimplemented, "method RegisterCommand not implemented")
+func (UnimplementedNodeServer) RegisterCommand(context.Context, *CommandRegistration) (*CommandHandler, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method RegisterCommand not implemented")
 }
 func (UnimplementedNodeServer) RunCommand(context.Context, *CommandRequest) (*CommandRequestResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method RunCommand not implemented")
@@ -340,8 +385,17 @@ func (UnimplementedNodeServer) RunCommand(context.Context, *CommandRequest) (*Co
 func (UnimplementedNodeServer) KillCommand(context.Context, *CommandRequest) (*CommandRequestResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method KillCommand not implemented")
 }
-func (UnimplementedNodeServer) GetCommandOutput(*CommandHandler, grpc.ServerStreamingServer[CommandOutputChunk]) error {
-	return status.Errorf(codes.Unimplemented, "method GetCommandOutput not implemented")
+func (UnimplementedNodeServer) GetCommandOutput(context.Context, *CommandHandler) (*CommandOutput, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetCommandOutput not implemented")
+}
+func (UnimplementedNodeServer) StreamInBlock(grpc.ClientStreamingServer[BlockChunk, BlockHandler]) error {
+	return status.Errorf(codes.Unimplemented, "method StreamInBlock not implemented")
+}
+func (UnimplementedNodeServer) StreamOutBlock(*BlockHandler, grpc.ServerStreamingServer[BlockChunk]) error {
+	return status.Errorf(codes.Unimplemented, "method StreamOutBlock not implemented")
+}
+func (UnimplementedNodeServer) DestroyBlock(context.Context, *BlockHandler) (*Ack, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method DestroyBlock not implemented")
 }
 func (UnimplementedNodeServer) mustEmbedUnimplementedNodeServer() {}
 func (UnimplementedNodeServer) testEmbeddedByValue()              {}
@@ -364,74 +418,92 @@ func RegisterNodeServer(s grpc.ServiceRegistrar, srv NodeServer) {
 	s.RegisterService(&Node_ServiceDesc, srv)
 }
 
-func _Node_InitIsolatedEnv_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+func _Node_IsolatedEnvInit_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(IsolatedEnv)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(NodeServer).InitIsolatedEnv(ctx, in)
+		return srv.(NodeServer).IsolatedEnvInit(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: Node_InitIsolatedEnv_FullMethodName,
+		FullMethod: Node_IsolatedEnvInit_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(NodeServer).InitIsolatedEnv(ctx, req.(*IsolatedEnv))
+		return srv.(NodeServer).IsolatedEnvInit(ctx, req.(*IsolatedEnv))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
-func _Node_InstallPackage_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(PackageRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(NodeServer).InstallPackage(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: Node_InstallPackage_FullMethodName,
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(NodeServer).InstallPackage(ctx, req.(*PackageRequest))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
-func _Node_UninstallPackage_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(PackageRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(NodeServer).UninstallPackage(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: Node_UninstallPackage_FullMethodName,
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(NodeServer).UninstallPackage(ctx, req.(*PackageRequest))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
-func _Node_ListPackages_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+func _Node_IsolatedEnvListPackages_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(IsolatedEnv)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(NodeServer).ListPackages(ctx, in)
+		return srv.(NodeServer).IsolatedEnvListPackages(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: Node_ListPackages_FullMethodName,
+		FullMethod: Node_IsolatedEnvListPackages_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(NodeServer).ListPackages(ctx, req.(*IsolatedEnv))
+		return srv.(NodeServer).IsolatedEnvListPackages(ctx, req.(*IsolatedEnv))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Node_IsolatedEnvDestroy_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(IsolatedEnv)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(NodeServer).IsolatedEnvDestroy(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Node_IsolatedEnvDestroy_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(NodeServer).IsolatedEnvDestroy(ctx, req.(*IsolatedEnv))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Node_IsolatedEnvInstallPackage_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(IsolatedEnvPackageRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(NodeServer).IsolatedEnvInstallPackage(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Node_IsolatedEnvInstallPackage_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(NodeServer).IsolatedEnvInstallPackage(ctx, req.(*IsolatedEnvPackageRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Node_IsolatedEnvUninstallPackage_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(IsolatedEnvPackageRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(NodeServer).IsolatedEnvUninstallPackage(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Node_IsolatedEnvUninstallPackage_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(NodeServer).IsolatedEnvUninstallPackage(ctx, req.(*IsolatedEnvPackageRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -472,30 +544,23 @@ func _Node_UnregisterCallback_Handler(srv interface{}, ctx context.Context, dec 
 	return interceptor(ctx, in, info, handler)
 }
 
-func _Node_DestroyIsolatedEnv_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(IsolatedEnv)
+func _Node_RegisterCommand_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CommandRegistration)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(NodeServer).DestroyIsolatedEnv(ctx, in)
+		return srv.(NodeServer).RegisterCommand(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: Node_DestroyIsolatedEnv_FullMethodName,
+		FullMethod: Node_RegisterCommand_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(NodeServer).DestroyIsolatedEnv(ctx, req.(*IsolatedEnv))
+		return srv.(NodeServer).RegisterCommand(ctx, req.(*CommandRegistration))
 	}
 	return interceptor(ctx, in, info, handler)
 }
-
-func _Node_RegisterCommand_Handler(srv interface{}, stream grpc.ServerStream) error {
-	return srv.(NodeServer).RegisterCommand(&grpc.GenericServerStream[CommandRequestChunk, CommandHandler]{ServerStream: stream})
-}
-
-// This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
-type Node_RegisterCommandServer = grpc.ClientStreamingServer[CommandRequestChunk, CommandHandler]
 
 func _Node_RunCommand_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(CommandRequest)
@@ -533,16 +598,59 @@ func _Node_KillCommand_Handler(srv interface{}, ctx context.Context, dec func(in
 	return interceptor(ctx, in, info, handler)
 }
 
-func _Node_GetCommandOutput_Handler(srv interface{}, stream grpc.ServerStream) error {
-	m := new(CommandHandler)
-	if err := stream.RecvMsg(m); err != nil {
-		return err
+func _Node_GetCommandOutput_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CommandHandler)
+	if err := dec(in); err != nil {
+		return nil, err
 	}
-	return srv.(NodeServer).GetCommandOutput(m, &grpc.GenericServerStream[CommandHandler, CommandOutputChunk]{ServerStream: stream})
+	if interceptor == nil {
+		return srv.(NodeServer).GetCommandOutput(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Node_GetCommandOutput_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(NodeServer).GetCommandOutput(ctx, req.(*CommandHandler))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Node_StreamInBlock_Handler(srv interface{}, stream grpc.ServerStream) error {
+	return srv.(NodeServer).StreamInBlock(&grpc.GenericServerStream[BlockChunk, BlockHandler]{ServerStream: stream})
 }
 
 // This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
-type Node_GetCommandOutputServer = grpc.ServerStreamingServer[CommandOutputChunk]
+type Node_StreamInBlockServer = grpc.ClientStreamingServer[BlockChunk, BlockHandler]
+
+func _Node_StreamOutBlock_Handler(srv interface{}, stream grpc.ServerStream) error {
+	m := new(BlockHandler)
+	if err := stream.RecvMsg(m); err != nil {
+		return err
+	}
+	return srv.(NodeServer).StreamOutBlock(m, &grpc.GenericServerStream[BlockHandler, BlockChunk]{ServerStream: stream})
+}
+
+// This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
+type Node_StreamOutBlockServer = grpc.ServerStreamingServer[BlockChunk]
+
+func _Node_DestroyBlock_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(BlockHandler)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(NodeServer).DestroyBlock(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Node_DestroyBlock_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(NodeServer).DestroyBlock(ctx, req.(*BlockHandler))
+	}
+	return interceptor(ctx, in, info, handler)
+}
 
 // Node_ServiceDesc is the grpc.ServiceDesc for Node service.
 // It's only intended for direct use with grpc.RegisterService,
@@ -552,20 +660,24 @@ var Node_ServiceDesc = grpc.ServiceDesc{
 	HandlerType: (*NodeServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{
-			MethodName: "InitIsolatedEnv",
-			Handler:    _Node_InitIsolatedEnv_Handler,
+			MethodName: "IsolatedEnvInit",
+			Handler:    _Node_IsolatedEnvInit_Handler,
 		},
 		{
-			MethodName: "InstallPackage",
-			Handler:    _Node_InstallPackage_Handler,
+			MethodName: "IsolatedEnvListPackages",
+			Handler:    _Node_IsolatedEnvListPackages_Handler,
 		},
 		{
-			MethodName: "UninstallPackage",
-			Handler:    _Node_UninstallPackage_Handler,
+			MethodName: "IsolatedEnvDestroy",
+			Handler:    _Node_IsolatedEnvDestroy_Handler,
 		},
 		{
-			MethodName: "ListPackages",
-			Handler:    _Node_ListPackages_Handler,
+			MethodName: "IsolatedEnvInstallPackage",
+			Handler:    _Node_IsolatedEnvInstallPackage_Handler,
+		},
+		{
+			MethodName: "IsolatedEnvUninstallPackage",
+			Handler:    _Node_IsolatedEnvUninstallPackage_Handler,
 		},
 		{
 			MethodName: "RegisterCallback",
@@ -576,8 +688,8 @@ var Node_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _Node_UnregisterCallback_Handler,
 		},
 		{
-			MethodName: "DestroyIsolatedEnv",
-			Handler:    _Node_DestroyIsolatedEnv_Handler,
+			MethodName: "RegisterCommand",
+			Handler:    _Node_RegisterCommand_Handler,
 		},
 		{
 			MethodName: "RunCommand",
@@ -587,16 +699,24 @@ var Node_ServiceDesc = grpc.ServiceDesc{
 			MethodName: "KillCommand",
 			Handler:    _Node_KillCommand_Handler,
 		},
+		{
+			MethodName: "GetCommandOutput",
+			Handler:    _Node_GetCommandOutput_Handler,
+		},
+		{
+			MethodName: "DestroyBlock",
+			Handler:    _Node_DestroyBlock_Handler,
+		},
 	},
 	Streams: []grpc.StreamDesc{
 		{
-			StreamName:    "RegisterCommand",
-			Handler:       _Node_RegisterCommand_Handler,
+			StreamName:    "StreamInBlock",
+			Handler:       _Node_StreamInBlock_Handler,
 			ClientStreams: true,
 		},
 		{
-			StreamName:    "GetCommandOutput",
-			Handler:       _Node_GetCommandOutput_Handler,
+			StreamName:    "StreamOutBlock",
+			Handler:       _Node_StreamOutBlock_Handler,
 			ServerStreams: true,
 		},
 	},

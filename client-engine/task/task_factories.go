@@ -48,10 +48,10 @@ func (t TransformFactory) MakeTasks(previousResult TaskGroupResult) []TaskDefini
 			return []TaskDefinition{}
 		}
 		task := TaskDefinition(t.Transformer)
-		args := t.Transformer.ArgumentsBinary
+		args := t.Transformer.ArgumentsBlockIDs
 		// Add the result object to the beginning of the arguments
-		args = append([][]byte{result.ObjectReturnBinary}, args...)
-		task.ArgumentsBinary = args
+		args = append([]BlockID{result.ObjectReturnBlockID}, args...)
+		task.ArgumentsBlockIDs = args
 		tasks = append(tasks, task)
 	}
 	return tasks
@@ -69,9 +69,9 @@ func (r ReduceFactory) MakeTasks(previousResult TaskGroupResult) []TaskDefinitio
 	//   It will have all the object return binaries from the previous results as arguments
 	//   This is will result in a single task that will reduce all the results into a single result
 	task := TaskDefinition(r.Reducer)
-	task.ArgumentsBinary = [][]byte{}
+	task.ArgumentsBlockIDs = []BlockID{}
 	for _, result := range previousResult.Results {
-		task.ArgumentsBinary = append(task.ArgumentsBinary, result.ObjectReturnBinary)
+		task.ArgumentsBlockIDs = append(task.ArgumentsBlockIDs, result.ObjectReturnBlockID)
 	}
 	return []TaskDefinition{task}
 }

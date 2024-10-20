@@ -17,6 +17,7 @@ const (
 	STATUS_DEFINED   Status = "defined"
 	STATUS_QUEUED    Status = "queued"
 	STATUS_RUNNING   Status = "running"
+	STATUS_FETCHING  Status = "fetching"
 	STATUS_DONE      Status = "done"
 	STATUS_PANIC     Status = "panic"
 	STATUS_KILLING   Status = "killing"
@@ -24,24 +25,24 @@ const (
 
 // Result
 type Result struct {
-	ObjectReturnBinary []byte
-	StdoutBinary       []byte
-	StderrBinary       []byte
-	TaskRunID          string
-	Success            bool
+	ObjectReturnBlockID BlockID
+	StdoutBlockID       BlockID
+	StderrBlockID       BlockID
+	TaskRunID           string
+	Success             bool
 }
 
 func (r Result) String() string {
 	return fmt.Sprintf("Result[%s]; success=[%t]", r.TaskRunID, r.Success)
 }
 
-func NewResult(taskRunID string, success bool, objectReturnBinary []byte, stdoutBinary []byte, stderrBinary []byte) *Result {
+func NewResult(taskRunID string, success bool, objectReturnBlockID BlockID, stdoutBlockID BlockID, stderrBlockID BlockID) *Result {
 	return &Result{
-		TaskRunID:          taskRunID,
-		Success:            success,
-		ObjectReturnBinary: objectReturnBinary,
-		StdoutBinary:       stdoutBinary,
-		StderrBinary:       stderrBinary,
+		TaskRunID:           taskRunID,
+		Success:             success,
+		ObjectReturnBlockID: objectReturnBlockID,
+		StdoutBlockID:       stdoutBlockID,
+		StderrBlockID:       stderrBlockID,
 	}
 }
 
@@ -74,12 +75,12 @@ func (t *TaskRun) SetStatus(status Status) {
 	t.Status = status
 	t.Report()
 }
-func (t *TaskRun) SetResult(binaryObject []byte, stdout []byte, stderr []byte, success bool) {
+func (t *TaskRun) SetResult(resultBlockID BlockID, stdoutBlockID BlockID, stderrBlockID BlockID, success bool) {
 	t.Result = NewResult(
 		t.TaskRunID,
 		success,
-		binaryObject,
-		stdout,
-		stderr,
+		resultBlockID,
+		stdoutBlockID,
+		stderrBlockID,
 	)
 }

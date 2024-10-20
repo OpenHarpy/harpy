@@ -76,6 +76,22 @@ func NewSession(
 	}, nil
 }
 
+func (s *Session) GetBlockReaderForBlock(blockId string) *BlockStreamingReader {
+	node := s.NodeTracker.GetNextNode()
+	if node == nil {
+		return nil
+	}
+	return NewBlockStreamingReader(blockId, node)
+}
+
+func (s *Session) GetBlockWriter() *BlockStreamingWriter {
+	node := s.NodeTracker.GetNextNode()
+	if node == nil {
+		return nil
+	}
+	return NewBlockStreamingWriter(node)
+}
+
 func (s *Session) String() string {
 	return fmt.Sprintf("Session[%s]", s.SessionId)
 }

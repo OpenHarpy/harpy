@@ -10,6 +10,8 @@
 package task
 
 import (
+	"client-engine/logger"
+	"errors"
 	"fmt"
 	"time"
 )
@@ -144,8 +146,10 @@ func (t TaskGroup) RemoteGRPCExecute(previousResult TaskGroupResult, session *Se
 		// For each task we get the node from the session
 		node := session.NodeTracker.GetNextNode()
 		if node == nil {
-			println("no nodes available for TaskGroup[%s]", t.TaskGroupID)
-			return TaskGroupResult{}, fmt.Errorf("no nodes available for TaskGroup[%s]", t.TaskGroupID)
+			errorString := fmt.Sprintf("No nodes available for TaskGroup[%s]", t.TaskGroupID)
+			err := errors.New(errorString)
+			logger.Info(errorString, "TASKGROUP")
+			return TaskGroupResult{}, err
 		}
 		// We need to register the task to the node
 		commandID, err := node.RegisterTask(task.Task)
@@ -168,6 +172,7 @@ func (t TaskGroup) RemoteGRPCExecute(previousResult TaskGroupResult, session *Se
 		err := node.RunCommand(commandID)
 		// Under the hood this will span a thread in the node and this action will be non-blocking
 		if err != nil {
+			logger.Info("Error running command", "TASKGROUP")
 			return TaskGroupResult{}, err
 		}
 	}
@@ -194,8 +199,10 @@ func (t TaskGroup) RemoteGRPCExecute(previousResult TaskGroupResult, session *Se
 	for commandID, taskRun := range t.CommandIDTaskMapping {
 		nodeID := t.CommandIDNodeMapping[commandID]
 		node := session.NodeTracker.GetNode(nodeID)
+		taskRun.SetStatus(STATUS_FETCHING)
 		err := node.GetTaskOutput(commandID, taskRun)
 		if err != nil {
+			logger.Info("Error fetching task output", "TASKGROUP")
 			return TaskGroupResult{}, err
 		}
 		results = append(results, *taskRun.Result)

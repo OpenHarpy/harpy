@@ -3,8 +3,8 @@ from typing import Any, List
 
 @dataclass
 class Result:
-    result: Any
     task_run_id: str
+    result: Any
     std_out: str
     std_err: str
     success: bool

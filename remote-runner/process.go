@@ -3,11 +3,13 @@ package main
 import (
 	"bytes"
 	"fmt"
-	"os"
 	"os/exec"
 	"remote-runner/config"
 	"remote-runner/logger"
+	"strings"
 	"time"
+
+	"github.com/sirupsen/logrus"
 )
 
 const (
@@ -88,12 +90,13 @@ func (ie *IsolatedEnvironment) GetEntrypoint() string {
 type Process struct {
 	ProcessID           string
 	ProcessStatus       string
-	CallableBinary      []byte
-	ArgumentsBinary     [][]byte
-	KwargsBinary        map[string][]byte
-	ObjectReturnBinary  []byte
-	StdoutBinary        []byte
-	StderrBinary        []byte
+	CallableBlock       *Block
+	ArgumentsBlocks     []*Block
+	KwargsBlocks        map[string]*Block
+	ObjectReturnBlock   *Block
+	StdoutBlock         *Block
+	StderrBlock         *Block
+	OutputBlock         *Block
 	ProcessRegisterTime int64
 	CallbackID          string
 	ResultFetchTime     int64
@@ -103,14 +106,21 @@ type Process struct {
 	EnvRef              *IsolatedEnvironment
 }
 
-func NewProcess(processID string, callableBinary []byte, argumentsBinary [][]byte, kwargsBinary map[string][]byte) *Process {
+func NewProcess(
+	processID string, callableBlock *Block, argumentsBlocks []*Block, kwargsBlocks map[string]*Block,
+	OutputBlock *Block,
+	StdOutBlock *Block, StdErrBlock *Block,
+) *Process {
 	currentTime := time.Now().Unix()
 	return &Process{
 		ProcessID:       processID,
 		ProcessStatus:   PROCESS_DEFINED,
-		CallableBinary:  callableBinary,
-		ArgumentsBinary: argumentsBinary,
-		KwargsBinary:    kwargsBinary,
+		CallableBlock:   callableBlock,
+		ArgumentsBlocks: argumentsBlocks,
+		KwargsBlocks:    kwargsBlocks,
+		OutputBlock:     OutputBlock,
+		StdoutBlock:     StdOutBlock,
+		StderrBlock:     StdErrBlock,
 
 		ProcessRegisterTime: currentTime,
 		ResultFetchTime:     0,
@@ -121,16 +131,45 @@ func NewProcess(processID string, callableBinary []byte, argumentsBinary [][]byt
 	}
 }
 
+func NormalizeCommand(command string) string {
+	// Remove multiple spaces and replace with single space
+	command = strings.Join(strings.Fields(command), " ")
+	// Remove leading and trailing spaces
+	command = strings.TrimSpace(command)
+	// Remove double slashes
+	command = strings.ReplaceAll(command, "//", "/")
+	return command
+}
+
 func RunProcess(killChan chan bool, doneChan chan bool, process *Process) {
-	// This function execute the process
+	// Write the callable block to a file
 	entrypoint := process.EnvRef.GetEntrypoint()
-	binaryLocation := config.GetConfigs().GetConfigsWithDefault("harpy.remoteRunner.temporaryBinariesLocation", "/tmp/harpy_live_objects")
-	if entrypoint == "" || binaryLocation == "" {
+	if entrypoint == "" || process.OutputBlock.BlockLocation == "" {
 		logger.Error("Missing configuration", "RunProcess", nil)
 		panic("Missing configuration")
 	}
+	// To call this we need to pass in as follows:
+	// entrypoint --func <block.location> --output <block.location> --blocks __pos__arg__0=<block.location> __pos__arg__1=<block.location> keyword1=<block.location> keyword2=<block.location> ...
+	// We will start by writing the callable block
+	funcCommand := " --func " + process.CallableBlock.BlockLocation
+	// Write the output block
+	outputCommand := " --output " + process.OutputBlock.BlockLocation
+	// Write the arguments
+	argumentsCommand := " "
+	for i, arg := range process.ArgumentsBlocks {
+		argumentsCommand = argumentsCommand + " __pos__arg__" + fmt.Sprint(i) + "=" + arg.BlockLocation
+	}
+	// Write the keyword arguments
+	kwargsCommand := " "
+	for key, kwarg := range process.KwargsBlocks {
+		kwargsCommand = kwargsCommand + " " + key + "=" + kwarg.BlockLocation
+	}
 
-	fullCommand := entrypoint + " " + binaryLocation + " " + process.ProcessID
+	// Combine the command
+	fullCommand := entrypoint + funcCommand + outputCommand + " --blocks" + argumentsCommand + kwargsCommand
+	fullCommand = NormalizeCommand(fullCommand)
+	// Run the command
+	logger.Info("Running process", "RunProcess", logrus.Fields{"command": fullCommand})
 	var stdout, stderr bytes.Buffer
 	cmd := exec.Command("bash", "-c", fullCommand)
 	cmd.Stdout = &stdout
@@ -147,95 +186,21 @@ func RunProcess(killChan chan bool, doneChan chan bool, process *Process) {
 	} else {
 		process.Success = true
 	}
-	// Read the output to the process object
-	process.StdoutBinary = stdout.Bytes()
-	process.StderrBinary = stderr.Bytes()
-	binaryLocation = binaryLocation + "/" + process.ProcessID + "/return_object.cloudpickle"
-	if _, err := os.Stat(binaryLocation); os.IsNotExist(err) {
-		// The return object does not exist so we will set return object to empty
-		process.ObjectReturnBinary = []byte{}
-		doneChan <- true
-		return
-	}
-	// Read the return object
-	returnObject, err := os.ReadFile(binaryLocation)
-	if err != nil {
-		logger.Error("Error reading return object", "RunProcess", err)
-	}
-	process.ObjectReturnBinary = returnObject
+
+	// We need to add the stdout and stderr to the process object
+	WriteBytesToBlock(stdout.Bytes(), process.StdoutBlock)
+	WriteBytesToBlock(stderr.Bytes(), process.StderrBlock)
+
 	// Send the done signal
 	doneChan <- true
-
-	// TODO: cleanup the process implement kill
-}
-
-func WriteBinary(location string, binary []byte) error {
-	file, err := os.Create(location)
-	if err != nil {
-		return err
-	}
-	defer file.Close()
-	_, err = file.Write(binary)
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
-func MakeBinariesForProcess(process *Process) {
-	binaryLocation := config.GetConfigs().GetConfigsWithDefault("harpy.remoteRunner.temporaryBinariesLocation", "/tmp/harpy_live_objects")
-	// Make folder if not exists
-	root := binaryLocation + "/" + process.ProcessID
-	err := os.MkdirAll(root, os.ModePerm)
-	if err != nil {
-		logger.Error("Error creating folder", "MakeBinariesForProcess", err)
-	}
-	// Convert the process to binary
-	callableBinaryLocation := root + "/callable.cloudpickle"
-	err = WriteBinary(callableBinaryLocation, process.CallableBinary)
-	if err != nil {
-		logger.Error("Error writing binary", "MakeBinariesForProcess", err)
-	}
-	// Arguments to binary
-	for i, arg := range process.ArgumentsBinary {
-		argLocation := root + "/arg_" + fmt.Sprint(i) + ".cloudpickle"
-		err = WriteBinary(argLocation, arg)
-		if err != nil {
-			logger.Error("Error writing binary", "MakeBinariesForProcess", err)
-		}
-	}
-	// Keyword arguments to binary
-	kwargIdx := 0
-	for key, kwarg := range process.KwargsBinary {
-		kwargLocation := root + "/kwarg_" + fmt.Sprint(kwargIdx) + ".cloudpickle"
-		// For the kwarg we need to encode the key as well
-		// To do this we will add the key in plaintext encoded as UTF-8
-		// The binary will always be separated by C0 80 as this will not be a valid UTF-8 character
-		// This will allow us to split the key from the value
-
-		// Write the key
-		keyBytesUTF8 := []byte(key)                     // Convert the key to bytes
-		keyBytesUTF8 = append(keyBytesUTF8, 0xC0, 0x80) // Add the separator
-		fullData := append(keyBytesUTF8, kwarg...)      // Combine the key and the value
-		err = WriteBinary(kwargLocation, fullData)
-		if err != nil {
-			logger.Error("Error writing binary", "MakeBinariesForProcess", err)
-		}
-		kwargIdx++
-	}
+	// TODO: Implement kill signal
 }
 
 func CleanupBinaries(process *Process) {
-	binaryLocation := config.GetConfigs().GetConfigsWithDefault("harpy.remoteRunner.temporaryBinariesLocation", "/tmp/harpy_live_objects")
-	root := binaryLocation + "/" + process.ProcessID
-	err := os.RemoveAll(root)
-	if err != nil {
-		logger.Error("Error removing folder", "CleanupBinaries", err)
-	}
+	logger.Info("Cleaning up process", "CleanupBinaries", logrus.Fields{"process_id": process.ProcessID})
 }
 
 func (p *Process) Run() {
-	MakeBinariesForProcess(p)
 	// Create the chans for the process
 	p.DoneChan = make(chan bool)
 	p.KillChan = make(chan bool)

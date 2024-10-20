@@ -20,11 +20,12 @@
 package task
 
 import (
-	"client-engine/chunker"
 	pb "client-engine/grpc_node_protocol"
 	"client-engine/logger"
 	"context"
 	"errors"
+	"io"
+	"strconv"
 	"sync"
 	"time"
 
@@ -37,7 +38,133 @@ import (
 const (
 	REQUEST_POOLING_INTERVAL   = 200 * time.Millisecond
 	REQUEST_HEARTBEAT_INTERVAL = 30 * time.Second
+	BLOCK_READER_BUFFER_SIZE   = 1024 * 1024 // 1MB
 )
+
+/* Node */
+type BlockReaderStatus int
+type BlockWriterStatus int
+
+const (
+	// Block reader status
+	BlockReaderStatusOpen   BlockReaderStatus = 0
+	BlockReaderStatusClosed BlockReaderStatus = 1
+	BlockReaderStatusError  BlockReaderStatus = 2
+	// Block writter status
+	BlockWriterStatusOpen   BlockWriterStatus = 0
+	BlockWriterStatusClosed BlockWriterStatus = 1
+	BlockWriterStatusError  BlockWriterStatus = 2
+)
+
+type BlockStreamingWriter struct {
+	Status        BlockWriterStatus
+	StreamHandler grpc.ClientStreamingClient[pb.BlockChunk, pb.BlockHandler]
+	BlockID       string
+}
+
+type BlockStreamingReader struct {
+	BlockID    string
+	Status     BlockReaderStatus
+	BufferFIFO [][]byte
+	Buffer     []byte
+}
+
+func NewBlockStreamingWriter(n *Node) *BlockStreamingWriter {
+	stream, err := n.client.StreamInBlock(context.Background())
+	if err != nil {
+		logger.Error("Failed to initiate stream", "NODE", err)
+		return nil
+	}
+	return &BlockStreamingWriter{
+		Status:        BlockWriterStatusOpen,
+		StreamHandler: stream,
+	}
+}
+
+func (b *BlockStreamingWriter) Write(buffer []byte) error {
+	if b.Status != BlockWriterStatusOpen {
+		return errors.New("BlockReader is not open")
+	}
+	err := b.StreamHandler.Send(&pb.BlockChunk{BlockChunk: buffer})
+	if err != nil {
+		logger.Error("Failed to send block chunk", "BLOCK-STREAM-WRITER", err)
+		b.Status = BlockWriterStatusError
+		return err
+	}
+	return nil
+}
+
+func (b *BlockStreamingWriter) Close() error {
+	if b.Status != BlockWriterStatusOpen {
+		return errors.New("BlockReader is not open")
+	}
+	response, err := b.StreamHandler.CloseAndRecv()
+	if err != nil {
+		logger.Error("Failed to close stream", "NODE", err)
+		b.Status = BlockWriterStatusError
+		return err
+	}
+	b.Status = BlockWriterStatusClosed
+	b.BlockID = response.BlockID
+	return nil
+}
+
+func BlockStreamInRoutine(sr *BlockStreamingReader, n *Node) {
+	stream, err := n.client.StreamOutBlock(context.Background(), &pb.BlockHandler{BlockID: sr.BlockID})
+	if err != nil {
+		logger.Error("Failed to initiate stream", "BLOCK-STREAM-READER", err)
+		sr.Status = BlockReaderStatusError
+		return
+	}
+	for {
+		chunk, err := stream.Recv()
+		if err == io.EOF {
+			break
+		} else if err != nil {
+			logger.Error("Failed to receive block chunk", "BLOCK-STREAM-READER", err)
+			sr.Status = BlockReaderStatusError
+			break
+		}
+		sr.Buffer = append(sr.Buffer, chunk.BlockChunk...)
+		if len(sr.Buffer) > BLOCK_READER_BUFFER_SIZE {
+			// We need to flush the buffer
+			sr.BufferFIFO = append(sr.BufferFIFO, sr.Buffer)
+			sr.Buffer = []byte{}
+		}
+	}
+	if len(sr.Buffer) > 0 {
+		sr.BufferFIFO = append(sr.BufferFIFO, sr.Buffer)
+	}
+	sr.Status = BlockReaderStatusClosed
+}
+
+func NewBlockStreamingReader(blockID string, n *Node) *BlockStreamingReader {
+	sr := &BlockStreamingReader{
+		BlockID: blockID,
+		Status:  BlockReaderStatusOpen,
+		Buffer:  []byte{},
+	}
+	go BlockStreamInRoutine(sr, n)
+	return sr
+}
+
+func (sr *BlockStreamingReader) Read() ([]byte, bool) {
+	if sr.Status == BlockReaderStatusError {
+		return nil, true
+	} else if sr.Status == BlockReaderStatusClosed && len(sr.BufferFIFO) == 0 {
+		return nil, true
+	} else if len(sr.BufferFIFO) == 0 {
+		return nil, false
+	}
+	buffer := sr.BufferFIFO[0]
+	sr.BufferFIFO = sr.BufferFIFO[1:]
+	return buffer, false
+}
+
+type BlockInternalReference struct {
+	BlockID         string
+	BlockIdentifier string
+}
 
 type Node struct {
 	nodeID      string
@@ -45,6 +172,7 @@ type Node struct {
 	CallbackURI string
 	CallbackID  string
 	SessionID   string
+	Blocks      []BlockInternalReference
 	conn        *grpc.ClientConn
 	client      pb.NodeClient
 }
@@ -86,7 +214,7 @@ func (n *Node) InitIsolatedEnv() error {
 	// We need to make sure that the node can isolate the enviroment for the task
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*300) // Higher timeout because this can take a while
 	defer cancel()
-	res, err := n.client.InitIsolatedEnv(ctx, &pb.IsolatedEnv{SessionID: n.SessionID})
+	res, err := n.client.IsolatedEnvInit(ctx, &pb.IsolatedEnv{IsolatedEnvID: n.SessionID})
 	if err != nil {
 		return err
 	}
@@ -100,7 +228,7 @@ func (n *Node) DestroyIsolatedEnv() error {
 	// We need to make sure that the node can isolate the enviroment for the task
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*300) // Higher timeout because this can take a while
 	defer cancel()
-	res, err := n.client.DestroyIsolatedEnv(ctx, &pb.IsolatedEnv{SessionID: n.SessionID})
+	res, err := n.client.IsolatedEnvDestroy(ctx, &pb.IsolatedEnv{IsolatedEnvID: n.SessionID})
 	if err != nil {
 		return err
 	}
@@ -142,87 +270,39 @@ func (n *Node) UnregisterCallback() error {
 }
 
 func (n *Node) RegisterTask(task *TaskDefinition) (string, error) {
-	// Establish a connection to the node
-	context := context.Background()
-	stream, err := n.client.RegisterCommand(context)
+	// We start by streaming each block
+	n.Blocks = append(n.Blocks, BlockInternalReference{BlockID: string(task.CallableBlockID), BlockIdentifier: "function-" + task.Name})
+	argumentsBlockIDs := make(map[uint32]*pb.BlockHandler)
+	for index, argument := range task.ArgumentsBlockIDs {
+		argumentsBlockIDs[uint32(index)] = &pb.BlockHandler{BlockID: string(argument)}
+		idAsString := strconv.Itoa(index)
+		n.Blocks = append(n.Blocks, BlockInternalReference{BlockID: string(argument), BlockIdentifier: "argument-" + idAsString + "-" + task.Name})
+	}
+	kwargsBockIDs := make(map[string]*pb.BlockHandler)
+	for key, value := range task.KwargsBlockIDs {
+		kwargsBockIDs[key] = &pb.BlockHandler{BlockID: string(value)}
+		n.Blocks = append(n.Blocks, BlockInternalReference{BlockID: string(value), BlockIdentifier: "kwargs-" + key + "-" + task.Name})
+	}
+
+	// Now we can register the command
+	commandRegistration := pb.CommandRegistration{
+		CallableBlockHandler:    &pb.BlockHandler{BlockID: string(task.CallableBlockID)},
+		ArgumentsBlocksHandlers: argumentsBlockIDs,
+		KwargsBlocksHandlers:    kwargsBockIDs,
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*10)
+	defer cancel()
+	res, err := n.client.RegisterCommand(ctx, &commandRegistration)
 	if err != nil {
 		return "", err
 	}
-
-	// Send the task to the node
-	chunkIndexCallableBinary := 0
-	chunkIndexArgumentsBinary := map[uint32]*int{}
-	chunkIndexKeywordArgumentsBinary := map[string]*int{}
-
-	doneStreamArguments := map[uint32]bool{}
-	doneStreamKeywordArguments := map[string]bool{}
-
-	streamDone := false
-	for {
-		argumentsBinaryChunk := make(map[uint32][]byte)
-		keywordArgumentsBinaryChunk := make(map[string][]byte)
-
-		chunkCallableBinary := chunker.ChunkBytes(task.CallableBinary, &chunkIndexCallableBinary)
-		for index, argumentsBinary := range task.ArgumentsBinary {
-			idx := uint32(index)
-			_, exists := chunkIndexArgumentsBinary[idx]
-			if !exists {
-				// We then initialize the index in the map
-				chunkIndexArgumentsBinary[idx] = new(int)
-				doneStreamArguments[idx] = false
-			}
-			argumentsBinaryChunk[idx] = chunker.ChunkBytes(argumentsBinary, chunkIndexArgumentsBinary[idx])
-			if len(argumentsBinaryChunk[idx]) == 0 {
-				doneStreamArguments[idx] = true
-			}
-		}
-		for key, keywordArgumentsBinary := range task.KwargsBinary {
-			_, exists := chunkIndexKeywordArgumentsBinary[key]
-			if !exists {
-				chunkIndexKeywordArgumentsBinary[key] = new(int)
-				doneStreamKeywordArguments[key] = false
-			}
-			keywordArgumentsBinaryChunk[key] = chunker.ChunkBytes(keywordArgumentsBinary, chunkIndexKeywordArgumentsBinary[key])
-			if len(keywordArgumentsBinaryChunk[key]) == 0 {
-				doneStreamKeywordArguments[key] = true
-			}
-		}
-
-		commandChunk := pb.CommandRequestChunk{
-			CallableBinaryChunk:  chunkCallableBinary,
-			ArgumentsBinaryChunk: argumentsBinaryChunk,
-			KwargsBinaryChunk:    keywordArgumentsBinaryChunk,
-		}
-		err := stream.Send(&commandChunk)
-		if err != nil {
-			return "", err
-		}
-		doneStreamingArguments := true
-		for _, done := range doneStreamArguments {
-			doneStreamingArguments = doneStreamingArguments && done
-		}
-		doneStreamingKeywordArguments := true
-		for _, done := range doneStreamKeywordArguments {
-			doneStreamingKeywordArguments = doneStreamingKeywordArguments && done
-		}
-		streamDone = doneStreamingArguments && doneStreamingKeywordArguments && len(chunkCallableBinary) == 0
-		if streamDone {
-			break
-		}
-	}
-
-	// Get the response from the node
-	response, err := stream.CloseAndRecv()
-	if err != nil {
-		return "", err
-	}
-	return response.CommandID, nil
+	return res.CommandID, nil
 }
 
 func (n *Node) RunCommand(commandID string) error {
 	commandHandler := pb.CommandHandler{CommandID: commandID}
 	callbackHandler := pb.CallbackHandler{CallbackID: n.CallbackID}
-	isolatedEnv := pb.IsolatedEnv{SessionID: n.SessionID}
+	isolatedEnv := pb.IsolatedEnv{IsolatedEnvID: n.SessionID}
 	commandRequest := pb.CommandRequest{CommandHandler: &commandHandler, CallbackHandler: &callbackHandler, IsolatedEnv: &isolatedEnv}
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*10)
 	defer cancel()
@@ -237,45 +317,23 @@ func (n *Node) RunCommand(commandID string) error {
 }
 
 func (n *Node) GetTaskOutput(commandID string, taskRun *TaskRun) error {
-	//    rpc GetCommandOutput (CommandHandler) returns (stream CommandOutputChunk) {}
+	//    rpc GetCommandOutput (CommandHandler) returns (CommandOutputChunk) {}
 	commandHandler := pb.CommandHandler{CommandID: commandID}
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second*10)
+	// We need to get the block handlers for the output
+	context, cancel := context.WithTimeout(context.Background(), time.Second*10)
 	defer cancel()
-	stream, err := n.client.GetCommandOutput(ctx, &commandHandler)
+	output, err := n.client.GetCommandOutput(context, &commandHandler)
 	if err != nil {
 		return err
 	}
-
-	objectReturnBinary := []byte{}
-	stdoutBinary := []byte{}
-	stderrBinary := []byte{}
-	success := false
-
-	for {
-		chunk, err := stream.Recv()
-		if err != nil {
-			if err.Error() == "EOF" {
-				break
-			}
-			return err
-		}
-		if chunk.ObjectReturnBinaryChunk != nil {
-			objectReturnBinary = append(objectReturnBinary, chunk.ObjectReturnBinaryChunk...)
-		}
-		if chunk.StdoutBinaryChunk != nil {
-			stdoutBinary = append(stdoutBinary, chunk.StdoutBinaryChunk...)
-		}
-		if chunk.StderrBinaryChunk != nil {
-			stderrBinary = append(stderrBinary, chunk.StderrBinaryChunk...)
-		}
-		if chunk.Success {
-			success = true
-		}
-	}
-
-	taskRun.SetResult(objectReturnBinary, stdoutBinary, stderrBinary, success)
+	OutputBlockID := output.ObjectReturnBlockHandler.BlockID
+	StdoutBlockHandler := output.StdoutBlockHandler
+	StdErrBlockHandler := output.StderrBlockHandler
+	taskRun.SetResult(BlockID(OutputBlockID), BlockID(StdoutBlockHandler.BlockID), BlockID(StdErrBlockHandler.BlockID), output.Success)
 	return nil
 }
+
+/* NodeTracker */
 
 type NodeTracker struct {
 	NodesList                     []*Node

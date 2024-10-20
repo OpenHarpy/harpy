@@ -1,10 +1,10 @@
 from dataclasses import dataclass
 import grpc
 import cloudpickle
-from typing import List
+from typing import List, Any
 
 from harpy.primitives import check_variable
-
+from harpy.exceptions.user_facing import TaskSetRuntimeError
 from harpy.grpc_ce_protocol.ceprotocol_pb2 import (  
     TaskHandler,
     TaskDefinition,
@@ -205,6 +205,13 @@ class TaskSet:
             overall_status = last_taskset_status,
             success = response.OverallSuccess
         )
+    
+    @check_variable('_taskset_handler', INVALID_TASKSET_MESSAGE)
+    def run(self) -> List[Any]:
+        result = self.execute()
+        if result.success == False:
+            raise TaskSetRuntimeError("TaskSet failed to execute", error_text=result.results[0].std_err)
+        return [task.result for task in result.results]
     
     def __dismantle__(self):
         if self._taskset_handler is None:

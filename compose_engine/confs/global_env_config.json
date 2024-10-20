@@ -11,13 +11,13 @@
 
     "harpy.remoteRunner.grpcServer.servePort" : "50053",
     "harpy.remoteRunner.grpcServer.serveHost" : "harpy-local-resource-manager",
-    "harpy.remoteRunner.temporaryBinariesLocation" : "/opt/remote-runner/_live_objects",
     "harpy.remoteRunner.scriptsRoot" : "/opt/remote-runner/_python_base",
     "harpy.remoteRunner.nodeSetupScript" : "setup.sh",
     "harpy.remoteRunner.commandEntrypoint" : "entrypoint.sh",
     "harpy.remoteRunner.isolatedEnvironmentSetupScript" : "isolated_setup.sh",
     "harpy.remoteRunner.isolatedEnvironmentCleanupScript" : "isolated_cleanup.sh",
     "harpy.remoteRunner.pythonInstaller" : "pip3",
+    "harpy.remoteRunner.blockMountLocation" : "/opt/remote-runner/_blocks",
 
     "harpy.resourceManager.grpcServer.servePort" : "50050",
     "harpy.resourceManager.grpcServer.serveHost" : "harpy-local-resource-manager",

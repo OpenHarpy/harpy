@@ -6,6 +6,7 @@ services:
     volumes:
       - ./confs:/opt/configs/:ro
       - ../_example_data/:/Volumes/data/
+      - ../_block/:/opt/remote-runner/_blocks
     environment:
       - COMPONENT=resource-manager
     ports:

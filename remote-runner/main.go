@@ -14,7 +14,6 @@ import (
 var requiredConfigs = []string{
 	"harpy.remoteRunner.grpcServer.servePort",
 	"harpy.remoteRunner.grpcServer.serveHost",
-	"harpy.remoteRunner.temporaryBinariesLocation",
 	"harpy.remoteRunner.scriptsRoot",
 	"harpy.remoteRunner.nodeSetupScript",
 	"harpy.remoteRunner.commandEntrypoint",

@@ -308,7 +308,6 @@ func (s *CEgRPCServer) Dismantle(ctx context.Context, in *pb.TaskSetHandler) (*p
 	return &pb.TaskSetHandler{TaskSetId: "", Success: true}, nil
 }
 
-// rpc PutBlock (stream ProxyBlockChunk) returns (ProxyBlockHandler) {}
 func (s *CEgRPCServer) PutBlock(stream pb.BlockProxy_PutBlockServer) error {
 	sessionID := ""
 	var blockWritter *task.BlockStreamingWriter = nil
@@ -345,7 +344,6 @@ func (s *CEgRPCServer) PutBlock(stream pb.BlockProxy_PutBlockServer) error {
 	return nil
 }
 
-// rpc GetBlock (ProxyBlockHandler) returns (stream ProxyBlockChunk) {}
 func (s *CEgRPCServer) GetBlock(in *pb.ProxyBlockHandler, stream pb.BlockProxy_GetBlockServer) error {
 	sessionID := in.SessionHandler.SessionId
 	blockID := in.BlockID
@@ -379,6 +377,12 @@ func (s *CEgRPCServer) GetBlock(in *pb.ProxyBlockHandler, stream pb.BlockProxy_G
 		}
 	}
 	return nil
+}
+
+// rpc GetInstanceID (SessionHandler) returns (InstanceMetadata) {}
+func (s *CEgRPCServer) GetInstanceID(ctx context.Context, in *pb.SessionHandler) (*pb.InstanceMetadata, error) {
+	// We will return the instance ID
+	return &pb.InstanceMetadata{InstanceID: s.lm.InstanceID}, nil
 }
 
 func NewCEServer(exit chan bool, wg *sync.WaitGroup, lm *LiveMemory, port string) error {

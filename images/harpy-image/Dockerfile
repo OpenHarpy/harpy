@@ -4,7 +4,7 @@ WORKDIR /app
 
 # Opt folders will be used to store any kind of data that is not considered part of the build or the final binary of the application
 # -- This is a good practice to separate the build from the runtime data
-RUN mkdir -p /opt/remote-runner/_live_objects
+RUN mkdir -p /opt/remote-runner/_blocks
 RUN mkdir -p /opt/remote-runner/_python_base
 RUN mkdir -p /opt/resource-manager/_harpy_ui
 RUN mkdir -p /opt/client-engine/

@@ -1,4 +1,5 @@
 import os
+import shutil
 import pandas as pd
 
 from harpy.tasksets import TaskSet
@@ -45,7 +46,7 @@ def fs_mkdir(path: str, recursive: bool = False) -> bool:
 
 def fs_rm(path: str, recursive: bool = False) -> bool:
     if recursive:
-        os.removedirs(path)
+        shutil.rmtree(path)
     else:
         os.remove(path)
     return True

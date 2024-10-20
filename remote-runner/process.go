@@ -232,4 +232,9 @@ func ExitCleanAll(lm *LiveMemory) {
 	for _, env := range lm.IsolatedEnvironment {
 		env.Cleanup()
 	}
+	// Cleanup the blocks
+	for _, block := range lm.Blocks {
+		block.Cleanup()
+	}
+	ClearAllBlocksInDir()
 }

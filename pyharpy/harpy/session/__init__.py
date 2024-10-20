@@ -21,17 +21,9 @@ from harpy.quack import QuackContext
 from harpy.exceptions.user_facing import SQLException
 from harpy.session.file_system import FileSystem
 from harpy.session.block_read_write_proxy import BlockReadWriteProxy
+from harpy.tasksets.task_definitions import definition_quack_query_arrow_table, definition_quack_query_pandas
 
 INVALID_SESSION_MESSAGE = "Session is not valid, please make sure to create a session before using it"
-
-# SQL functions
-def quack_query_pandas(query: str) -> pd.DataFrame:
-    with QuackContext() as qc:
-        return qc.sql(query).fetchdf()
-
-def quack_query_arrow_table(query: str, rows_per_batch:int) -> pa.Table:
-    with QuackContext() as qc:
-        return qc.sql(query).arrow(rows_per_batch=rows_per_batch)
 
 class Session(metaclass=SingletonMeta):
     def __init__(self):
@@ -57,12 +49,12 @@ class Session(metaclass=SingletonMeta):
     
     def sql(self, query, return_type='pandas', rows_per_batch=1000000):
         if return_type == 'pandas':
-            func = quack_query_pandas
+            func = definition_quack_query_pandas
             if rows_per_batch != 1000000:
                 raise NotImplementedError("rows_per_batch is not implemented for pandas")
             mapper = MapTask(name="duckdb-query-pandas", fun=func, args=[], kwargs={"query": query})
         elif return_type == 'arrow':
-            func = quack_query_arrow_table
+            func = definition_quack_query_arrow_table
             mapper = MapTask(name="duckdb-query-arrow", fun=func, args=[], kwargs={"query": query, "rows_per_batch": rows_per_batch})
         else:
             raise NotImplementedError(f"Return type {return_type} is not implemented")

@@ -148,9 +148,23 @@ func (s *NodeServer) UnregisterCallback(ctx context.Context, in *pb.CallbackHand
 	}, nil
 }
 
+func GetBlock(lm *LiveMemory, blockID string) *Block {
+	block := lm.Blocks[blockID]
+	if block == nil {
+		// Check if the block is in the file system
+		block = NewBlock(blockID)
+		blockExists := block.CheckBlockExists()
+		if !blockExists {
+			// If not found return an error
+			return nil
+		}
+	}
+	return block
+}
+
 func (s *NodeServer) RegisterCommand(ctx context.Context, in *pb.CommandRegistration) (*pb.CommandHandler, error) {
 	// Validate the input
-	callableBlock := s.lm.Blocks[in.CallableBlockHandler.BlockID]
+	callableBlock := GetBlock(s.lm, in.CallableBlockHandler.BlockID)
 	if callableBlock == nil {
 		return &pb.CommandHandler{
 			CommandID: "",
@@ -158,7 +172,7 @@ func (s *NodeServer) RegisterCommand(ctx context.Context, in *pb.CommandRegistra
 	}
 	argumentsBlocks := []*Block{}
 	for _, block := range in.ArgumentsBlocksHandlers {
-		argumentsBlock := s.lm.Blocks[block.BlockID]
+		argumentsBlock := GetBlock(s.lm, block.BlockID)
 		if argumentsBlock == nil {
 			return &pb.CommandHandler{
 				CommandID: "",
@@ -168,7 +182,7 @@ func (s *NodeServer) RegisterCommand(ctx context.Context, in *pb.CommandRegistra
 	}
 	keywordArgumentsBlocks := map[string]*Block{}
 	for key, block := range in.KwargsBlocksHandlers {
-		keywordArgumentsBlock := s.lm.Blocks[block.BlockID]
+		keywordArgumentsBlock := GetBlock(s.lm, block.BlockID)
 		if keywordArgumentsBlock == nil {
 			return &pb.CommandHandler{
 				CommandID: "",
@@ -348,7 +362,7 @@ func (s *NodeServer) StreamInBlock(stream pb.Node_StreamInBlockServer) error {
 
 func (s *NodeServer) StreamOutBlock(in *pb.BlockHandler, stream pb.Node_StreamOutBlockServer) error {
 	// Get the block from the live memory
-	block := s.lm.Blocks[in.BlockID]
+	block := GetBlock(s.lm, in.BlockID)
 	if block == nil {
 		logger.Error("Block not found", "SERVER", errors.New("Block not found"), logrus.Fields{"block_id": in.BlockID})
 		return status.Errorf(404, "Block not found")

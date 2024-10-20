@@ -1,6 +1,7 @@
 package main
 
 import (
+	"client-engine/config"
 	"client-engine/logger"
 	"client-engine/task"
 
@@ -12,6 +13,7 @@ import (
 type LiveMemory struct {
 	// The Live Memory is a struct that holds all the live data of the server
 	// It is used to store all the live data of the server
+	InstanceID             string
 	Sessions               map[string]*task.Session
 	TaskSetDefinitions     map[string]*task.TaskSet
 	TaskDefinitions        map[string]*task.Definition
@@ -22,7 +24,9 @@ type LiveMemory struct {
 
 func NewLiveMemory() *LiveMemory {
 	// This function initializes a new LiveMemory object
+	instanceID := config.GetConfigs().InstanceID
 	return &LiveMemory{
+		InstanceID:             instanceID,
 		Sessions:               make(map[string]*task.Session),
 		TaskSetDefinitions:     make(map[string]*task.TaskSet),
 		TaskDefinitions:        make(map[string]*task.Definition),

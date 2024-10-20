@@ -26,10 +26,30 @@ const (
 )
 
 // ** Block ** //
+func ClearAllBlocksInDir() error {
+	blockLocationRoot := config.GetConfigs().GetConfigsWithDefault("harpy.remoteRunner.blockMountLocation", "./_blocks")
+	files, err := os.ReadDir(blockLocationRoot)
+	if err != nil {
+		return err
+	}
+	for _, file := range files {
+		err := os.Remove(blockLocationRoot + "/" + file.Name())
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 type Block struct {
 	BlockID        string
 	BlockLocation  string
 	LastAccessTime int64
+}
+
+func (b *Block) CheckBlockExists() bool {
+	_, err := os.Stat(b.BlockLocation)
+	return err == nil
 }
 
 func (b *Block) Cleanup() error {
@@ -46,9 +66,11 @@ func (b *Block) Cleanup() error {
 	} else if b.BlockLocation == "../" {
 		return errors.New("block location is parent directory")
 	}
-	err := os.Remove(b.BlockLocation)
-	if err != nil {
-		return err
+	if b.CheckBlockExists() {
+		err := os.Remove(b.BlockLocation)
+		if err != nil {
+			return err
+		}
 	}
 	return nil
 }

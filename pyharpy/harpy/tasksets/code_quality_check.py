@@ -59,23 +59,6 @@ def validate_function(callable, function_type, expect_output_type=None):
                 errors_description.append("Transform function must have at least one argument and it must be POSITIONAL_OR_KEYWORD kind")
             if not check_3:
                 errors_description.append("Transform functions first argument MUST be match the type of the previous function in the chain")
-    elif function_type == "fan_out":
-        # Fan out function need to have typed input and output
-        # It is expected that the function has two arguments, the first one being the input and the second one being a int value (index)
-        # The first argument MUST be typed according to the EXPECT_OUTPUT_TYPE
-        values = list(function_signature.parameters.values())
-        check_1 = (output_signed and input_signed)
-        check_2 = len(values) == 2 and values[1].annotation == int
-        check_3 = values[0].annotation == expect_output_type
-        if check_1 and check_2 and check_3:
-            return []
-        else:
-            if not check_1:
-                errors_description.append("Fan out function must have typed input and output")
-            if not check_2:
-                errors_description.append("Fan out function must have two arguments, the first one being the input and the second one being a int value (index)")
-            if not check_3:
-                errors_description.append("Fan out functions first argument MUST be match the type of the previous function in the chain")
     else:
         raise ValueError("Invalid function type")
     return errors_description

@@ -179,33 +179,6 @@ class TaskSet:
             raise Exception("Failed to add transform task")
     
     @check_variable('_taskset_handler', INVALID_TASKSET_MESSAGE)
-    def add_fanout(self, fanout_task: FanOutTask) -> 'TaskSet':
-        if self._number_of_nodes_added == 0:
-            raise TaskSetDefinitionError("InvalidFanoutPlacement: Cannot add fanout tasks before map tasks")
-        if self._last_function_type is None:
-            raise TaskSetDefinitionError("InvalidFanoutPlacement: Cannot add fanout tasks without previous map tasks")
-        
-        errors = validate_function(fanout_task.fun, "fanout", self._last_function_type)
-        if len(errors) > 0:
-            errors = [" - " + error for error in errors]
-            raise TaskSetDefinitionError("InvalidFanoutFunction: \n" + "\n".join(errors)
-        )
-        self._last_function_type = get_output_type(fanout_task.fun)
-        # Fanout definition passed all the checks
-        
-        task_handler = self.__define_task__(fanout_task)
-        fanout_adder = FanoutAdder(
-            taskSetHandler=self._taskset_handler,
-            FanouterDefinition=task_handler
-        )
-        response = self._taskset_stub.AddFanout(fanout_adder)
-        if (response.Success):
-            self._number_of_nodes_added += 1
-            return self
-        else:
-            raise Exception("Failed to add fanout task")
-    
-    @check_variable('_taskset_handler', INVALID_TASKSET_MESSAGE)
     def __execute__(self) -> TaskSetResults:
         statusSteam: TaskSetProgressReport = self._taskset_stub.Execute(self._taskset_handler)
         # Here we will later add some tracking to the states, for now we just wait for the taskset to finish

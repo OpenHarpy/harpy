@@ -64,7 +64,6 @@ func NewReducerDefinition(definition Definition) ReducerDefinition {
 }
 
 // MapperDefinition --> This is used to define a mapper that will belong to a task group
-
 type MapperDefinition struct {
 	Definition
 }

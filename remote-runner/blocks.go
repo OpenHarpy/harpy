@@ -5,7 +5,6 @@ import (
 	"os"
 	"remote-runner/config"
 	"strings"
-	"time"
 )
 
 const BlockBufferSizeInBytes = 1024 * 1024 * 4 // 4MB
@@ -42,9 +41,8 @@ func ClearAllBlocksInDir() error {
 }
 
 type Block struct {
-	BlockID        string
-	BlockLocation  string
-	LastAccessTime int64
+	BlockID       string
+	BlockLocation string
 }
 
 func (b *Block) CheckBlockExists() bool {
@@ -148,7 +146,6 @@ func (br *BlockReader) StartReading() error {
 		return err
 	}
 	br.BlockEndAt = int(blockEndAt)
-	br.Block.LastAccessTime = time.Now().Unix()
 	return nil
 }
 
@@ -180,7 +177,6 @@ func (bw *BlockWriter) StartWriting() error {
 	}
 	bw.IOHandler = file
 	bw.BlockState = BlockWriterStateStreaming
-	bw.Block.LastAccessTime = time.Now().Unix()
 	return nil
 }
 

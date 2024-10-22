@@ -44,6 +44,9 @@ func main() {
 		return
 	}
 
+	// Start by clearing all the blocks in the block directory
+	ClearAllBlocksInDir() // This is a temporary function as in the future the UBFS will handle lifecycle of blocks
+
 	// Argument parsing
 	// This is where we will parse the arguments
 	// We will need to parse the arguments to get the nodeID and the resource manager's address

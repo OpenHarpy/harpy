@@ -164,6 +164,7 @@ func (sr *BlockStreamingReader) Read() ([]byte, bool) {
 type BlockInternalReference struct {
 	BlockID         string
 	BlockIdentifier string
+	BlockGroup      string
 }
 
 type Node struct {
@@ -269,19 +270,19 @@ func (n *Node) UnregisterCallback() error {
 	return nil
 }
 
-func (n *Node) RegisterTask(task *TaskDefinition) (string, error) {
+func (n *Node) RegisterTask(task *TaskDefinition, TaskSet *TaskSet) (string, error) {
 	// We start by streaming each block
-	n.Blocks = append(n.Blocks, BlockInternalReference{BlockID: string(task.CallableBlockID), BlockIdentifier: "function-" + task.Name})
+	n.Blocks = append(n.Blocks, BlockInternalReference{BlockID: string(task.CallableBlockID), BlockIdentifier: "function-" + task.Name, BlockGroup: TaskSet.TaskSetId})
 	argumentsBlockIDs := make(map[uint32]*pb.BlockHandler)
 	for index, argument := range task.ArgumentsBlockIDs {
 		argumentsBlockIDs[uint32(index)] = &pb.BlockHandler{BlockID: string(argument)}
 		idAsString := strconv.Itoa(index)
-		n.Blocks = append(n.Blocks, BlockInternalReference{BlockID: string(argument), BlockIdentifier: "argument-" + idAsString + "-" + task.Name})
+		n.Blocks = append(n.Blocks, BlockInternalReference{BlockID: string(argument), BlockIdentifier: "argument-" + idAsString + "-" + task.Name, BlockGroup: TaskSet.TaskSetId})
 	}
 	kwargsBockIDs := make(map[string]*pb.BlockHandler)
 	for key, value := range task.KwargsBlockIDs {
 		kwargsBockIDs[key] = &pb.BlockHandler{BlockID: string(value)}
-		n.Blocks = append(n.Blocks, BlockInternalReference{BlockID: string(value), BlockIdentifier: "kwargs-" + key + "-" + task.Name})
+		n.Blocks = append(n.Blocks, BlockInternalReference{BlockID: string(value), BlockIdentifier: "kwargs-" + key + "-" + task.Name, BlockGroup: TaskSet.TaskSetId})
 	}
 
 	// Now we can register the command
@@ -329,7 +330,56 @@ func (n *Node) GetTaskOutput(commandID string, taskRun *TaskRun) error {
 	OutputBlockID := output.ObjectReturnBlockHandler.BlockID
 	StdoutBlockHandler := output.StdoutBlockHandler
 	StdErrBlockHandler := output.StderrBlockHandler
+
+	// Map the Blocks
+	n.Blocks = append(n.Blocks, BlockInternalReference{BlockID: string(OutputBlockID), BlockIdentifier: "output-" + taskRun.Task.Name, BlockGroup: taskRun.TaskSet.TaskSetId})
+	n.Blocks = append(n.Blocks, BlockInternalReference{BlockID: string(StdoutBlockHandler.BlockID), BlockIdentifier: "stdout-" + taskRun.Task.Name, BlockGroup: taskRun.TaskSet.TaskSetId})
+	n.Blocks = append(n.Blocks, BlockInternalReference{BlockID: string(StdErrBlockHandler.BlockID), BlockIdentifier: "stderr-" + taskRun.Task.Name, BlockGroup: taskRun.TaskSet.TaskSetId})
+
 	taskRun.SetResult(BlockID(OutputBlockID), BlockID(StdoutBlockHandler.BlockID), BlockID(StdErrBlockHandler.BlockID), output.Success)
+	return nil
+}
+
+func (n *Node) FlushUsedBlocks(GroupID string) error {
+	toRemoveFromMem := make(map[int]struct{})
+	for i, block := range n.Blocks {
+		if block.BlockGroup == GroupID {
+			destroyBlock := pb.BlockHandler{BlockID: block.BlockID}
+			ctx, cancel := context.WithTimeout(context.Background(), time.Second*10)
+			defer cancel()
+			ack, err := n.client.DestroyBlock(ctx, &destroyBlock)
+			if err != nil {
+				return err
+			}
+			if !ack.Success {
+				return errors.New("Failed to destroy block [" + ack.ErrorMessage + "]")
+			}
+			toRemoveFromMem[i] = struct{}{}
+		}
+	}
+
+	// Clear memory of the blocks
+	newBlocks := make([]BlockInternalReference, 0, len(n.Blocks)-len(toRemoveFromMem))
+	for i, block := range n.Blocks {
+		if _, found := toRemoveFromMem[i]; !found {
+			newBlocks = append(newBlocks, block)
+		}
+	}
+	n.Blocks = newBlocks
+	return nil
+}
+
+func (n *Node) FlushAllBlocks() error {
+	isolatedEnv := pb.IsolatedEnv{IsolatedEnvID: n.SessionID}
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*10)
+	defer cancel()
+	ack, err := n.client.ClearBlocks(ctx, &isolatedEnv)
+	if err != nil {
+		return err
+	}
+	if !ack.Success {
+		return errors.New("Failed to clear blocks [" + ack.ErrorMessage + "]")
+	}
 	return nil
 }
 
@@ -470,4 +520,10 @@ func (n *NodeTracker) Close() {
 	n.ResourceManager.disconnect()
 	n.NodeTrackerHeartbeatExit <- true
 	n.NodeTrackerHeartbeatWaitGroup.Wait() // Wait for the heartbeat to finish
+}
+
+func (n *NodeTracker) FlushBlocks(GroupID string) {
+	for _, node := range n.NodesList {
+		node.FlushUsedBlocks(GroupID)
+	}
 }

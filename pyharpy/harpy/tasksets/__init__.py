@@ -16,6 +16,7 @@ from harpy.grpc_ce_protocol.ceprotocol_pb2 import (
     MapAdder,
     ReduceAdder,
     TransformAdder,
+    FanoutAdder,
     
     ProgressType
 )
@@ -23,10 +24,11 @@ from harpy.grpc_ce_protocol.ceprotocol_pb2_grpc import (
     TaskSetStub,
 )
 from harpy.processing.types import (
-    MapTask, ReduceTask, TransformTask, TaskSetResults, Result
+    MapTask, ReduceTask, TransformTask, FanOutTask, TaskSetResults, Result
 )
 from harpy.tasksets.code_quality_check import validate_function, get_output_type
 from harpy.session.block_read_write_proxy import BlockReadWriteProxy
+from harpy.tasksets.progress_displays import TerminalProgressViewer
 
 INVALID_TASKSET_MESSAGE = "TaskSet is not valid, please make sure to create a taskset before using it"
 STREAM_CHUNK_SIZE = 1024*1024 # 1MB
@@ -177,25 +179,64 @@ class TaskSet:
             raise Exception("Failed to add transform task")
     
     @check_variable('_taskset_handler', INVALID_TASKSET_MESSAGE)
-    def execute(self) -> TaskSetResults:
+    def add_fanout(self, fanout_task: FanOutTask) -> 'TaskSet':
+        if self._number_of_nodes_added == 0:
+            raise TaskSetDefinitionError("InvalidFanoutPlacement: Cannot add fanout tasks before map tasks")
+        if self._last_function_type is None:
+            raise TaskSetDefinitionError("InvalidFanoutPlacement: Cannot add fanout tasks without previous map tasks")
+        
+        errors = validate_function(fanout_task.fun, "fanout", self._last_function_type)
+        if len(errors) > 0:
+            errors = [" - " + error for error in errors]
+            raise TaskSetDefinitionError("InvalidFanoutFunction: \n" + "\n".join(errors)
+        )
+        self._last_function_type = get_output_type(fanout_task.fun)
+        # Fanout definition passed all the checks
+        
+        task_handler = self.__define_task__(fanout_task)
+        fanout_adder = FanoutAdder(
+            taskSetHandler=self._taskset_handler,
+            FanouterDefinition=task_handler
+        )
+        response = self._taskset_stub.AddFanout(fanout_adder)
+        if (response.Success):
+            self._number_of_nodes_added += 1
+            return self
+        else:
+            raise Exception("Failed to add fanout task")
+    
+    @check_variable('_taskset_handler', INVALID_TASKSET_MESSAGE)
+    def __execute__(self) -> TaskSetResults:
         statusSteam: TaskSetProgressReport = self._taskset_stub.Execute(self._taskset_handler)
         # Here we will later add some tracking to the states, for now we just wait for the taskset to finish
         # We will also print the progress as we go
         last_taskset_status = "running"
-        taskset_id = self._taskset_handler.taskSetId               
-        
+        taskset_id = self._taskset_handler.taskSetId
+        pview = TerminalProgressViewer()
+        current_taskgroup = ""
         for taskSetStatus in statusSteam:
+            details = taskSetStatus.ProgressDetails
             if taskSetStatus.ProgressType == ProgressType.TaskSetProgress:
-                print(f"TaskSet {taskSetStatus.RelatedID}: {taskSetStatus.ProgressMessage}")
                 last_taskset_status = taskSetStatus.StatusMessage
                 taskset_id = taskSetStatus.RelatedID
             elif taskSetStatus.ProgressType == ProgressType.TaskGroupProgress:
-                print(f"TaskGroup {taskSetStatus.RelatedID} made progress")
+                current_taskgroup = details['taskgroup_name']
+                #print(f"TaskGroup {taskSetStatus.RelatedID} made progress")
             elif taskSetStatus.ProgressType == ProgressType.TaskProgress:
-                print(f"Task {taskSetStatus.RelatedID}: {taskSetStatus.StatusMessage}")
-            
-        print("Getting results")
+                if current_taskgroup != "":
+                    pview.add_step(current_taskgroup, taskSetStatus.RelatedID)
+                    if taskSetStatus.StatusMessage == "running":
+                        pview.task_running(current_taskgroup, taskSetStatus.RelatedID)
+                    elif taskSetStatus.StatusMessage == "done":
+                        pview.task_success(current_taskgroup, taskSetStatus.RelatedID)
+                    elif taskSetStatus.StatusMessage == "panic":
+                            pview.task_fail(current_taskgroup, taskSetStatus.RelatedID)
+                    pview.print_progress()
+                #print(f"Task {taskSetStatus.RelatedID}: {taskSetStatus.StatusMessage}")
+        pview.add_step("Getting results", "Getting results")
+        pview.task_running("Getting results", "Getting results")
         response: TaskSetResult = self._taskset_stub.GetTaskSetResults(self._taskset_handler)
+        pview.task_success("Getting results", "Getting results")
         return TaskSetResults(
             task_set_id=taskset_id,
             results=[
@@ -208,9 +249,13 @@ class TaskSet:
     
     @check_variable('_taskset_handler', INVALID_TASKSET_MESSAGE)
     def run(self) -> List[Any]:
-        result = self.execute()
+        ## run is safer than execute, as it will dismantle the taskset after execution
+        result = self.__execute__()
         if result.success == False:
+            self.__dismantle__()
             raise TaskSetRuntimeError("TaskSet failed to execute", error_text=result.results[0].std_err)
+        # dismantle taskset
+        self.__dismantle__()
         return [task.result for task in result.results]
     
     def __dismantle__(self):

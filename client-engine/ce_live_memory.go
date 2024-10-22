@@ -16,6 +16,7 @@ type LiveMemory struct {
 	InstanceID             string
 	Sessions               map[string]*task.Session
 	TaskSetDefinitions     map[string]*task.TaskSet
+	TaskSetSession         map[string]string // This is a map of taskSetID and sessionID
 	TaskDefinitions        map[string]*task.Definition
 	CallbackPointers       map[string]func(string, task.Status) error
 	CommandCallbackPointer map[string]string
@@ -29,6 +30,7 @@ func NewLiveMemory() *LiveMemory {
 		InstanceID:             instanceID,
 		Sessions:               make(map[string]*task.Session),
 		TaskSetDefinitions:     make(map[string]*task.TaskSet),
+		TaskSetSession:         make(map[string]string),
 		TaskDefinitions:        make(map[string]*task.Definition),
 		CallbackPointers:       make(map[string]func(string, task.Status) error),
 		CommandCallbackPointer: make(map[string]string),

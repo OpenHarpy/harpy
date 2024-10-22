@@ -17,13 +17,11 @@ import (
 
 const (
 	// TODO: Make these configurable via the configs
-	port                        = ":50053"
-	processPoolingInterval      = 200 * time.Millisecond
-	timeoutAfterGettingResult   = 30 * time.Second
-	timeoutProcessNotTriggered  = 120 * time.Second
-	heartbeatInterval           = 10 * time.Second
-	blockAccessTimeout          = 600 * time.Second
-	blockCleanerTriggerInterval = 120 * time.Second
+	port                       = ":50053"
+	processPoolingInterval     = 200 * time.Millisecond
+	timeoutAfterGettingResult  = 30 * time.Second
+	timeoutProcessNotTriggered = 120 * time.Second
+	heartbeatInterval          = 10 * time.Second
 
 	allowParallelProcesses = 4
 )
@@ -154,6 +152,7 @@ func GetBlock(lm *LiveMemory, blockID string) *Block {
 		// Check if the block is in the file system
 		block = NewBlock(blockID)
 		blockExists := block.CheckBlockExists()
+		lm.Blocks[blockID] = block
 		if !blockExists {
 			// If not found return an error
 			return nil
@@ -393,6 +392,34 @@ func (s *NodeServer) StreamOutBlock(in *pb.BlockHandler, stream pb.Node_StreamOu
 	}
 	// We are done now we can close the stream (EOF)
 	return nil
+}
+
+func (s *NodeServer) DestroyBlock(ctx context.Context, in *pb.BlockHandler) (*pb.Ack, error) {
+	// Get the block from the live memory
+	block := GetBlock(s.lm, in.BlockID)
+	if block == nil {
+		logger.Error("Block not found", "SERVER", errors.New("Block not found"), logrus.Fields{"block_id": in.BlockID})
+		return &pb.Ack{
+			Success:      false,
+			ErrorMessage: "Block not found",
+		}, nil
+	}
+	// Remove the block from the live memory
+	block.Cleanup()
+	delete(s.lm.Blocks, in.BlockID)
+	return &pb.Ack{
+		Success:      true,
+		ErrorMessage: "",
+	}, nil
+}
+
+func (s *NodeServer) ClearBlocks(ctx context.Context, in *pb.IsolatedEnv) (*pb.Ack, error) {
+	// Cleanup the blocks
+	CleanBlocks(s.lm.Blocks)
+	return &pb.Ack{
+		Success:      true,
+		ErrorMessage: "",
+	}, nil
 }
 
 func ReportToCallbackClient(lm *LiveMemory, CommandID string, status string) {

@@ -52,13 +52,15 @@ type TaskRun struct {
 	Task      *TaskDefinition
 	Reporter  *Reporter
 	Result    *Result
+	TaskSet   *TaskSet
 	TaskRunID string
 	Status    Status
 }
 
-func NewTaskRun(task *TaskDefinition, taskRunID string, reporter *Reporter) *TaskRun {
+func NewTaskRun(task *TaskDefinition, taskRunID string, reporter *Reporter, taskSet *TaskSet) *TaskRun {
 	return &TaskRun{
 		Task: task, TaskRunID: taskRunID, Reporter: reporter, Status: "pending", Result: nil,
+		TaskSet: taskSet,
 	}
 }
 

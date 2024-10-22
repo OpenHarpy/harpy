@@ -55,6 +55,7 @@ func (t TaskSet) generateDefaultTaskGroup(factory TaskFactory, options map[strin
 		name,
 		t.TaskGroupReporter,
 		t.TaskReporter,
+		&t,
 	)
 	return tskGrp
 }

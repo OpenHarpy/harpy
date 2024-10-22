@@ -38,17 +38,31 @@ def fs_wc(path: str) -> int:
         return len(file.readlines())
 
 def fs_mkdir(path: str, recursive: bool = False) -> bool:
-    if recursive:
-        os.makedirs(path, exist_ok=True)
-    else:
-        os.mkdir(path)
+    try:
+        if recursive:
+            os.makedirs(path, exist_ok=True)
+        else:
+            os.mkdir(path)
+    except Exception as e:
+        print(e)
+        return False
     return True
 
 def fs_rm(path: str, recursive: bool = False) -> bool:
-    if recursive:
-        shutil.rmtree(path)
-    else:
-        os.remove(path)
+    # Check if its root or . or ..
+    if path in ["/", ".", ".."]:
+        raise FileSystemException("Cannot delete root directory or . or ..")
+    # We need to check if the path is a directory or a file
+    if not os.path.exists(path):
+        return False
+    try:
+        if recursive:
+            shutil.rmtree(path)
+        else:
+            os.remove(path)
+    except Exception as e:
+        print(e)
+        return False
     return True
 
 def run_fs_command(session, func: callable, path: str, *args, **kwargs):

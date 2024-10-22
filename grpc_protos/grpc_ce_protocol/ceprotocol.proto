@@ -78,6 +78,10 @@ message TransformAdder {
   TaskSetHandler taskSetHandler = 1;
   TaskHandler TransformerDefinition = 2;
 }
+message FanOutAdder {
+  TaskSetHandler taskSetHandler = 1;
+  TaskSetHandler FanOutDefinition = 2;
+}
 
 // While executing a task set, the server will stream back progress reports
 // --> OnTaskSetProgress
@@ -103,6 +107,7 @@ service TaskSet {
   rpc AddMap (MapAdder) returns (TaskAdderResult) {}
   rpc AddReduce (ReduceAdder) returns (TaskAdderResult) {}
   rpc AddTransform (TransformAdder) returns (TaskAdderResult) {}
+  rpc AddFanout (FanOutAdder) returns (TaskAdderResult) {}
   rpc Execute (TaskSetHandler) returns (stream TaskSetProgressReport) {}
   rpc Dismantle (TaskSetHandler) returns (TaskSetHandler) {}
 

@@ -223,6 +223,12 @@ func (p *Process) SetResultFetchTime() {
 	p.ResultFetchTime = time.Now().Unix()
 }
 
+func CleanBlocks(blocks map[string]*Block) {
+	for _, block := range blocks {
+		block.Cleanup()
+	}
+}
+
 func ExitCleanAll(lm *LiveMemory) {
 	// This function will clean up all the processes
 	for _, process := range lm.Process {
@@ -233,8 +239,5 @@ func ExitCleanAll(lm *LiveMemory) {
 		env.Cleanup()
 	}
 	// Cleanup the blocks
-	for _, block := range lm.Blocks {
-		block.Cleanup()
-	}
-	ClearAllBlocksInDir()
+	CleanBlocks(lm.Blocks)
 }

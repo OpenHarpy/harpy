@@ -40,6 +40,7 @@ func (lm *LiveMemory) CreateTaskSet(sess *task.Session) *task.TaskSet {
 	// Create a new task set
 	ts := sess.CreateTaskSet()
 	lm.TaskSetDefinitions[ts.TaskSetId] = ts
+	lm.TaskSetSession[ts.TaskSetId] = sess.SessionId
 	return ts
 }
 
@@ -128,7 +129,6 @@ func (s *CEgRPCServer) AddMap(ctx context.Context, in *pb.MapAdder) (*pb.TaskAdd
 		}
 		taskDef := task.NewMapperDefinition(*taskInMem)
 		taskDefinitions = append(taskDefinitions, taskDef)
-		// We can now flush the task definition from the live memory
 		delete(s.lm.TaskDefinitions, taskHandler.TaskID)
 	}
 	opt := map[string]string{}
@@ -304,7 +304,12 @@ func (s *CEgRPCServer) Dismantle(ctx context.Context, in *pb.TaskSetHandler) (*p
 	// Dismantle the task set - For this we will simply remove the task set from the live memory
 	//  Hopefully the garbage collector will take care of the rest
 	delete(s.lm.TaskSetDefinitions, in.TaskSetId)
+	sessionID := s.lm.TaskSetSession[in.TaskSetId]
+	session := s.lm.Sessions[sessionID]
+	session.DismantleTaskSet(in.TaskSetId)
 	logger.Info("Dismantled task set", "TASKSET-SERVICE", logrus.Fields{"task_set_id": in.TaskSetId})
+	// Force the garbage collector to run
+	runtime.GC()
 	return &pb.TaskSetHandler{TaskSetId: "", Success: true}, nil
 }
 

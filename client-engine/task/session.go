@@ -121,11 +121,20 @@ func (s *Session) GetTaskSet(idx string) *TaskSet {
 	return taskSet
 }
 
+func (s *Session) DismantleTaskSet(idx string) {
+	taskSet, exists := s.TaskSets[idx]
+	if !exists {
+		panic(fmt.Sprintf("TaskSet with id %s does not exist", idx))
+	}
+	// Flush any block related to the task set
+	s.NodeTracker.FlushBlocks(taskSet.TaskSetId)
+	delete(s.TaskSets, idx)
+}
+
 func (s *Session) Close() {
 	// To close the session we will simply delete all the tasks from the session tracker
 	//  Hopefully the garbage collector will take care of the rest
 	s.TaskSets = nil
 	s.NodeTracker.Close()
 	s.NodeTracker = nil
-	// Ensure there is no reference to ResourceManager
 }

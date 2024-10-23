@@ -318,6 +318,9 @@ func (n *Node) RunCommand(commandID string) error {
 }
 
 func (n *Node) GetTaskOutput(commandID string, taskRun *TaskRun) error {
+	if taskRun.TaskSet == nil {
+		panic(errors.New("taskSet cannot be nil"))
+	}
 	//    rpc GetCommandOutput (CommandHandler) returns (CommandOutputChunk) {}
 	commandHandler := pb.CommandHandler{CommandID: commandID}
 	// We need to get the block handlers for the output
@@ -340,7 +343,7 @@ func (n *Node) GetTaskOutput(commandID string, taskRun *TaskRun) error {
 	return nil
 }
 
-func (n *Node) FlushUsedBlocks(GroupID string) error {
+func (n *Node) FlushUsedBlocks(GroupID string) {
 	toRemoveFromMem := make(map[int]struct{})
 	for i, block := range n.Blocks {
 		if block.BlockGroup == GroupID {
@@ -349,10 +352,11 @@ func (n *Node) FlushUsedBlocks(GroupID string) error {
 			defer cancel()
 			ack, err := n.client.DestroyBlock(ctx, &destroyBlock)
 			if err != nil {
-				return err
+				logger.Error("Critical failure when removing block", "NODE", err)
 			}
 			if !ack.Success {
-				return errors.New("Failed to destroy block [" + ack.ErrorMessage + "]")
+				// This error can be expected so we can just warn it (in the future we can even ignore it completely)
+				logger.Warn("Failed to destroy block, this can be normal depending on the taskset", "NODE", logrus.Fields{"BlockID": block.BlockID, "BlockIdentifier": block.BlockIdentifier, "BlockGroup": block.BlockGroup})
 			}
 			toRemoveFromMem[i] = struct{}{}
 		}
@@ -366,7 +370,10 @@ func (n *Node) FlushUsedBlocks(GroupID string) error {
 		}
 	}
 	n.Blocks = newBlocks
-	return nil
+	// If blocks are still in memory then we dump them to the standard output
+	for _, block := range n.Blocks {
+		logger.Warn("Block still in memory", "NODE", logrus.Fields{"BlockID": block.BlockID, "BlockIdentifier": block.BlockIdentifier, "BlockGroup": block.BlockGroup})
+	}
 }
 
 func (n *Node) FlushAllBlocks() error {
@@ -523,7 +530,6 @@ func (n *NodeTracker) Close() {
 }
 
 func (n *NodeTracker) FlushBlocks(GroupID string) {
-	for _, node := range n.NodesList {
-		node.FlushUsedBlocks(GroupID)
-	}
+	node := n.GetNextNode() // Get any node to flush the blocks (we plan to use a distributed file system in the future)
+	node.FlushUsedBlocks(GroupID)
 }

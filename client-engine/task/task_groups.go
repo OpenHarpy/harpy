@@ -234,6 +234,9 @@ func NewTaskGroup(
 	taskReporter *Reporter,
 	taskSet *TaskSet,
 ) *TaskGroup {
+	if taskSet == nil {
+		panic(errors.New("taskSet cannot be nil"))
+	}
 	return &TaskGroup{
 		TaskGroupID:       taskGroupID,
 		TaskGenerator:     taskGenerator,

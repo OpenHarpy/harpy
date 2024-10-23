@@ -29,7 +29,7 @@ func (lm *LiveMemory) CreateSession(options map[string]string) *task.Session {
 	)
 	if err != nil {
 		// TODO: We should handle this error
-		logger.Error("failed_to_create_session", "SESSION-SERVICE", err)
+		logger.Error("failed_to_create_session", "SESSION_SERVICE", err)
 		return nil
 	}
 	lm.Sessions[sess.SessionId] = sess
@@ -60,8 +60,8 @@ func (s *CEgRPCServer) CreateSession(ctx context.Context, in *pb.SessionRequest)
 		options[key] = value
 	}
 	sess := s.lm.CreateSession(options)
-	logger.Info("Created session", "SESSION-SERVICE", logrus.Fields{"session_id": sess.SessionId})
-	logger.Info("Session options", "SESSION-SERVICE", logrus.Fields{"options": in.Options})
+	logger.Info("Created session", "SESSION_SERVICE", logrus.Fields{"session_id": sess.SessionId})
+	logger.Info("Session options", "SESSION_SERVICE", logrus.Fields{"options": in.Options})
 	return &pb.SessionHandler{SessionId: sess.SessionId}, nil
 }
 func (s *CEgRPCServer) CloseSession(ctx context.Context, in *pb.SessionHandler) (*pb.SessionHandler, error) {
@@ -69,23 +69,23 @@ func (s *CEgRPCServer) CloseSession(ctx context.Context, in *pb.SessionHandler) 
 	// Hopefully the garbage collector will take care of the rest
 	sess, ok := s.lm.Sessions[in.SessionId]
 	if !ok {
-		logger.Warn("session_not_found", "SESSION-SERVICE", logrus.Fields{"session_id": in.SessionId})
+		logger.Warn("session_not_found", "SESSION_SERVICE", logrus.Fields{"session_id": in.SessionId})
 		return &pb.SessionHandler{SessionId: ""}, nil
 	}
 	sess.Close()
 	delete(s.lm.Sessions, in.SessionId)
-	logger.Info("Closed session", "SESSION-SERVICE", logrus.Fields{"session_id": in.SessionId})
+	logger.Info("Closed session", "SESSION_SERVICE", logrus.Fields{"session_id": in.SessionId})
 	runtime.GC() // Run the garbage collector
 	return &pb.SessionHandler{SessionId: "", Success: true}, nil
 }
 func (s *CEgRPCServer) CreateTaskSet(ctx context.Context, in *pb.SessionHandler) (*pb.TaskSetHandler, error) {
 	sess, ok := s.lm.Sessions[in.SessionId]
 	if !ok {
-		logger.Warn("session_not_found", "SESSION-SERVICE", logrus.Fields{"session_id": in.SessionId})
+		logger.Warn("session_not_found", "SESSION_SERVICE", logrus.Fields{"session_id": in.SessionId})
 		return &pb.TaskSetHandler{TaskSetId: "", Success: false}, nil
 	}
 	ts := s.lm.CreateTaskSet(sess)
-	logger.Info("Created task set", "SESSION-SERVICE", logrus.Fields{"task_set_id": ts.TaskSetId})
+	logger.Info("Created task set", "SESSION_SERVICE", logrus.Fields{"task_set_id": ts.TaskSetId})
 	return &pb.TaskSetHandler{TaskSetId: ts.TaskSetId}, nil
 }
 
@@ -108,14 +108,14 @@ func (s *CEgRPCServer) DefineTask(ctx context.Context, taskDefinition *pb.TaskDe
 		KwargsBlockIDs:    Kwargs,
 	}
 	s.lm.TaskDefinitions[taskDefID] = &taskDef
-	logger.Info("Defined task", "TASKSET-SERVICE", logrus.Fields{"task_id": taskDefID})
+	logger.Info("Defined task", "TASKSET_SERVICE", logrus.Fields{"task_id": taskDefID})
 	return &pb.TaskHandler{TaskID: taskDefID}, nil
 }
 
 func (s *CEgRPCServer) AddMap(ctx context.Context, in *pb.MapAdder) (*pb.TaskAdderResult, error) {
 	ts, ok := s.lm.TaskSetDefinitions[in.TaskSetHandler.TaskSetId]
 	if !ok {
-		logger.Warn("task_set_not_found", "TASKSET-SERVICE", logrus.Fields{"task_set_id": in.TaskSetHandler.TaskSetId})
+		logger.Warn("task_set_not_found", "TASKSET_SERVICE", logrus.Fields{"task_set_id": in.TaskSetHandler.TaskSetId})
 		return &pb.TaskAdderResult{Success: false, ErrorMesssage: "Task Set not found"}, nil
 	}
 
@@ -124,7 +124,7 @@ func (s *CEgRPCServer) AddMap(ctx context.Context, in *pb.MapAdder) (*pb.TaskAdd
 	for _, taskHandler := range in.MappersDefinition {
 		taskInMem, ok := s.lm.TaskDefinitions[taskHandler.TaskID]
 		if !ok {
-			logger.Warn("task_definition_not_found", "TASKSET-SERVICE", logrus.Fields{"task_id": taskHandler.TaskID})
+			logger.Warn("task_definition_not_found", "TASKSET_SERVICE", logrus.Fields{"task_id": taskHandler.TaskID})
 			return &pb.TaskAdderResult{Success: false, ErrorMesssage: "Task Definition not found"}, nil
 		}
 		taskDef := task.NewMapperDefinition(*taskInMem)
@@ -133,14 +133,14 @@ func (s *CEgRPCServer) AddMap(ctx context.Context, in *pb.MapAdder) (*pb.TaskAdd
 	}
 	opt := map[string]string{}
 	ts.Map(taskDefinitions, opt)
-	logger.Info("Added map to task set", "TASKSET-SERVICE", logrus.Fields{"task_set_id": in.TaskSetHandler.TaskSetId})
+	logger.Info("Added map to task set", "TASKSET_SERVICE", logrus.Fields{"task_set_id": in.TaskSetHandler.TaskSetId})
 	return &pb.TaskAdderResult{Success: true, ErrorMesssage: ""}, nil
 }
 
 func (s *CEgRPCServer) AddReduce(ctx context.Context, in *pb.ReduceAdder) (*pb.TaskAdderResult, error) {
 	ts, ok := s.lm.TaskSetDefinitions[in.TaskSetHandler.TaskSetId]
 	if !ok {
-		logger.Warn("task_set_not_found", "TASKSET-SERVICE", logrus.Fields{"task_set_id": in.TaskSetHandler.TaskSetId})
+		logger.Warn("task_set_not_found", "TASKSET_SERVICE", logrus.Fields{"task_set_id": in.TaskSetHandler.TaskSetId})
 		return &pb.TaskAdderResult{Success: false, ErrorMesssage: "Task Set not found"}, nil
 	}
 
@@ -148,7 +148,7 @@ func (s *CEgRPCServer) AddReduce(ctx context.Context, in *pb.ReduceAdder) (*pb.T
 	taskHandler := in.ReducerDefinition
 	taskInMem, ok := s.lm.TaskDefinitions[taskHandler.TaskID]
 	if !ok {
-		logger.Warn("task_definition_not_found", "TASKSET-SERVICE", logrus.Fields{"task_id": taskHandler.TaskID})
+		logger.Warn("task_definition_not_found", "TASKSET_SERVICE", logrus.Fields{"task_id": taskHandler.TaskID})
 		return &pb.TaskAdderResult{Success: false, ErrorMesssage: "Task Definition not found"}, nil
 	}
 	taskDef := task.NewReducerDefinition(*taskInMem)
@@ -156,14 +156,14 @@ func (s *CEgRPCServer) AddReduce(ctx context.Context, in *pb.ReduceAdder) (*pb.T
 	delete(s.lm.TaskDefinitions, taskHandler.TaskID)
 	opt := map[string]string{}
 	ts.Reduce(taskDef, opt)
-	logger.Info("Added reduce to task set", "TASKSET-SERVICE", logrus.Fields{"task_set_id": in.TaskSetHandler.TaskSetId})
+	logger.Info("Added reduce to task set", "TASKSET_SERVICE", logrus.Fields{"task_set_id": in.TaskSetHandler.TaskSetId})
 	return &pb.TaskAdderResult{Success: true, ErrorMesssage: ""}, nil
 }
 
 func (s *CEgRPCServer) AddTransform(ctx context.Context, in *pb.TransformAdder) (*pb.TaskAdderResult, error) {
 	ts, ok := s.lm.TaskSetDefinitions[in.TaskSetHandler.TaskSetId]
 	if !ok {
-		logger.Warn("task_set_not_found", "TASKSET-SERVICE", logrus.Fields{"task_set_id": in.TaskSetHandler.TaskSetId})
+		logger.Warn("task_set_not_found", "TASKSET_SERVICE", logrus.Fields{"task_set_id": in.TaskSetHandler.TaskSetId})
 		return &pb.TaskAdderResult{Success: false, ErrorMesssage: "Task Set not found"}, nil
 	}
 
@@ -171,7 +171,7 @@ func (s *CEgRPCServer) AddTransform(ctx context.Context, in *pb.TransformAdder) 
 	taskHandler := in.TransformerDefinition
 	taskInMem, ok := s.lm.TaskDefinitions[taskHandler.TaskID]
 	if !ok {
-		logger.Warn("task_definition_not_found", "TASKSET-SERVICE", logrus.Fields{"task_id": taskHandler.TaskID})
+		logger.Warn("task_definition_not_found", "TASKSET_SERVICE", logrus.Fields{"task_id": taskHandler.TaskID})
 		return &pb.TaskAdderResult{Success: false, ErrorMesssage: "Task Definition not found"}, nil
 	}
 	taskDef := task.NewTransformerDefinition(*taskInMem)
@@ -179,7 +179,7 @@ func (s *CEgRPCServer) AddTransform(ctx context.Context, in *pb.TransformAdder) 
 	delete(s.lm.TaskDefinitions, taskHandler.TaskID)
 	opt := map[string]string{}
 	ts.Transform(taskDef, opt)
-	logger.Info("Added transform to task set", "TASKSET-SERVICE", logrus.Fields{"task_set_id": in.TaskSetHandler.TaskSetId})
+	logger.Info("Added transform to task set", "TASKSET_SERVICE", logrus.Fields{"task_set_id": in.TaskSetHandler.TaskSetId})
 	return &pb.TaskAdderResult{Success: true, ErrorMesssage: ""}, nil
 }
 
@@ -255,20 +255,20 @@ func (s *CEgRPCServer) Execute(in *pb.TaskSetHandler, stream pb.TaskSet_ExecuteS
 	// Prior to executing we will force the garbage collector to run
 	runtime.GC() // This is because we are removing task definitions from the live memory and we want to free up the memory
 	ts := s.lm.TaskSetDefinitions[in.TaskSetId]
-	logger.Info("Executing task set", "TASKSET-SERVICE", logrus.Fields{"task_set_id": ts.TaskSetId})
+	logger.Info("Executing task set", "TASKSET_SERVICE", logrus.Fields{"task_set_id": ts.TaskSetId})
 
 	// We add a new listener to the task set
 	session := ts.Session
 	listener := &TaskSetStreamListener{stream: stream}
 	uuid := session.AddTaskSetListener(listener)
 
-	result, err := ts.Execute()
+	_, err := ts.Execute()
 	if err != nil {
-		logger.Error("Error executing task set", "TASKSET-SERVICE", err)
+		logger.Error("Error executing task set", "TASKSET_SERVICE", err)
 		return err
 	}
 
-	logger.Info("Task set executed", "TASKSET-SERVICE", logrus.Fields{"task_set_id": result.Results})
+	logger.Info("Task set executed", "TASKSET_SERVICE", logrus.Fields{"task_set_id": in.TaskSetId})
 	session.RemoveTaskSetListener(uuid)
 	return nil
 }
@@ -276,10 +276,10 @@ func (s *CEgRPCServer) Execute(in *pb.TaskSetHandler, stream pb.TaskSet_ExecuteS
 func (s *CEgRPCServer) GetTaskSetResults(ctx context.Context, in *pb.TaskSetHandler) (*pb.TaskSetResult, error) {
 	ts, ok := s.lm.TaskSetDefinitions[in.TaskSetId]
 	if !ok {
-		logger.Warn("task_set_not_found", "TASKSET-SERVICE", logrus.Fields{"task_set_id": in.TaskSetId})
+		logger.Warn("task_set_not_found", "TASKSET_SERVICE", logrus.Fields{"task_set_id": in.TaskSetId})
 		return &pb.TaskSetResult{TaskSetID: in.TaskSetId, OverallSuccess: false}, nil
 	}
-	logger.Info("Getting task set results", "TASKSET-SERVICE", logrus.Fields{"task_set_id": ts.TaskSetId})
+	logger.Info("Getting task set results", "TASKSET_SERVICE", logrus.Fields{"task_set_id": ts.TaskSetId})
 	results := ts.GetTaskSetResult()
 	taskResults := []*pb.TaskResult{}
 	for _, result := range results.Results {
@@ -307,7 +307,7 @@ func (s *CEgRPCServer) Dismantle(ctx context.Context, in *pb.TaskSetHandler) (*p
 	sessionID := s.lm.TaskSetSession[in.TaskSetId]
 	session := s.lm.Sessions[sessionID]
 	session.DismantleTaskSet(in.TaskSetId)
-	logger.Info("Dismantled task set", "TASKSET-SERVICE", logrus.Fields{"task_set_id": in.TaskSetId})
+	logger.Info("Dismantled task set", "TASKSET_SERVICE", logrus.Fields{"task_set_id": in.TaskSetId})
 	// Force the garbage collector to run
 	runtime.GC()
 	return &pb.TaskSetHandler{TaskSetId: "", Success: true}, nil
@@ -328,13 +328,13 @@ func (s *CEgRPCServer) PutBlock(stream pb.BlockProxy_PutBlockServer) error {
 		if blockWritter == nil {
 			session := s.lm.Sessions[sessionID]
 			if session == nil {
-				logger.Warn("session_not_found", "BLOCK-PROXY", logrus.Fields{"session_id": sessionID})
+				logger.Warn("session_not_found", "BLOCK_PROXY", logrus.Fields{"session_id": sessionID})
 				return status.Error(404, "Session not found")
 			}
 			blockWritter = session.GetBlockWriter()
 			if blockWritter == nil {
 				err := errors.New("failed to create block writter")
-				logger.Error("Failed to create block writter", "BLOCK-PROXY", err)
+				logger.Error("Failed to create block writter", "BLOCK_PROXY", err)
 				return status.Error(500, "Unexpected error, unable to create block writter")
 			}
 		}
@@ -352,18 +352,18 @@ func (s *CEgRPCServer) PutBlock(stream pb.BlockProxy_PutBlockServer) error {
 func (s *CEgRPCServer) GetBlock(in *pb.ProxyBlockHandler, stream pb.BlockProxy_GetBlockServer) error {
 	sessionID := in.SessionHandler.SessionId
 	blockID := in.BlockID
-	logger.Info("Getting block", "BLOCK-PROXY", logrus.Fields{"session_id": sessionID, "block_id": blockID})
+	logger.Info("Getting block", "BLOCK_PROXY", logrus.Fields{"session_id": sessionID, "block_id": blockID})
 
 	session := s.lm.Sessions[sessionID]
 	if session == nil {
-		logger.Warn("session_not_found", "BLOCK-PROXY", logrus.Fields{"session_id": sessionID})
+		logger.Warn("session_not_found", "BLOCK_PROXY", logrus.Fields{"session_id": sessionID})
 		return status.Error(404, "Session not found")
 	}
 
 	blockReader := session.GetBlockReaderForBlock(blockID)
 	if blockReader == nil {
 		err := errors.New("failed to create block reader")
-		logger.Error("Failed to create block reader", "BLOCK-PROXY", err)
+		logger.Error("Failed to create block reader", "BLOCK_PROXY", err)
 		return status.Error(500, "Unexpected error, unable to create block reader")
 	}
 

@@ -122,12 +122,12 @@ func (s *Session) GetTaskSet(idx string) *TaskSet {
 }
 
 func (s *Session) DismantleTaskSet(idx string) {
-	taskSet, exists := s.TaskSets[idx]
+	_, exists := s.TaskSets[idx]
 	if !exists {
 		panic(fmt.Sprintf("TaskSet with id %s does not exist", idx))
 	}
 	// Flush any block related to the task set
-	s.NodeTracker.FlushBlocks(taskSet.TaskSetId)
+	s.NodeTracker.FlushBlocks(idx)
 	delete(s.TaskSets, idx)
 }
 

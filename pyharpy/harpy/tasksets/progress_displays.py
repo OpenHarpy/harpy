@@ -1,31 +1,55 @@
+from abc import ABC, abstractmethod
 from uuid import uuid4
 from IPython.display import display, HTML
+from tqdm import tqdm
+from harpy.configs import Configs
 
-class TerminalProgressViewer:
+class ProgressViewer(ABC):
     def __init__(self):
-        # Start a new progress viewer
-        # In jupyter notebook you can use a dedicated output cell to display the progress
-        # Create new output cell
-        self.id = str(uuid4())
-        self.display_handle = display(HTML('<div>Starting up...</div>'), display_id=self.id)
         self._steps = {}
         self._current_step = 0
-    
+
+    @abstractmethod
+    def add_step(self, step, task):
+        pass
+
+    @abstractmethod
+    def task_running(self, step, task):
+        pass
+
+    @abstractmethod
+    def task_success(self, step, task):
+        pass
+
+    @abstractmethod
+    def task_fail(self, step, task):
+        pass
+
+    @abstractmethod
+    def print_progress(self):
+        pass
+
+class JupyterProgressViewer(ProgressViewer):
+    def __init__(self):
+        super().__init__()
+        self.id = str(uuid4())
+        self.display_handle = display(HTML('<div>Starting up...</div>'), display_id=self.id)
+
     def add_step(self, step, task):
         if step not in self._steps:
             self._steps[step] = {}
         if task not in self._steps[step]:
-            self._steps[step][task] = { 'progress': 'pending' }
-    
+            self._steps[step][task] = {'progress': 'pending'}
+
     def task_running(self, step, task):
         self._steps[step][task]['progress'] = 'running'
-    
+
     def task_success(self, step, task):
         self._steps[step][task]['progress'] = 'success'
-            
+
     def task_fail(self, step, task):
         self._steps[step][task]['progress'] = 'fail'
-        
+
     def print_progress(self):
         data = "<div>"
         for step in self._steps:
@@ -51,3 +75,37 @@ class TerminalProgressViewer:
             data += "</div>"
         data += "</div>"
         self.display_handle.update(HTML(data))
+
+class CLIProgressViewer(ProgressViewer):
+    def __init__(self):
+        super().__init__()
+        self.progress_bars = {}
+
+    def add_step(self, step, task):
+        if step not in self._steps:
+            self._steps[step] = {}
+        if task not in self._steps[step]:
+            self._steps[step][task] = {'progress': 'pending'}
+            if step not in self.progress_bars:
+                self.progress_bars[step] = tqdm(total=1, desc=f'Step {step}', position=len(self.progress_bars))
+
+    def task_running(self, step, task):
+        self._steps[step][task]['progress'] = 'running'
+
+    def task_success(self, step, task):
+        self._steps[step][task]['progress'] = 'success'
+        self.progress_bars[step].update(1 / len(self._steps[step]))
+
+    def task_fail(self, step, task):
+        self._steps[step][task]['progress'] = 'fail'
+        self.progress_bars[step].update(1 / len(self._steps[step]))
+
+    def print_progress(self):
+        for step, bar in self.progress_bars.items():
+            bar.refresh()
+
+def get_progress_viewer():
+    if Configs().get('harpy.sdk.client.env') == 'jupyter':
+        return JupyterProgressViewer()
+    else:
+        return CLIProgressViewer()

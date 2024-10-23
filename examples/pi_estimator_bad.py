@@ -19,6 +19,7 @@ def reduce_fun(*results: float, n:int) -> float:
     return 1/n * sum_all_members
 
 start_time = time.time()
+print("Creating session... (this can take a while because of isolated environment setup)")
 session = Session().create_session()
 print(f"Session creation time: {time.time() - start_time:.4f} seconds")
 
@@ -34,7 +35,7 @@ taskSet.add_maps([make_map_task(i, N) for i in range(1, N+1)])
 taskSet.add_reduce(reduce_task)
 
 start_time = time.time()
-taskSetResult: TaskSetResults = taskSet.execute()
+taskSetResult:TaskSetResults = taskSet.collect()
 print(f"Task set execution time: {time.time() - start_time:.4f} seconds")
 
 print(taskSetResult)

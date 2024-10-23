@@ -1,4 +1,5 @@
-class Configs:
+from harpy.primitives import SingletonMeta
+class Configs(metaclass=SingletonMeta):
     def __init__(self):
         self.configs = {}
 

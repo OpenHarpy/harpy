@@ -28,10 +28,10 @@ INVALID_SESSION_MESSAGE = "Session is not valid, please make sure to create a se
 class Session(metaclass=SingletonMeta):
     def __init__(self):
         self.conf = Configs()
-        self.conf.set('sdk.remote.controller.grpcHost', 'localhost')
-        self.conf.set('sdk.remote.controller.grpcPort', '50051')
-        self.conf.set('tasks.node.request.type', 'small-4cpu-1gb')
-        self.conf.set('tasks.node.request.count', '1')
+        self.conf.set('harpy.sdk.remote.controller.grpcHost', 'localhost')
+        self.conf.set('harpy.sdk.remote.controller.grpcPort', '50051')
+        self.conf.set('harpy.tasks.node.request.type', 'small-4cpu-1gb')
+        self.conf.set('harpy.tasks.node.request.count', '1')
         self._session_stub: SessionStub = None
         self._session_handler: SessionHandler = None
         self._controller_channel: grpc.Channel = None
@@ -44,7 +44,7 @@ class Session(metaclass=SingletonMeta):
 
     def __create_controller_channel__(self):
         if self._controller_channel is None:
-            self._controller_channel = grpc.insecure_channel(f"{self.conf.get('sdk.remote.controller.grpcHost')}:{self.conf.get('sdk.remote.controller.grpcPort')}")
+            self._controller_channel = grpc.insecure_channel(f"{self.conf.get('harpy.sdk.remote.controller.grpcHost')}:{self.conf.get('harpy.sdk.remote.controller.grpcPort')}")
         return
     
     def sql(self, query, return_type='pandas', rows_per_batch=1000000):
@@ -61,8 +61,7 @@ class Session(metaclass=SingletonMeta):
         # Execute the query
         ts = self.create_task_set()
         ts.add_maps([mapper])
-        result: TaskSetResults = ts.execute()
-        self.dismantle_taskset(ts)
+        result: TaskSetResults = ts.collect(detailed=True)
         # Check if the query was successful
         if result.success:
             return result.results[0].result

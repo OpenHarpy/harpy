@@ -8,7 +8,10 @@
 
 package task
 
-import "fmt"
+import (
+	"errors"
+	"fmt"
+)
 
 type Status string // This is a string because for now we are not going to map the statuses to a specific grpc enum
 
@@ -58,6 +61,9 @@ type TaskRun struct {
 }
 
 func NewTaskRun(task *TaskDefinition, taskRunID string, reporter *Reporter, taskSet *TaskSet) *TaskRun {
+	if taskSet == nil {
+		panic(errors.New("taskSet cannot be nil"))
+	}
 	return &TaskRun{
 		Task: task, TaskRunID: taskRunID, Reporter: reporter, Status: "pending", Result: nil,
 		TaskSet: taskSet,

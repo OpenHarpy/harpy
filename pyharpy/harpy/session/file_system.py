@@ -70,8 +70,7 @@ def run_fs_command(session, func: callable, path: str, *args, **kwargs):
     name = func.__name__
     mapper = MapTask(name=f"fs-command-{name}", fun=func, args=[], kwargs={"path": path, **kwargs})
     ts.add_maps([mapper])
-    result: TaskSetResults = ts.execute()
-    session.dismantle_taskset(ts)
+    result: TaskSetResults = ts.collect(detailed=True)
     if result.success:
         return result.results[0].result
     else:

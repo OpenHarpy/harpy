@@ -1,10 +1,10 @@
 from dataclasses import dataclass
 import grpc
 import cloudpickle
-from typing import List
+from typing import List, Any, Optional
 
 from harpy.primitives import check_variable
-
+from harpy.exceptions.user_facing import TaskSetRuntimeError
 from harpy.grpc_ce_protocol.ceprotocol_pb2 import (  
     TaskHandler,
     TaskDefinition,
@@ -23,10 +23,11 @@ from harpy.grpc_ce_protocol.ceprotocol_pb2_grpc import (
     TaskSetStub,
 )
 from harpy.processing.types import (
-    MapTask, ReduceTask, TransformTask, TaskSetResults, Result
+    MapTask, ReduceTask, TransformTask, FanOutTask, TaskSetResults, Result
 )
 from harpy.tasksets.code_quality_check import validate_function, get_output_type
 from harpy.session.block_read_write_proxy import BlockReadWriteProxy
+from harpy.tasksets.progress_displays import get_progress_viewer
 
 INVALID_TASKSET_MESSAGE = "TaskSet is not valid, please make sure to create a taskset before using it"
 STREAM_CHUNK_SIZE = 1024*1024 # 1MB
@@ -56,7 +57,7 @@ class TaskSet:
     def __init__(self, session, taskSetHandler: TaskSetHandler):
         self._session = session
         self._taskset_stub = TaskSetStub(grpc.insecure_channel(
-            f"{self._session.conf.get('sdk.remote.controller.grpcHost')}:{self._session.conf.get('sdk.remote.controller.grpcPort')}"
+            f"{self._session.conf.get('harpy.sdk.remote.controller.grpcHost')}:{self._session.conf.get('harpy.sdk.remote.controller.grpcPort')}"
         ))
         self._taskset_handler = taskSetHandler
         self._last_function_type = None
@@ -177,34 +178,70 @@ class TaskSet:
             raise Exception("Failed to add transform task")
     
     @check_variable('_taskset_handler', INVALID_TASKSET_MESSAGE)
-    def execute(self) -> TaskSetResults:
+    def __execute__(self, collect=False) -> TaskSetResults:
         statusSteam: TaskSetProgressReport = self._taskset_stub.Execute(self._taskset_handler)
         # Here we will later add some tracking to the states, for now we just wait for the taskset to finish
         # We will also print the progress as we go
         last_taskset_status = "running"
-        taskset_id = self._taskset_handler.taskSetId               
-        
+        taskset_id = self._taskset_handler.taskSetId
+        pview = get_progress_viewer()
+        current_taskgroup = ""
         for taskSetStatus in statusSteam:
+            details = taskSetStatus.ProgressDetails
             if taskSetStatus.ProgressType == ProgressType.TaskSetProgress:
-                print(f"TaskSet {taskSetStatus.RelatedID}: {taskSetStatus.ProgressMessage}")
                 last_taskset_status = taskSetStatus.StatusMessage
                 taskset_id = taskSetStatus.RelatedID
             elif taskSetStatus.ProgressType == ProgressType.TaskGroupProgress:
-                print(f"TaskGroup {taskSetStatus.RelatedID} made progress")
+                current_taskgroup = details['taskgroup_name']
+                #print(f"TaskGroup {taskSetStatus.RelatedID} made progress")
             elif taskSetStatus.ProgressType == ProgressType.TaskProgress:
-                print(f"Task {taskSetStatus.RelatedID}: {taskSetStatus.StatusMessage}")
-            
-        print("Getting results")
+                if current_taskgroup != "":
+                    pview.add_step(current_taskgroup, taskSetStatus.RelatedID)
+                    if taskSetStatus.StatusMessage == "running":
+                        pview.task_running(current_taskgroup, taskSetStatus.RelatedID)
+                    elif taskSetStatus.StatusMessage == "done":
+                        pview.task_success(current_taskgroup, taskSetStatus.RelatedID)
+                    elif taskSetStatus.StatusMessage == "panic":
+                            pview.task_fail(current_taskgroup, taskSetStatus.RelatedID)
+                    pview.print_progress()
+                #print(f"Task {taskSetStatus.RelatedID}: {taskSetStatus.StatusMessage}")
         response: TaskSetResult = self._taskset_stub.GetTaskSetResults(self._taskset_handler)
-        return TaskSetResults(
-            task_set_id=taskset_id,
-            results=[
+        results = None
+        if collect:
+            pview.add_step("Collecting", 0)
+            pview.print_progress()
+            results = [
                 deserialize_result(result, self._session.get_block_read_write_proxy())
                 for result in response.TaskResults
-            ],
+            ]
+            pview.task_success("Collecting", 0)
+            pview.print_progress()            
+        return TaskSetResults(
+            task_set_id=taskset_id,
+            results=results,
             overall_status = last_taskset_status,
             success = response.OverallSuccess
         )
+    
+    @check_variable('_taskset_handler', INVALID_TASKSET_MESSAGE)
+    def run(self, collect=False, detailed=False) -> Optional[List[Any]]:
+        ## run is safer than execute, as it will dismantle the taskset after execution
+        if detailed and not collect:
+            raise TaskSetRuntimeError("Cannot return detailed results without collecting")
+        result = self.__execute__(collect=collect)
+        if result.success == False:
+            self.__dismantle__()
+            raise TaskSetRuntimeError("TaskSet failed to execute", error_text=result.results[0].std_err)
+        # dismantle taskset
+        self.__dismantle__()
+        if not collect:
+            return None
+        if detailed:
+            return result
+        return [task.result for task in result.results]
+    
+    def collect(self, detailed=False) -> List[Any]:
+        return self.run(collect=True, detailed=detailed)
     
     def __dismantle__(self):
         if self._taskset_handler is None:

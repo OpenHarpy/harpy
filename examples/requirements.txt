@@ -1,0 +1,8 @@
+cloudpickle^3.0.0
+deltalake0.20.2
+duckdb^1.1.1
+grpcio-tools^1.66.1
+grpcio^1.66.1
+ipykernel^6.29.5
+pandas^2.2.3
+protobuf5.27.2

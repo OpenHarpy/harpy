@@ -7,22 +7,9 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-func PurgeBlocks(lm *LiveMemory) {
-	logger.Info("Purging blocks", "PURGE_BLOCKS")
-	currentTime := time.Now().Unix()
-	for key, block := range lm.Blocks {
-		if currentTime-block.LastAccessTime > int64(blockAccessTimeout.Seconds()) {
-			block.Cleanup()
-			delete(lm.Blocks, key)
-			logger.Info("Purged block", "PURGE_BLOCKS", logrus.Fields{"block_id": key})
-		}
-	}
-}
-
 func ProcessEventLoop(exitEventLoop chan bool, waitEventLoopExitChan chan bool, lm *LiveMemory) {
 	logger.Info("Starting process event loop", "PROCESS_EVENT_LOOP")
 	lastHeartbeatTime := time.Now().Unix()
-	lastBlockPurgeTime := time.Now().Unix()
 	// This function will loop through all the processes and check if they are done
 	// If they are done then it will set the process status to done
 	for {
@@ -91,11 +78,6 @@ func ProcessEventLoop(exitEventLoop chan bool, waitEventLoopExitChan chan bool, 
 			if currentTime-lastHeartbeatTime > int64(heartbeatInterval.Seconds()) {
 				lastHeartbeatTime = currentTime
 				lm.NodeStatusUpdateClient.SendNodeHeartbeat()
-			}
-			// Check if its time to purge any blocks
-			if currentTime-lastBlockPurgeTime > int64(blockCleanerTriggerInterval.Seconds()) {
-				lastBlockPurgeTime = currentTime
-				PurgeBlocks(lm)
 			}
 			time.Sleep(processPoolingInterval)
 		}

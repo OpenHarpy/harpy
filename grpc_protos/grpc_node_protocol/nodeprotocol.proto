@@ -127,4 +127,5 @@ service Node {
     rpc StreamInBlock (stream BlockChunk) returns (BlockHandler) {}
     rpc StreamOutBlock (BlockHandler) returns (stream BlockChunk) {}
     rpc DestroyBlock (BlockHandler) returns (Ack) {}
+    rpc ClearBlocks (IsolatedEnv) returns (Ack) {}
 }

@@ -12,10 +12,15 @@ message SessionHandler {
   bool Success = 2;
 }
 
+message InstanceMetadata {
+  string InstanceID = 1;
+}
+
 service Session {
   rpc CreateSession (SessionRequest) returns (SessionHandler) {}
   rpc CreateTaskSet (SessionHandler) returns (TaskSetHandler) {}
   rpc CloseSession (SessionHandler) returns (SessionHandler) {}
+  rpc GetInstanceID (SessionHandler) returns (InstanceMetadata) {}
 }
 
 // Task definitions

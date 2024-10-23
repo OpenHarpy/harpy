@@ -14,7 +14,6 @@ import (
 var requiredConfigs = []string{
 	"harpy.remoteRunner.grpcServer.servePort",
 	"harpy.remoteRunner.grpcServer.serveHost",
-	"harpy.remoteRunner.temporaryBinariesLocation",
 	"harpy.remoteRunner.scriptsRoot",
 	"harpy.remoteRunner.nodeSetupScript",
 	"harpy.remoteRunner.commandEntrypoint",
@@ -44,6 +43,9 @@ func main() {
 		logger.Error("Failed to validate required configs", "MAIN", err)
 		return
 	}
+
+	// Start by clearing all the blocks in the block directory
+	ClearAllBlocksInDir() // This is a temporary function as in the future the UBFS will handle lifecycle of blocks
 
 	// Argument parsing
 	// This is where we will parse the arguments

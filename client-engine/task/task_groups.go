@@ -71,6 +71,7 @@ type TaskGroup struct {
 	TaskReporter          *Reporter
 	Tasks                 []TaskDefinition
 	TaskRuns              []*TaskRun
+	TaskSet               *TaskSet
 	NextNode              *TaskGroup
 	MonolithicIndex       int
 }
@@ -102,7 +103,7 @@ func (t *TaskGroup) generateTasks(taskResults TaskGroupResult) error {
 	// For each task, create a TaskRun
 	for _, task := range t.Tasks {
 		TaskRunID := fmt.Sprintf("%s-tr-%d", t.TaskGroupID, t.MonolithicIndex)
-		t.TaskRuns = append(t.TaskRuns, NewTaskRun(&task, TaskRunID, t.TaskReporter))
+		t.TaskRuns = append(t.TaskRuns, NewTaskRun(&task, TaskRunID, t.TaskReporter, t.TaskSet))
 		t.MonolithicIndex++ // Increment the monolithic index
 	}
 	return nil
@@ -152,7 +153,7 @@ func (t TaskGroup) RemoteGRPCExecute(previousResult TaskGroupResult, session *Se
 			return TaskGroupResult{}, err
 		}
 		// We need to register the task to the node
-		commandID, err := node.RegisterTask(task.Task)
+		commandID, err := node.RegisterTask(task.Task, t.TaskSet)
 		if err != nil {
 			return TaskGroupResult{}, err
 		}
@@ -224,7 +225,18 @@ func (t TaskGroup) RemoteGRPCExecute(previousResult TaskGroupResult, session *Se
 }
 
 // NewTaskGroup is a constructor function for TaskGroup
-func NewTaskGroup(taskGroupID string, taskGenerator TaskFactory, options map[string]string, name string, taskGroupReporter *Reporter, taskReporter *Reporter) *TaskGroup {
+func NewTaskGroup(
+	taskGroupID string,
+	taskGenerator TaskFactory,
+	options map[string]string,
+	name string,
+	taskGroupReporter *Reporter,
+	taskReporter *Reporter,
+	taskSet *TaskSet,
+) *TaskGroup {
+	if taskSet == nil {
+		panic(errors.New("taskSet cannot be nil"))
+	}
 	return &TaskGroup{
 		TaskGroupID:       taskGroupID,
 		TaskGenerator:     taskGenerator,
@@ -236,5 +248,6 @@ func NewTaskGroup(taskGroupID string, taskGenerator TaskFactory, options map[str
 		TaskGroupReporter: taskGroupReporter,
 		TaskReporter:      taskReporter,
 		MonolithicIndex:   0,
+		TaskSet:           taskSet,
 	}
 }

@@ -145,7 +145,7 @@ func RunProcess(killChan chan bool, doneChan chan bool, process *Process) {
 	// Write the callable block to a file
 	entrypoint := process.EnvRef.GetEntrypoint()
 	if entrypoint == "" || process.OutputBlock.BlockLocation == "" {
-		logger.Error("Missing configuration", "RunProcess", nil)
+		logger.Error("Missing configuration", "RUN_PROCESS", nil)
 		panic("Missing configuration")
 	}
 	// To call this we need to pass in as follows:
@@ -169,19 +169,19 @@ func RunProcess(killChan chan bool, doneChan chan bool, process *Process) {
 	fullCommand := entrypoint + funcCommand + outputCommand + " --blocks" + argumentsCommand + kwargsCommand
 	fullCommand = NormalizeCommand(fullCommand)
 	// Run the command
-	logger.Info("Running process", "RunProcess", logrus.Fields{"command": fullCommand})
+	logger.Info("Running process", "RUN_PROCESS", logrus.Fields{"command": fullCommand})
 	var stdout, stderr bytes.Buffer
 	cmd := exec.Command("bash", "-c", fullCommand)
 	cmd.Stdout = &stdout
 	cmd.Stderr = &stderr
 	err := cmd.Start()
 	if err != nil {
-		logger.Error("Error starting process", "RunProcess", err)
+		logger.Error("Error starting process", "RUN_PROCESS", err)
 	}
 	// Wait for the process to finish
 	err = cmd.Wait()
 	if err != nil {
-		logger.Error("Error running process", "RunProcess", err)
+		logger.Error("Error running process", "RUN_PROCESS", err)
 		process.Success = false
 	} else {
 		process.Success = true
@@ -223,6 +223,12 @@ func (p *Process) SetResultFetchTime() {
 	p.ResultFetchTime = time.Now().Unix()
 }
 
+func CleanBlocks(blocks map[string]*Block) {
+	for _, block := range blocks {
+		block.Cleanup()
+	}
+}
+
 func ExitCleanAll(lm *LiveMemory) {
 	// This function will clean up all the processes
 	for _, process := range lm.Process {
@@ -232,4 +238,6 @@ func ExitCleanAll(lm *LiveMemory) {
 	for _, env := range lm.IsolatedEnvironment {
 		env.Cleanup()
 	}
+	// Cleanup the blocks
+	CleanBlocks(lm.Blocks)
 }

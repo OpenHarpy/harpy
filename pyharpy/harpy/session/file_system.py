@@ -1,4 +1,5 @@
 import os
+import shutil
 import pandas as pd
 
 from harpy.tasksets import TaskSet
@@ -37,17 +38,31 @@ def fs_wc(path: str) -> int:
         return len(file.readlines())
 
 def fs_mkdir(path: str, recursive: bool = False) -> bool:
-    if recursive:
-        os.makedirs(path, exist_ok=True)
-    else:
-        os.mkdir(path)
+    try:
+        if recursive:
+            os.makedirs(path, exist_ok=True)
+        else:
+            os.mkdir(path)
+    except Exception as e:
+        print(e)
+        return False
     return True
 
 def fs_rm(path: str, recursive: bool = False) -> bool:
-    if recursive:
-        os.removedirs(path)
-    else:
-        os.remove(path)
+    # Check if its root or . or ..
+    if path in ["/", ".", ".."]:
+        raise FileSystemException("Cannot delete root directory or . or ..")
+    # We need to check if the path is a directory or a file
+    if not os.path.exists(path):
+        return False
+    try:
+        if recursive:
+            shutil.rmtree(path)
+        else:
+            os.remove(path)
+    except Exception as e:
+        print(e)
+        return False
     return True
 
 def run_fs_command(session, func: callable, path: str, *args, **kwargs):
@@ -55,8 +70,7 @@ def run_fs_command(session, func: callable, path: str, *args, **kwargs):
     name = func.__name__
     mapper = MapTask(name=f"fs-command-{name}", fun=func, args=[], kwargs={"path": path, **kwargs})
     ts.add_maps([mapper])
-    result: TaskSetResults = ts.execute()
-    session.dismantle_taskset(ts)
+    result: TaskSetResults = ts.collect(detailed=True)
     if result.success:
         return result.results[0].result
     else:

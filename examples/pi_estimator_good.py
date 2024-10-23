@@ -1,3 +1,5 @@
+import time
+
 from harpy import (
     Session,
     MapTask,
@@ -15,7 +17,12 @@ def map_fun(i_start:int, i_end:int, n:int) -> float:
 def reduce_fun(*results: float) -> float:
     return sum(results)
 
+# Measure session creation time
+start_time = time.time()
+print("Creating session... (this can take a while because of isolated environment setup)")
 session = Session().create_session()
+print(f"Session creation time: {time.time() - start_time:.4f} seconds")
+
 taskSet = session.create_task_set()
 
 N = 1000
@@ -29,6 +36,14 @@ taskSet.add_reduce(
     ReduceTask(name="reduce", fun=reduce_fun, args=[], kwargs={})
 )
 
-taskSetResult:TaskSetResults = taskSet.execute()
+# Measure task set execution time
+start_time = time.time()
+taskSetResult:TaskSetResults = taskSet.collect()
+print(f"Task set execution time: {time.time() - start_time:.4f} seconds")
+
 print(taskSetResult)
+
+# Measure session close time
+start_time = time.time()
 session.close()
+print(f"Session close time: {time.time() - start_time:.4f} seconds")

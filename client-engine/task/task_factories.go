@@ -16,6 +16,7 @@ package task
 
 import "fmt"
 
+// ** MapFactory **
 type MapFactory struct {
 	Mappers []MapperDefinition
 }
@@ -35,6 +36,7 @@ func (m MapFactory) String() string {
 	return fmt.Sprintf("MapFactory with %d mappers", len(m.Mappers))
 }
 
+// ** TransformFactory **
 type TransformFactory struct {
 	Transformer TransformerDefinition
 }
@@ -60,6 +62,7 @@ func (t TransformFactory) String() string {
 	return fmt.Sprintf("TransformFactory with transformer %s", t.Transformer.String())
 }
 
+// ** ReduceFactory **
 type ReduceFactory struct {
 	Reducer ReducerDefinition
 }

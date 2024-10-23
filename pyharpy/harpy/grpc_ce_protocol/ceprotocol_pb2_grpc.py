@@ -49,6 +49,11 @@ class SessionStub(object):
                 request_serializer=ceprotocol__pb2.SessionHandler.SerializeToString,
                 response_deserializer=ceprotocol__pb2.SessionHandler.FromString,
                 _registered_method=True)
+        self.GetInstanceID = channel.unary_unary(
+                '/proto.Session/GetInstanceID',
+                request_serializer=ceprotocol__pb2.SessionHandler.SerializeToString,
+                response_deserializer=ceprotocol__pb2.InstanceMetadata.FromString,
+                _registered_method=True)
 
 
 class SessionServicer(object):
@@ -72,6 +77,12 @@ class SessionServicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def GetInstanceID(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
 
 def add_SessionServicer_to_server(servicer, server):
     rpc_method_handlers = {
@@ -89,6 +100,11 @@ def add_SessionServicer_to_server(servicer, server):
                     servicer.CloseSession,
                     request_deserializer=ceprotocol__pb2.SessionHandler.FromString,
                     response_serializer=ceprotocol__pb2.SessionHandler.SerializeToString,
+            ),
+            'GetInstanceID': grpc.unary_unary_rpc_method_handler(
+                    servicer.GetInstanceID,
+                    request_deserializer=ceprotocol__pb2.SessionHandler.FromString,
+                    response_serializer=ceprotocol__pb2.InstanceMetadata.SerializeToString,
             ),
     }
     generic_handler = grpc.method_handlers_generic_handler(
@@ -172,6 +188,33 @@ class Session(object):
             '/proto.Session/CloseSession',
             ceprotocol__pb2.SessionHandler.SerializeToString,
             ceprotocol__pb2.SessionHandler.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def GetInstanceID(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/proto.Session/GetInstanceID',
+            ceprotocol__pb2.SessionHandler.SerializeToString,
+            ceprotocol__pb2.InstanceMetadata.FromString,
             options,
             channel_credentials,
             insecure,

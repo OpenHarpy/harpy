@@ -22,6 +22,7 @@ const (
 	Session_CreateSession_FullMethodName = "/proto.Session/CreateSession"
 	Session_CreateTaskSet_FullMethodName = "/proto.Session/CreateTaskSet"
 	Session_CloseSession_FullMethodName  = "/proto.Session/CloseSession"
+	Session_GetInstanceID_FullMethodName = "/proto.Session/GetInstanceID"
 )
 
 // SessionClient is the client API for Session service.
@@ -31,6 +32,7 @@ type SessionClient interface {
 	CreateSession(ctx context.Context, in *SessionRequest, opts ...grpc.CallOption) (*SessionHandler, error)
 	CreateTaskSet(ctx context.Context, in *SessionHandler, opts ...grpc.CallOption) (*TaskSetHandler, error)
 	CloseSession(ctx context.Context, in *SessionHandler, opts ...grpc.CallOption) (*SessionHandler, error)
+	GetInstanceID(ctx context.Context, in *SessionHandler, opts ...grpc.CallOption) (*InstanceMetadata, error)
 }
 
 type sessionClient struct {
@@ -71,6 +73,16 @@ func (c *sessionClient) CloseSession(ctx context.Context, in *SessionHandler, op
 	return out, nil
 }
 
+func (c *sessionClient) GetInstanceID(ctx context.Context, in *SessionHandler, opts ...grpc.CallOption) (*InstanceMetadata, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(InstanceMetadata)
+	err := c.cc.Invoke(ctx, Session_GetInstanceID_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // SessionServer is the server API for Session service.
 // All implementations must embed UnimplementedSessionServer
 // for forward compatibility.
@@ -78,6 +90,7 @@ type SessionServer interface {
 	CreateSession(context.Context, *SessionRequest) (*SessionHandler, error)
 	CreateTaskSet(context.Context, *SessionHandler) (*TaskSetHandler, error)
 	CloseSession(context.Context, *SessionHandler) (*SessionHandler, error)
+	GetInstanceID(context.Context, *SessionHandler) (*InstanceMetadata, error)
 	mustEmbedUnimplementedSessionServer()
 }
 
@@ -96,6 +109,9 @@ func (UnimplementedSessionServer) CreateTaskSet(context.Context, *SessionHandler
 }
 func (UnimplementedSessionServer) CloseSession(context.Context, *SessionHandler) (*SessionHandler, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method CloseSession not implemented")
+}
+func (UnimplementedSessionServer) GetInstanceID(context.Context, *SessionHandler) (*InstanceMetadata, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetInstanceID not implemented")
 }
 func (UnimplementedSessionServer) mustEmbedUnimplementedSessionServer() {}
 func (UnimplementedSessionServer) testEmbeddedByValue()                 {}
@@ -172,6 +188,24 @@ func _Session_CloseSession_Handler(srv interface{}, ctx context.Context, dec fun
 	return interceptor(ctx, in, info, handler)
 }
 
+func _Session_GetInstanceID_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(SessionHandler)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SessionServer).GetInstanceID(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Session_GetInstanceID_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SessionServer).GetInstanceID(ctx, req.(*SessionHandler))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // Session_ServiceDesc is the grpc.ServiceDesc for Session service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -190,6 +224,10 @@ var Session_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "CloseSession",
 			Handler:    _Session_CloseSession_Handler,
+		},
+		{
+			MethodName: "GetInstanceID",
+			Handler:    _Session_GetInstanceID_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

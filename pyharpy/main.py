@@ -33,7 +33,7 @@ taskSet.add_maps([map_task_1, map_task_2, map_task_3])
 taskSet.add_reduce(reduce_task)
 taskSet.add_transform(transform_task)
 
-taskSetResult:TaskSetResults = taskSet.execute()
+taskSetResult:TaskSetResults = taskSet.collect()
 
 print(taskSetResult)
 

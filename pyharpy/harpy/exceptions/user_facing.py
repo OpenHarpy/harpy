@@ -21,3 +21,12 @@ class FileSystemException(Exception):
     
     def __str__(self):
         return generic_error_string_builder("FileSystemException", self.error_text, self.code)
+
+class TaskSetRuntimeError(Exception):
+    def __init__(self, message, error_text=None, code=None):
+        super(TaskSetRuntimeError, self).__init__(message)
+        self.code = code
+        self.error_text = error_text
+    
+    def __str__(self):
+        return generic_error_string_builder("TaskSetRuntimeError", self.error_text, self.code)

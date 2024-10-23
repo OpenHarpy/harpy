@@ -55,6 +55,7 @@ func (t TaskSet) generateDefaultTaskGroup(factory TaskFactory, options map[strin
 		name,
 		t.TaskGroupReporter,
 		t.TaskReporter,
+		&t,
 	)
 	return tskGrp
 }
@@ -125,7 +126,8 @@ func (t *TaskSet) Execute() (TaskSetResult, error) {
 		return TaskSetResult{}, fmt.Errorf("RootNode is nil")
 	}
 	// Logger for the task set
-	logger.Info("Executing TaskSet[%s]", t.TaskSetId)
+	logString := fmt.Sprintf("Executing TaskSet[%s]", t.TaskSetId)
+	logger.Info(logString, "TASKSET")
 	// Execute the task set
 	t.TaskSetProgress = "running"
 	t.TaskSetProgress = "running"

@@ -135,6 +135,7 @@ const (
 	Node_StreamInBlock_FullMethodName               = "/proto.Node/StreamInBlock"
 	Node_StreamOutBlock_FullMethodName              = "/proto.Node/StreamOutBlock"
 	Node_DestroyBlock_FullMethodName                = "/proto.Node/DestroyBlock"
+	Node_ClearBlocks_FullMethodName                 = "/proto.Node/ClearBlocks"
 )
 
 // NodeClient is the client API for Node service.
@@ -160,6 +161,7 @@ type NodeClient interface {
 	StreamInBlock(ctx context.Context, opts ...grpc.CallOption) (grpc.ClientStreamingClient[BlockChunk, BlockHandler], error)
 	StreamOutBlock(ctx context.Context, in *BlockHandler, opts ...grpc.CallOption) (grpc.ServerStreamingClient[BlockChunk], error)
 	DestroyBlock(ctx context.Context, in *BlockHandler, opts ...grpc.CallOption) (*Ack, error)
+	ClearBlocks(ctx context.Context, in *IsolatedEnv, opts ...grpc.CallOption) (*Ack, error)
 }
 
 type nodeClient struct {
@@ -322,6 +324,16 @@ func (c *nodeClient) DestroyBlock(ctx context.Context, in *BlockHandler, opts ..
 	return out, nil
 }
 
+func (c *nodeClient) ClearBlocks(ctx context.Context, in *IsolatedEnv, opts ...grpc.CallOption) (*Ack, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(Ack)
+	err := c.cc.Invoke(ctx, Node_ClearBlocks_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // NodeServer is the server API for Node service.
 // All implementations must embed UnimplementedNodeServer
 // for forward compatibility.
@@ -345,6 +357,7 @@ type NodeServer interface {
 	StreamInBlock(grpc.ClientStreamingServer[BlockChunk, BlockHandler]) error
 	StreamOutBlock(*BlockHandler, grpc.ServerStreamingServer[BlockChunk]) error
 	DestroyBlock(context.Context, *BlockHandler) (*Ack, error)
+	ClearBlocks(context.Context, *IsolatedEnv) (*Ack, error)
 	mustEmbedUnimplementedNodeServer()
 }
 
@@ -396,6 +409,9 @@ func (UnimplementedNodeServer) StreamOutBlock(*BlockHandler, grpc.ServerStreamin
 }
 func (UnimplementedNodeServer) DestroyBlock(context.Context, *BlockHandler) (*Ack, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method DestroyBlock not implemented")
+}
+func (UnimplementedNodeServer) ClearBlocks(context.Context, *IsolatedEnv) (*Ack, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ClearBlocks not implemented")
 }
 func (UnimplementedNodeServer) mustEmbedUnimplementedNodeServer() {}
 func (UnimplementedNodeServer) testEmbeddedByValue()              {}
@@ -652,6 +668,24 @@ func _Node_DestroyBlock_Handler(srv interface{}, ctx context.Context, dec func(i
 	return interceptor(ctx, in, info, handler)
 }
 
+func _Node_ClearBlocks_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(IsolatedEnv)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(NodeServer).ClearBlocks(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Node_ClearBlocks_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(NodeServer).ClearBlocks(ctx, req.(*IsolatedEnv))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // Node_ServiceDesc is the grpc.ServiceDesc for Node service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -706,6 +740,10 @@ var Node_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "DestroyBlock",
 			Handler:    _Node_DestroyBlock_Handler,
+		},
+		{
+			MethodName: "ClearBlocks",
+			Handler:    _Node_ClearBlocks_Handler,
 		},
 	},
 	Streams: []grpc.StreamDesc{

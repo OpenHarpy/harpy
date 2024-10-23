@@ -17,13 +17,11 @@ import (
 
 const (
 	// TODO: Make these configurable via the configs
-	port                        = ":50053"
-	processPoolingInterval      = 200 * time.Millisecond
-	timeoutAfterGettingResult   = 30 * time.Second
-	timeoutProcessNotTriggered  = 120 * time.Second
-	heartbeatInterval           = 10 * time.Second
-	blockAccessTimeout          = 600 * time.Second
-	blockCleanerTriggerInterval = 120 * time.Second
+	port                       = ":50053"
+	processPoolingInterval     = 200 * time.Millisecond
+	timeoutAfterGettingResult  = 30 * time.Second
+	timeoutProcessNotTriggered = 120 * time.Second
+	heartbeatInterval          = 10 * time.Second
 
 	allowParallelProcesses = 4
 )
@@ -148,9 +146,24 @@ func (s *NodeServer) UnregisterCallback(ctx context.Context, in *pb.CallbackHand
 	}, nil
 }
 
+func GetBlock(lm *LiveMemory, blockID string) *Block {
+	block := lm.Blocks[blockID]
+	if block == nil {
+		// Check if the block is in the file system
+		block = NewBlock(blockID)
+		blockExists := block.CheckBlockExists()
+		lm.Blocks[blockID] = block
+		if !blockExists {
+			// If not found return an error
+			return nil
+		}
+	}
+	return block
+}
+
 func (s *NodeServer) RegisterCommand(ctx context.Context, in *pb.CommandRegistration) (*pb.CommandHandler, error) {
 	// Validate the input
-	callableBlock := s.lm.Blocks[in.CallableBlockHandler.BlockID]
+	callableBlock := GetBlock(s.lm, in.CallableBlockHandler.BlockID)
 	if callableBlock == nil {
 		return &pb.CommandHandler{
 			CommandID: "",
@@ -158,7 +171,7 @@ func (s *NodeServer) RegisterCommand(ctx context.Context, in *pb.CommandRegistra
 	}
 	argumentsBlocks := []*Block{}
 	for _, block := range in.ArgumentsBlocksHandlers {
-		argumentsBlock := s.lm.Blocks[block.BlockID]
+		argumentsBlock := GetBlock(s.lm, block.BlockID)
 		if argumentsBlock == nil {
 			return &pb.CommandHandler{
 				CommandID: "",
@@ -168,7 +181,7 @@ func (s *NodeServer) RegisterCommand(ctx context.Context, in *pb.CommandRegistra
 	}
 	keywordArgumentsBlocks := map[string]*Block{}
 	for key, block := range in.KwargsBlocksHandlers {
-		keywordArgumentsBlock := s.lm.Blocks[block.BlockID]
+		keywordArgumentsBlock := GetBlock(s.lm, block.BlockID)
 		if keywordArgumentsBlock == nil {
 			return &pb.CommandHandler{
 				CommandID: "",
@@ -348,7 +361,7 @@ func (s *NodeServer) StreamInBlock(stream pb.Node_StreamInBlockServer) error {
 
 func (s *NodeServer) StreamOutBlock(in *pb.BlockHandler, stream pb.Node_StreamOutBlockServer) error {
 	// Get the block from the live memory
-	block := s.lm.Blocks[in.BlockID]
+	block := GetBlock(s.lm, in.BlockID)
 	if block == nil {
 		logger.Error("Block not found", "SERVER", errors.New("Block not found"), logrus.Fields{"block_id": in.BlockID})
 		return status.Errorf(404, "Block not found")
@@ -379,6 +392,34 @@ func (s *NodeServer) StreamOutBlock(in *pb.BlockHandler, stream pb.Node_StreamOu
 	}
 	// We are done now we can close the stream (EOF)
 	return nil
+}
+
+func (s *NodeServer) DestroyBlock(ctx context.Context, in *pb.BlockHandler) (*pb.Ack, error) {
+	// Get the block from the live memory
+	block := GetBlock(s.lm, in.BlockID)
+	if block == nil {
+		logger.Error("Block not found", "SERVER", errors.New("Block not found"), logrus.Fields{"block_id": in.BlockID})
+		return &pb.Ack{
+			Success:      false,
+			ErrorMessage: "Block not found",
+		}, nil
+	}
+	// Remove the block from the live memory
+	block.Cleanup()
+	delete(s.lm.Blocks, in.BlockID)
+	return &pb.Ack{
+		Success:      true,
+		ErrorMessage: "",
+	}, nil
+}
+
+func (s *NodeServer) ClearBlocks(ctx context.Context, in *pb.IsolatedEnv) (*pb.Ack, error) {
+	// Cleanup the blocks
+	CleanBlocks(s.lm.Blocks)
+	return &pb.Ack{
+		Success:      true,
+		ErrorMessage: "",
+	}, nil
 }
 
 func ReportToCallbackClient(lm *LiveMemory, CommandID string, status string) {

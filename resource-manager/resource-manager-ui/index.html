@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<!--This is not designed to be a complex UI using fancy REACT / Angular-->
+<!--For now it's just a basic way to monitor the resources of your harpy deployment-->
+<html>
+<head>
+    <meta charset='utf-8'>
+    <meta http-equiv='X-UA-Compatible' content='IE=edge'>
+    <title>Harpy Admin Page</title>
+    <meta name='viewport' content='width=device-width, initial-scale=1'>
+    <link rel='stylesheet' type='text/css' media='screen' href='main.css'>
+    <script src="tableGenerator.js"></script>
+    <script src='main.js' defer></script>
+</head>
+<body>
+    <nav>
+        <ul>
+            <li><a href="#dashboard">Dashboard</a></li>
+            <li><a href="#node-catalog">Catalog</a></li>
+            <li><a href="#provider">Provider</a></li>
+            <li><a href="#configs">Configs</a></li>
+        </ul>
+    </nav>
+    <section id="dashboard">
+        <h2>Dashboard</h2>
+        <div id="status"></div>
+        <div id="last-update"></div>
+        <div id="content" hidden>
+            <div class="dash-sub" id="node-catalog"></div>
+            <div class="dash-sub" id="nodes"></div>
+            <div class="dash-sub" id="resource-requests"></div>
+        </div>
+    </section>
+    <section id="node-catalog">
+        <h2>Node Catalog</h2>
+    </section>
+    <section id="provider">
+        <h2>Provider</h2>
+    </section>
+    <section id="configs">
+        <h2>Configs</h2>
+    </section>
+
+</body>
+</html>

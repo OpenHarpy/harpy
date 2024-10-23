@@ -1,0 +1,131 @@
+syntax = "proto3";
+
+package proto;
+
+// Define some ENUMS
+enum CommandStatusEnum {
+    COMMAND_DEFINED = 0;
+    COMMAND_QUEUED = 1;
+    COMMAND_RUNNING = 2;
+    COMMAND_KILLING = 3;
+    COMMAND_DONE = 4;
+    COMMAND_PANIC = 5;
+}
+
+// Isolated Env
+message IsolatedEnv {
+    string IsolatedEnvID = 1;
+}
+
+message IsolatedEnvPackageRequest {
+    string PackageURI = 1;
+    IsolatedEnv IsolatedEnv = 2;
+}
+
+message IsolatedEnvPackageResponse {
+    bool Success = 1;
+    string ErrorMessage = 2;
+}
+
+message IsolatedEnvPackageList {
+    repeated string PackageURIs = 1;
+}
+
+// Callbacks
+message CallbackRegistration {
+    string CallbackURI = 1;
+}
+message CallbackHandler {
+    string CallbackID = 1;
+}
+
+//message CommandRequestChunk {
+//    bytes CallableBinaryChunk = 1;
+//    map<uint32, bytes> ArgumentsBinaryChunk = 2;
+//    map<string, bytes> KwargsBinaryChunk = 3;
+//}
+
+message CommandRegistration {
+    BlockHandler CallableBlockHandler = 1;
+    map<uint32, BlockHandler> ArgumentsBlocksHandlers = 2;
+    map<string, BlockHandler> KwargsBlocksHandlers = 3;
+}
+
+message CommandHandler {
+    string CommandID = 1;
+}
+
+message CommandStatus {
+    string CommandID = 1;
+    CommandStatusEnum CommandStatus = 2;
+}
+
+message CommandRequest {
+    CommandHandler CommandHandler = 1;
+    CallbackHandler CallbackHandler = 2;
+    IsolatedEnv IsolatedEnv = 3;
+}
+
+message CommandRequestResponse {
+    bool Success = 3;
+    string ErrorMessage = 4;
+}
+
+//message CommandOutputChunk {
+//    string CommandID = 1;
+//    bytes ObjectReturnBinaryChunk = 2;
+//    bytes StdoutBinaryChunk = 3;
+//    bytes StderrBinaryChunk = 4;
+//    bool Success = 5;
+//    bool Panic = 6;
+//    string ErrorMessage = 7;
+//}
+
+message CommandOutput {
+    string CommandID = 1;
+    BlockHandler ObjectReturnBlockHandler = 2;
+    BlockHandler StdoutBlockHandler = 3;
+    BlockHandler StderrBlockHandler = 4;
+    bool Success = 5;
+}
+
+message Ack {
+    bool Success = 1;
+    string ErrorMessage = 2;
+}
+
+// Blocks
+message BlockChunk {
+    bytes BlockChunk = 1;
+}
+
+message BlockHandler {
+    string BlockID = 1;
+}
+
+service NodeController {
+    rpc Callback(CommandStatus) returns (Ack) {}
+}
+
+service Node {
+    // Packages / Setup
+    rpc IsolatedEnvInit (IsolatedEnv) returns (Ack) {}
+    rpc IsolatedEnvListPackages (IsolatedEnv) returns (IsolatedEnvPackageList) {}
+    rpc IsolatedEnvDestroy (IsolatedEnv) returns (Ack) {}
+    rpc IsolatedEnvInstallPackage (IsolatedEnvPackageRequest) returns (IsolatedEnvPackageResponse) {}
+    rpc IsolatedEnvUninstallPackage (IsolatedEnvPackageRequest) returns (IsolatedEnvPackageResponse) {}
+    // Callbacks
+    rpc RegisterCallback (CallbackRegistration) returns (CallbackHandler) {}
+    rpc UnregisterCallback (CallbackHandler) returns (Ack) {}
+    // Commands
+    //rpc RegisterCommand (stream CommandRequestChunk) returns (CommandHandler) {}
+    rpc RegisterCommand (CommandRegistration) returns (CommandHandler) {}
+    rpc RunCommand (CommandRequest) returns (CommandRequestResponse) {}
+    rpc KillCommand (CommandRequest) returns (CommandRequestResponse) {}
+    rpc GetCommandOutput (CommandHandler) returns (CommandOutput) {}
+    // Blocks
+    rpc StreamInBlock (stream BlockChunk) returns (BlockHandler) {}
+    rpc StreamOutBlock (BlockHandler) returns (stream BlockChunk) {}
+    rpc DestroyBlock (BlockHandler) returns (Ack) {}
+    rpc ClearBlocks (IsolatedEnv) returns (Ack) {}
+}

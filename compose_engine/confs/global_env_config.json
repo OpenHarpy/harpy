@@ -1,0 +1,37 @@
+{
+    "harpy.log.level" : "info",
+    "harpy.log.gc" : "true",
+    "harpy.log.logFormat" : "text",
+    
+    "harpy.clientEngine.grpcServer.servePort" : "50051",
+    "harpy.clientEngine.grpcServer.serveHost" : "harpy-client-engine",
+    "harpy.clientEngine.grpcCallbackServer.servePort" : "50052",
+    "harpy.clientEngine.grpcCallbackServer.serveHost" : "harpy-client-engine",
+    "harpy.clientEngine.resourceManager.uri" : "harpy-local-resource-manager:50050",
+
+    "harpy.remoteRunner.grpcServer.servePort" : "50053",
+    "harpy.remoteRunner.grpcServer.serveHost" : "harpy-local-resource-manager",
+    "harpy.remoteRunner.scriptsRoot" : "/opt/remote-runner/_python_base",
+    "harpy.remoteRunner.nodeSetupScript" : "setup.sh",
+    "harpy.remoteRunner.commandEntrypoint" : "entrypoint.sh",
+    "harpy.remoteRunner.isolatedEnvironmentSetupScript" : "isolated_setup.sh",
+    "harpy.remoteRunner.isolatedEnvironmentCleanupScript" : "isolated_cleanup.sh",
+    "harpy.remoteRunner.pythonInstaller" : "pip3",
+    "harpy.remoteRunner.blockMountLocation" : "/opt/remote-runner/_blocks",
+
+    "harpy.resourceManager.grpcServer.servePort" : "50050",
+    "harpy.resourceManager.grpcServer.serveHost" : "harpy-local-resource-manager",
+    "harpy.resourceManager.httpServer.servePort" : "8080",
+    "harpy.resourceManager.httpServer.serveHost" : "harpy-local-resource-manager",
+    "harpy.resourceManager.eventLoop.processPoolingIntervalMS" : "1000",
+    "harpy.resourceManager.eventLoop.resourceRequestReleasedTimeoutSec" : "60",
+    "harpy.resourceManager.eventLoop.requestIdleTimeoutSec" : "120",
+    "harpy.resourceManager.nodeProvider" : "local",
+    "harpy.resourceManager.localProvider.node.uri" : "harpy-local-resource-manager:5053",
+    "harpy.resourceManager.localProvider.command" : "/app/remote-runner/main local-1 small-4cpu-8gb harpy-local-resource-manager:50050 harpy-local-resource-manager",
+    "harpy.resourceManager.ui.staticFiles" : "/opt/resource-manager/_harpy_ui",
+    "harpy.resourceManager.database.provider" : "sqlite",
+    "harpy.resourceManager.database.uri" : "sqlite:///resource-manager.db",
+    "harpy.resourceManager.nodeCatalog.location" : "/opt/configs/resource_manager_catalog.json"
+
+}

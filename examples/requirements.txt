@@ -6,3 +6,4 @@ grpcio^1.66.1
 ipykernel^6.29.5
 pandas^2.2.3
 protobuf5.27.2
+tqdm^4.66.5

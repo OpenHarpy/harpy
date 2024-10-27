@@ -14,7 +14,7 @@ from uuid import uuid4
 
 # Taskset functions
 def taskset_from_sql(sql:str, engine:str = 'pyarrow') -> TaskSet:
-    session = Session().create_session()
+    session = Session()
     ts = session.create_task_set()
     if engine == 'pyarrow':
         ts.add_maps([MapTask(name="duckdb-query-arrow", fun=task_definitions.definition_quack_query_arrow_table, args=[], kwargs={"query": sql, "rows_per_batch": 1000000})])
@@ -26,7 +26,7 @@ def taskset_from_sql(sql:str, engine:str = 'pyarrow') -> TaskSet:
 
 def rewrite_repartition(source_type, source_location, destition_location, target_rows_per_partition=100000, mode="overwrite"):
     # Session
-    session = Session().create_session()
+    session = Session()
     # Build the from clause
     if source_type == "delta":
         from_clause = f"delta_scan('{source_location}')"
@@ -130,7 +130,7 @@ def write_to_deltalake(ts:TaskSet, path:str, max_rows_per_file:int=1000000, max_
     return ts
 
 def compact_deltalake(path:str) -> TaskSet:
-    ts = Session().create_session().create_task_set()
+    ts = Session().create_task_set()
     ts.add_transform(
         TransformTask(
             name="compact-delta-lake",
@@ -142,7 +142,7 @@ def compact_deltalake(path:str) -> TaskSet:
     return ts
 
 def vacuum_deltalake(path:str) -> TaskSet:
-    ts = Session().create_session().create_task_set()
+    ts = Session().create_task_set()
     ts.add_transform(
         TransformTask(
             name="vacuum-delta-lake",

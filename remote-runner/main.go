@@ -19,6 +19,7 @@ var requiredConfigs = []string{
 	"harpy.remoteRunner.commandEntrypoint",
 	"harpy.remoteRunner.isolatedEnvironmentSetupScript",
 	"harpy.remoteRunner.isolatedEnvironmentCleanupScript",
+	"harpy.remoteRunner.deepIsolation",
 	"harpy.remoteRunner.pythonInstaller",
 }
 
@@ -62,7 +63,7 @@ func main() {
 	nodeType := os.Args[2]
 	resourceManagerAddress := os.Args[3]
 	namedHost := os.Args[4]
-	port := config.GetConfigs().GetConfigsWithDefault("harpy.remoteRunner.grpcServer.servePort", "50053")
+	port := config.GetConfigs().GetConfigWithDefault("harpy.remoteRunner.grpcServer.servePort", "50053")
 
 	logger.Info("Node ID", "MAIN", logrus.Fields{"nodeID": nodeID})
 	logger.Info("Node Type", "MAIN", logrus.Fields{"nodeType": nodeType})

@@ -18,6 +18,7 @@
     "harpy.remoteRunner.isolatedEnvironmentCleanupScript" : "isolated_cleanup.sh",
     "harpy.remoteRunner.pythonInstaller" : "pip3",
     "harpy.remoteRunner.blockMountLocation" : "/opt/remote-runner/_blocks",
+    "harpy.remoteRunner.deepIsolation" : "false",
 
     "harpy.resourceManager.grpcServer.servePort" : "50050",
     "harpy.resourceManager.grpcServer.serveHost" : "harpy-local-resource-manager",

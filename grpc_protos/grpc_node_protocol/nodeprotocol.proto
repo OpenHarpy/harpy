@@ -110,10 +110,7 @@ service NodeController {
 service Node {
     // Packages / Setup
     rpc IsolatedEnvInit (IsolatedEnv) returns (Ack) {}
-    rpc IsolatedEnvListPackages (IsolatedEnv) returns (IsolatedEnvPackageList) {}
     rpc IsolatedEnvDestroy (IsolatedEnv) returns (Ack) {}
-    rpc IsolatedEnvInstallPackage (IsolatedEnvPackageRequest) returns (IsolatedEnvPackageResponse) {}
-    rpc IsolatedEnvUninstallPackage (IsolatedEnvPackageRequest) returns (IsolatedEnvPackageResponse) {}
     // Callbacks
     rpc RegisterCallback (CallbackRegistration) returns (CallbackHandler) {}
     rpc UnregisterCallback (CallbackHandler) returns (Ack) {}

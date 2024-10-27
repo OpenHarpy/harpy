@@ -36,7 +36,7 @@ func main() {
 	wg.Add(2)
 
 	// Start the gRPC server
-	port := config.GetConfigs().GetConfigsWithDefault("harpy.clientEngine.grpcServer.servePort", "50051")
+	port := config.GetConfigs().GetConfigWithDefault("harpy.clientEngine.grpcServer.servePort", "50051")
 	err = NewCEServer(exitMainServerChan, &wg, lm, port)
 	if err != nil {
 		logger.Error("Failed to start gRPC server", "MAIN", err)
@@ -44,7 +44,7 @@ func main() {
 	}
 
 	// Start the gRPC callback server
-	port = config.GetConfigs().GetConfigsWithDefault("harpy.clientEngine.grpcCallbackServer.servePort", "50052")
+	port = config.GetConfigs().GetConfigWithDefault("harpy.clientEngine.grpcCallbackServer.servePort", "50052")
 	err = StartCallbackServer(exitCallbackServerChan, &wg, lm, port)
 	if err != nil {
 		logger.Error("Failed to start gRPC callback server", "MAIN", err)

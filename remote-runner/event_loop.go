@@ -1,15 +1,34 @@
 package main
 
 import (
+	"remote-runner/config"
 	"remote-runner/logger"
+	"strconv"
 	"time"
 
 	"github.com/sirupsen/logrus"
 )
 
+func GetConfigWithDefaultInt(key string, defaultValue int) int {
+	configValue := config.GetConfigs().GetConfigWithDefault(key, strconv.Itoa(defaultValue))
+	configValueInt, err := strconv.Atoi(configValue)
+	if err != nil {
+		logger.Error("Error converting config value to int", "GET_CONFIG_WITH_DEFAULT_INT", err)
+		return defaultValue
+	}
+	return configValueInt
+}
+
 func ProcessEventLoop(exitEventLoop chan bool, waitEventLoopExitChan chan bool, lm *LiveMemory) {
 	logger.Info("Starting process event loop", "PROCESS_EVENT_LOOP")
 	lastHeartbeatTime := time.Now().Unix()
+	// Get the config values
+	allowParallelProcesses := GetConfigWithDefaultInt("harpy.remoteRunner.allowParallelProcesses", 4)
+	processPoolingInterval := time.Duration(GetConfigWithDefaultInt("harpy.remoteRunner.processPoolingIntervalMs", 200)) * time.Millisecond
+	timeoutAfterGettingResult := time.Duration(GetConfigWithDefaultInt("harpy.remoteRunner.timeoutAfterGettingResultSec", 30)) * time.Second
+	timeoutProcessNotTriggered := time.Duration(GetConfigWithDefaultInt("harpy.remoteRunner.timeoutProcessNotTriggeredSec", 120)) * time.Second
+	heartbeatInterval := time.Duration(GetConfigWithDefaultInt("harpy.remoteRunner.heartbeatIntervalSec", 10)) * time.Second
+
 	// This function will loop through all the processes and check if they are done
 	// If they are done then it will set the process status to done
 	for {

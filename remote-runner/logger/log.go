@@ -40,7 +40,7 @@ func Warn(message string, subComponent string, additionalFields ...logrus.Fields
 
 func SetupLogging() {
 	// Set up the logger
-	logFormatter := config.GetConfigs().GetConfigsWithDefault("harpy.log.logFormat", "text")
+	logFormatter := config.GetConfigs().GetConfigWithDefault("harpy.log.logFormat", "text")
 	switch logFormatter {
 	case "json":
 		logrus.SetFormatter(&logrus.JSONFormatter{})
@@ -50,7 +50,7 @@ func SetupLogging() {
 		logrus.SetFormatter(&logrus.TextFormatter{})
 	}
 
-	logLevel := config.GetConfigs().GetConfigsWithDefault("harpy.log.level", "info")
+	logLevel := config.GetConfigs().GetConfigWithDefault("harpy.log.level", "info")
 	switch logLevel {
 	case "info":
 		logrus.SetLevel(logrus.InfoLevel)

@@ -20,7 +20,7 @@ def reduce_fun(*results: float) -> float:
 # Measure session creation time
 start_time = time.time()
 print("Creating session... (this can take a while because of isolated environment setup)")
-session = Session().create_session()
+session = Session()
 print(f"Session creation time: {time.time() - start_time:.4f} seconds")
 
 taskSet = session.create_task_set()

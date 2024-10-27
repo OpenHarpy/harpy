@@ -28,7 +28,7 @@ var requiredConfigs = []string{
 
 func NodeLoader() error {
 	// Load the node catalog
-	catalogData := config.GetConfigs().GetConfigsWithDefault("harpy.resourceManager.nodeCatalog.location", "catalog.json")
+	catalogData := config.GetConfigs().GetConfigWithDefault("harpy.resourceManager.nodeCatalog.location", "catalog.json")
 	// Read the json file
 	jsonFile, err := os.ReadFile(catalogData)
 	if err != nil {
@@ -58,7 +58,7 @@ func GetProvider() (providers.ProviderInterface, error) {
 	if err != nil {
 		return nil, err
 	}
-	nodeProvider := config.GetConfigs().GetConfigsWithDefault("harpy.resourceManager.nodeProvider", "local")
+	nodeProvider := config.GetConfigs().GetConfigWithDefault("harpy.resourceManager.nodeProvider", "local")
 	var provider providers.ProviderInterface
 	if nodeProvider == "local" {
 		command, ok := config.GetConfigs().GetConfig("harpy.resourceManager.localProvider.command")
@@ -100,7 +100,7 @@ func main() {
 
 	// Start the gRPC server
 	exitMainServer := make(chan bool)
-	port := config.GetConfigs().GetConfigsWithDefault("harpy.resourceManager.grpcServer.servePort", "50050")
+	port := config.GetConfigs().GetConfigWithDefault("harpy.resourceManager.grpcServer.servePort", "50050")
 	err = NewResourceAllocServer(exitMainServer, &wg, port)
 	if err != nil {
 		logger.Error("Failed to start gRPC server", "MAIN", err)
@@ -121,8 +121,8 @@ func main() {
 
 	// Start the HTTP server
 	exitHttpServer := make(chan bool)
-	httpPort := config.GetConfigs().GetConfigsWithDefault("harpy.resourceManager.httpServer.servePort", "8080")
-	staticFiles := config.GetConfigs().GetConfigsWithDefault("harpy.resourceManager.ui.staticFiles", "")
+	httpPort := config.GetConfigs().GetConfigWithDefault("harpy.resourceManager.httpServer.servePort", "8080")
+	staticFiles := config.GetConfigs().GetConfigWithDefault("harpy.resourceManager.ui.staticFiles", "")
 	err = StartServer(exitHttpServer, &wg, httpPort, staticFiles)
 	if err != nil {
 		logger.Error("Failed to start HTTP server", "MAIN", err)

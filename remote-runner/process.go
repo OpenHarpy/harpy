@@ -38,8 +38,8 @@ func (ie *IsolatedEnvironment) Cleanup() error {
 		return nil
 	}
 	// Cleanup the environment
-	root := config.GetConfigs().GetConfigsWithDefault("harpy.remoteRunner.scriptsRoot", "")
-	cleanupScript := config.GetConfigs().GetConfigsWithDefault("harpy.remoteRunner.isolatedEnvironmentCleanupScript", "")
+	root := config.GetConfigs().GetConfigWithDefault("harpy.remoteRunner.scriptsRoot", "")
+	cleanupScript := config.GetConfigs().GetConfigWithDefault("harpy.remoteRunner.isolatedEnvironmentCleanupScript", "")
 	fullPath := root + "/" + cleanupScript
 	if cleanupScript == "" || fullPath == "" {
 		err := fmt.Errorf("missing configuration")
@@ -64,8 +64,8 @@ func (ie *IsolatedEnvironment) UninstallPackage(packageName string) error {
 }
 func (ie *IsolatedEnvironment) Begin() error {
 	// We start by checking the params
-	root := config.GetConfigs().GetConfigsWithDefault("harpy.remoteRunner.scriptsRoot", "")
-	entrypoint := config.GetConfigs().GetConfigsWithDefault("harpy.remoteRunner.commandEntrypoint", "")
+	root := config.GetConfigs().GetConfigWithDefault("harpy.remoteRunner.scriptsRoot", "")
+	entrypoint := config.GetConfigs().GetConfigWithDefault("harpy.remoteRunner.commandEntrypoint", "")
 	if entrypoint == "" || root == "" {
 		err := fmt.Errorf("missing configuration")
 		logger.Error("Missing configuration", "ISOLATED_ENVIRONMENT", err)
@@ -74,7 +74,7 @@ func (ie *IsolatedEnvironment) Begin() error {
 
 	// Starting the environment
 	logger.Info("Setting up node", "ISOLATED_ENVIRONMENT")
-	isolatedFlag := config.GetConfigs().GetConfigsWithDefault("harpy.remoteRunner.deepIsolation", "true")
+	isolatedFlag := config.GetConfigs().GetConfigWithDefault("harpy.remoteRunner.deepIsolation", "true")
 	if isolatedFlag == "false" {
 		logger.Info("Isolated environment disabled", "ISOLATED_ENVIRONMENT")
 		ie.deepIsolation = false
@@ -83,7 +83,7 @@ func (ie *IsolatedEnvironment) Begin() error {
 		ie.deepIsolation = true
 	}
 	// We will start by running the command
-	setupScript := config.GetConfigs().GetConfigsWithDefault("harpy.remoteRunner.isolatedEnvironmentSetupScript", "")
+	setupScript := config.GetConfigs().GetConfigWithDefault("harpy.remoteRunner.isolatedEnvironmentSetupScript", "")
 	fullPath := root + "/" + setupScript
 	entrypointFull := root + "/" + entrypoint
 	if setupScript == "" {
@@ -101,9 +101,9 @@ func (ie *IsolatedEnvironment) Begin() error {
 }
 func (ie *IsolatedEnvironment) GetEntrypoint() string {
 	now := time.Now().Unix()
-	root := config.GetConfigs().GetConfigsWithDefault("harpy.remoteRunner.scriptsRoot", "")
+	root := config.GetConfigs().GetConfigWithDefault("harpy.remoteRunner.scriptsRoot", "")
 	if !ie.deepIsolation {
-		return root + "/" + config.GetConfigs().GetConfigsWithDefault("harpy.remoteRunner.commandEntrypoint", "")
+		return root + "/" + config.GetConfigs().GetConfigWithDefault("harpy.remoteRunner.commandEntrypoint", "")
 	}
 	ie.LastAccessTime = now
 	return root + "/isolated-" + ie.EnvironmentID + "/entrypoint.sh"

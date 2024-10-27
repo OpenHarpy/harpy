@@ -7,23 +7,11 @@ import (
 	"net"
 	pb "remote-runner/grpc_node_protocol"
 	"remote-runner/logger"
-	"time"
 
 	"github.com/google/uuid"
 	"github.com/sirupsen/logrus"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/status"
-)
-
-const (
-	// TODO: Make these configurable via the configs
-	port                       = ":50053"
-	processPoolingInterval     = 200 * time.Millisecond
-	timeoutAfterGettingResult  = 30 * time.Second
-	timeoutProcessNotTriggered = 120 * time.Second
-	heartbeatInterval          = 10 * time.Second
-
-	allowParallelProcesses = 4
 )
 
 type NodeServer struct {

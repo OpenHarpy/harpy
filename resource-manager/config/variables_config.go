@@ -62,7 +62,7 @@ func (c *Configs) GetConfig(ks string) (string, bool) {
 	return value, ok
 }
 
-func (c *Configs) GetConfigsWithDefault(ks string, defaultVal string) string {
+func (c *Configs) GetConfigWithDefault(ks string, defaultVal string) string {
 	value, ok := c.Configs[ks]
 	if !ok {
 		return defaultVal

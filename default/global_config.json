@@ -34,5 +34,4 @@
     "harpy.resourceManager.database.provider" : "sqlite",
     "harpy.resourceManager.database.uri" : "sqlite:///resource-manager.db",
     "harpy.resourceManager.nodeCatalog.location" : "catalog.json"
-
 }

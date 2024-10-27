@@ -19,7 +19,7 @@ def reduce_fun(*results: int, n:int) -> int:
 def transform_fun(result: int) -> int:
     return result * 2
 
-session = Session().create_session()
+session = Session()
 taskSet = session.create_task_set()
 
 map_task_1 = MapTask(name="map", fun=map_fun, args=[], kwargs={"number": 2})

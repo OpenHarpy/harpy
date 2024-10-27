@@ -58,26 +58,6 @@ func (s *NodeServer) IsolatedEnvDestroy(ctx context.Context, in *pb.IsolatedEnv)
 		ErrorMessage: "",
 	}, nil
 }
-func (s *NodeServer) IsolatedEnvInstallPackage(ctx context.Context, in *pb.IsolatedEnvPackageRequest) (*pb.IsolatedEnvPackageResponse, error) {
-	// For now we are going to simply return the an error
-	return &pb.IsolatedEnvPackageResponse{
-		Success:      false,
-		ErrorMessage: "Not implemented",
-	}, nil
-}
-func (s *NodeServer) IsolatedEnvUninstallPackage(ctx context.Context, in *pb.IsolatedEnvPackageRequest) (*pb.IsolatedEnvPackageResponse, error) {
-	// For now we are going to simply return the an error
-	return &pb.IsolatedEnvPackageResponse{
-		Success:      false,
-		ErrorMessage: "Not implemented",
-	}, nil
-}
-func (s *NodeServer) IsolatedEnvListPackages(ctx context.Context, in *pb.IsolatedEnv) (*pb.IsolatedEnvPackageList, error) {
-	// For now we are going to simply return the an error
-	return &pb.IsolatedEnvPackageList{
-		PackageURIs: []string{},
-	}, nil
-}
 
 // Callbacks
 func (s *NodeServer) RegisterCallback(ctx context.Context, in *pb.CallbackRegistration) (*pb.CallbackHandler, error) {

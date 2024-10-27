@@ -19,6 +19,7 @@ var requiredConfigs = []string{
 	"harpy.remoteRunner.commandEntrypoint",
 	"harpy.remoteRunner.isolatedEnvironmentSetupScript",
 	"harpy.remoteRunner.isolatedEnvironmentCleanupScript",
+	"harpy.remoteRunner.deepIsolation",
 	"harpy.remoteRunner.pythonInstaller",
 }
 

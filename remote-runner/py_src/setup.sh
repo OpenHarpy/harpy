@@ -12,3 +12,8 @@ if [ ! -d "venv" ]; then
         pip install $file
     done
 fi
+# Check if requirements-extras.txt exists and install the packages
+if [ -f "requirements-extras.txt" ]; then
+    source venv/bin/activate
+    pip install -r requirements-extras.txt
+fi

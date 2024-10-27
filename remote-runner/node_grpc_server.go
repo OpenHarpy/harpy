@@ -7,23 +7,11 @@ import (
 	"net"
 	pb "remote-runner/grpc_node_protocol"
 	"remote-runner/logger"
-	"time"
 
 	"github.com/google/uuid"
 	"github.com/sirupsen/logrus"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/status"
-)
-
-const (
-	// TODO: Make these configurable via the configs
-	port                       = ":50053"
-	processPoolingInterval     = 200 * time.Millisecond
-	timeoutAfterGettingResult  = 30 * time.Second
-	timeoutProcessNotTriggered = 120 * time.Second
-	heartbeatInterval          = 10 * time.Second
-
-	allowParallelProcesses = 4
 )
 
 type NodeServer struct {
@@ -68,26 +56,6 @@ func (s *NodeServer) IsolatedEnvDestroy(ctx context.Context, in *pb.IsolatedEnv)
 	return &pb.Ack{
 		Success:      true,
 		ErrorMessage: "",
-	}, nil
-}
-func (s *NodeServer) IsolatedEnvInstallPackage(ctx context.Context, in *pb.IsolatedEnvPackageRequest) (*pb.IsolatedEnvPackageResponse, error) {
-	// For now we are going to simply return the an error
-	return &pb.IsolatedEnvPackageResponse{
-		Success:      false,
-		ErrorMessage: "Not implemented",
-	}, nil
-}
-func (s *NodeServer) IsolatedEnvUninstallPackage(ctx context.Context, in *pb.IsolatedEnvPackageRequest) (*pb.IsolatedEnvPackageResponse, error) {
-	// For now we are going to simply return the an error
-	return &pb.IsolatedEnvPackageResponse{
-		Success:      false,
-		ErrorMessage: "Not implemented",
-	}, nil
-}
-func (s *NodeServer) IsolatedEnvListPackages(ctx context.Context, in *pb.IsolatedEnv) (*pb.IsolatedEnvPackageList, error) {
-	// For now we are going to simply return the an error
-	return &pb.IsolatedEnvPackageList{
-		PackageURIs: []string{},
 	}, nil
 }
 

@@ -14,9 +14,9 @@ def main():
     parser = argparse.ArgumentParser(description='Run a pickled object.')
     parser.add_argument('--func', type=str, help='The pickled object')
     parser.add_argument('--output', type=str, help='The output file')
-    parser.add_argument('--blocks', nargs='+', type=parse_kwarg, help='Key-value pairs')
+    parser.add_argument('--blocks', nargs='*', type=parse_kwarg, help='Key-value pairs')
     parsed_args = parser.parse_args()
-    blocks = dict(parsed_args.blocks)
+    blocks = dict(parsed_args.blocks) if parsed_args.blocks else {}
 
     # The object is a function, we need to unpickle it
     unpickled_func = unpickle_block(parsed_args.func)

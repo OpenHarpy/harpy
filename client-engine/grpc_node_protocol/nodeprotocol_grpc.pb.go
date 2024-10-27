@@ -121,21 +121,18 @@ var NodeController_ServiceDesc = grpc.ServiceDesc{
 }
 
 const (
-	Node_IsolatedEnvInit_FullMethodName             = "/proto.Node/IsolatedEnvInit"
-	Node_IsolatedEnvListPackages_FullMethodName     = "/proto.Node/IsolatedEnvListPackages"
-	Node_IsolatedEnvDestroy_FullMethodName          = "/proto.Node/IsolatedEnvDestroy"
-	Node_IsolatedEnvInstallPackage_FullMethodName   = "/proto.Node/IsolatedEnvInstallPackage"
-	Node_IsolatedEnvUninstallPackage_FullMethodName = "/proto.Node/IsolatedEnvUninstallPackage"
-	Node_RegisterCallback_FullMethodName            = "/proto.Node/RegisterCallback"
-	Node_UnregisterCallback_FullMethodName          = "/proto.Node/UnregisterCallback"
-	Node_RegisterCommand_FullMethodName             = "/proto.Node/RegisterCommand"
-	Node_RunCommand_FullMethodName                  = "/proto.Node/RunCommand"
-	Node_KillCommand_FullMethodName                 = "/proto.Node/KillCommand"
-	Node_GetCommandOutput_FullMethodName            = "/proto.Node/GetCommandOutput"
-	Node_StreamInBlock_FullMethodName               = "/proto.Node/StreamInBlock"
-	Node_StreamOutBlock_FullMethodName              = "/proto.Node/StreamOutBlock"
-	Node_DestroyBlock_FullMethodName                = "/proto.Node/DestroyBlock"
-	Node_ClearBlocks_FullMethodName                 = "/proto.Node/ClearBlocks"
+	Node_IsolatedEnvInit_FullMethodName    = "/proto.Node/IsolatedEnvInit"
+	Node_IsolatedEnvDestroy_FullMethodName = "/proto.Node/IsolatedEnvDestroy"
+	Node_RegisterCallback_FullMethodName   = "/proto.Node/RegisterCallback"
+	Node_UnregisterCallback_FullMethodName = "/proto.Node/UnregisterCallback"
+	Node_RegisterCommand_FullMethodName    = "/proto.Node/RegisterCommand"
+	Node_RunCommand_FullMethodName         = "/proto.Node/RunCommand"
+	Node_KillCommand_FullMethodName        = "/proto.Node/KillCommand"
+	Node_GetCommandOutput_FullMethodName   = "/proto.Node/GetCommandOutput"
+	Node_StreamInBlock_FullMethodName      = "/proto.Node/StreamInBlock"
+	Node_StreamOutBlock_FullMethodName     = "/proto.Node/StreamOutBlock"
+	Node_DestroyBlock_FullMethodName       = "/proto.Node/DestroyBlock"
+	Node_ClearBlocks_FullMethodName        = "/proto.Node/ClearBlocks"
 )
 
 // NodeClient is the client API for Node service.
@@ -144,10 +141,7 @@ const (
 type NodeClient interface {
 	// Packages / Setup
 	IsolatedEnvInit(ctx context.Context, in *IsolatedEnv, opts ...grpc.CallOption) (*Ack, error)
-	IsolatedEnvListPackages(ctx context.Context, in *IsolatedEnv, opts ...grpc.CallOption) (*IsolatedEnvPackageList, error)
 	IsolatedEnvDestroy(ctx context.Context, in *IsolatedEnv, opts ...grpc.CallOption) (*Ack, error)
-	IsolatedEnvInstallPackage(ctx context.Context, in *IsolatedEnvPackageRequest, opts ...grpc.CallOption) (*IsolatedEnvPackageResponse, error)
-	IsolatedEnvUninstallPackage(ctx context.Context, in *IsolatedEnvPackageRequest, opts ...grpc.CallOption) (*IsolatedEnvPackageResponse, error)
 	// Callbacks
 	RegisterCallback(ctx context.Context, in *CallbackRegistration, opts ...grpc.CallOption) (*CallbackHandler, error)
 	UnregisterCallback(ctx context.Context, in *CallbackHandler, opts ...grpc.CallOption) (*Ack, error)
@@ -182,40 +176,10 @@ func (c *nodeClient) IsolatedEnvInit(ctx context.Context, in *IsolatedEnv, opts 
 	return out, nil
 }
 
-func (c *nodeClient) IsolatedEnvListPackages(ctx context.Context, in *IsolatedEnv, opts ...grpc.CallOption) (*IsolatedEnvPackageList, error) {
-	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	out := new(IsolatedEnvPackageList)
-	err := c.cc.Invoke(ctx, Node_IsolatedEnvListPackages_FullMethodName, in, out, cOpts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
 func (c *nodeClient) IsolatedEnvDestroy(ctx context.Context, in *IsolatedEnv, opts ...grpc.CallOption) (*Ack, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(Ack)
 	err := c.cc.Invoke(ctx, Node_IsolatedEnvDestroy_FullMethodName, in, out, cOpts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-func (c *nodeClient) IsolatedEnvInstallPackage(ctx context.Context, in *IsolatedEnvPackageRequest, opts ...grpc.CallOption) (*IsolatedEnvPackageResponse, error) {
-	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	out := new(IsolatedEnvPackageResponse)
-	err := c.cc.Invoke(ctx, Node_IsolatedEnvInstallPackage_FullMethodName, in, out, cOpts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-func (c *nodeClient) IsolatedEnvUninstallPackage(ctx context.Context, in *IsolatedEnvPackageRequest, opts ...grpc.CallOption) (*IsolatedEnvPackageResponse, error) {
-	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	out := new(IsolatedEnvPackageResponse)
-	err := c.cc.Invoke(ctx, Node_IsolatedEnvUninstallPackage_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -340,10 +304,7 @@ func (c *nodeClient) ClearBlocks(ctx context.Context, in *IsolatedEnv, opts ...g
 type NodeServer interface {
 	// Packages / Setup
 	IsolatedEnvInit(context.Context, *IsolatedEnv) (*Ack, error)
-	IsolatedEnvListPackages(context.Context, *IsolatedEnv) (*IsolatedEnvPackageList, error)
 	IsolatedEnvDestroy(context.Context, *IsolatedEnv) (*Ack, error)
-	IsolatedEnvInstallPackage(context.Context, *IsolatedEnvPackageRequest) (*IsolatedEnvPackageResponse, error)
-	IsolatedEnvUninstallPackage(context.Context, *IsolatedEnvPackageRequest) (*IsolatedEnvPackageResponse, error)
 	// Callbacks
 	RegisterCallback(context.Context, *CallbackRegistration) (*CallbackHandler, error)
 	UnregisterCallback(context.Context, *CallbackHandler) (*Ack, error)
@@ -371,17 +332,8 @@ type UnimplementedNodeServer struct{}
 func (UnimplementedNodeServer) IsolatedEnvInit(context.Context, *IsolatedEnv) (*Ack, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method IsolatedEnvInit not implemented")
 }
-func (UnimplementedNodeServer) IsolatedEnvListPackages(context.Context, *IsolatedEnv) (*IsolatedEnvPackageList, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method IsolatedEnvListPackages not implemented")
-}
 func (UnimplementedNodeServer) IsolatedEnvDestroy(context.Context, *IsolatedEnv) (*Ack, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method IsolatedEnvDestroy not implemented")
-}
-func (UnimplementedNodeServer) IsolatedEnvInstallPackage(context.Context, *IsolatedEnvPackageRequest) (*IsolatedEnvPackageResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method IsolatedEnvInstallPackage not implemented")
-}
-func (UnimplementedNodeServer) IsolatedEnvUninstallPackage(context.Context, *IsolatedEnvPackageRequest) (*IsolatedEnvPackageResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method IsolatedEnvUninstallPackage not implemented")
 }
 func (UnimplementedNodeServer) RegisterCallback(context.Context, *CallbackRegistration) (*CallbackHandler, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method RegisterCallback not implemented")
@@ -452,24 +404,6 @@ func _Node_IsolatedEnvInit_Handler(srv interface{}, ctx context.Context, dec fun
 	return interceptor(ctx, in, info, handler)
 }
 
-func _Node_IsolatedEnvListPackages_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(IsolatedEnv)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(NodeServer).IsolatedEnvListPackages(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: Node_IsolatedEnvListPackages_FullMethodName,
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(NodeServer).IsolatedEnvListPackages(ctx, req.(*IsolatedEnv))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
 func _Node_IsolatedEnvDestroy_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(IsolatedEnv)
 	if err := dec(in); err != nil {
@@ -484,42 +418,6 @@ func _Node_IsolatedEnvDestroy_Handler(srv interface{}, ctx context.Context, dec 
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(NodeServer).IsolatedEnvDestroy(ctx, req.(*IsolatedEnv))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
-func _Node_IsolatedEnvInstallPackage_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(IsolatedEnvPackageRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(NodeServer).IsolatedEnvInstallPackage(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: Node_IsolatedEnvInstallPackage_FullMethodName,
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(NodeServer).IsolatedEnvInstallPackage(ctx, req.(*IsolatedEnvPackageRequest))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
-func _Node_IsolatedEnvUninstallPackage_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(IsolatedEnvPackageRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(NodeServer).IsolatedEnvUninstallPackage(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: Node_IsolatedEnvUninstallPackage_FullMethodName,
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(NodeServer).IsolatedEnvUninstallPackage(ctx, req.(*IsolatedEnvPackageRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -698,20 +596,8 @@ var Node_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _Node_IsolatedEnvInit_Handler,
 		},
 		{
-			MethodName: "IsolatedEnvListPackages",
-			Handler:    _Node_IsolatedEnvListPackages_Handler,
-		},
-		{
 			MethodName: "IsolatedEnvDestroy",
 			Handler:    _Node_IsolatedEnvDestroy_Handler,
-		},
-		{
-			MethodName: "IsolatedEnvInstallPackage",
-			Handler:    _Node_IsolatedEnvInstallPackage_Handler,
-		},
-		{
-			MethodName: "IsolatedEnvUninstallPackage",
-			Handler:    _Node_IsolatedEnvUninstallPackage_Handler,
 		},
 		{
 			MethodName: "RegisterCallback",

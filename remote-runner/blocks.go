@@ -26,7 +26,7 @@ const (
 
 // ** Block ** //
 func ClearAllBlocksInDir() error {
-	blockLocationRoot := config.GetConfigs().GetConfigsWithDefault("harpy.remoteRunner.blockMountLocation", "./_blocks")
+	blockLocationRoot := config.GetConfigs().GetConfigWithDefault("harpy.remoteRunner.blockMountLocation", "./_blocks")
 	files, err := os.ReadDir(blockLocationRoot)
 	if err != nil {
 		return err
@@ -74,7 +74,7 @@ func (b *Block) Cleanup() error {
 }
 
 func NewBlock(blockID string) *Block {
-	blockLocationRoot := config.GetConfigs().GetConfigsWithDefault("harpy.remoteRunner.blockMountLocation", "./_blocks")
+	blockLocationRoot := config.GetConfigs().GetConfigWithDefault("harpy.remoteRunner.blockMountLocation", "./_blocks")
 	blockFilePath := strings.ReplaceAll(blockLocationRoot+"/"+blockID+".block", "//", "/")
 	return &Block{
 		BlockID:       blockID,

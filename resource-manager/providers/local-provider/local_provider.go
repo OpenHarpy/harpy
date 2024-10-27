@@ -98,7 +98,7 @@ func (l *LocalProvider) ProvisionNodes(nodeType string, nodeCount int) ([]*provi
 	logger.Info("Starting local node process", "PROVISION_NODES")
 	go CreateAndManageLocalProcess(exitChan, &wg, l.CommandToExecute)
 
-	grpcAddress := config.GetConfigs().GetConfigsWithDefault("harpy.resourceManager.localProvider.node.uri", "localhost:50053")
+	grpcAddress := config.GetConfigs().GetConfigWithDefault("harpy.resourceManager.localProvider.node.uri", "localhost:50053")
 
 	return []*providers.ProviderProvisionResponse{
 		{

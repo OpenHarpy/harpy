@@ -8,8 +8,8 @@ import (
 func NodeSetup() error {
 	logger.Info("Setting up node", "NODE_SETUP")
 	// We will start by running the command
-	root := config.GetConfigs().GetConfigsWithDefault("harpy.remoteRunner.scriptsRoot", "")
-	setupScript := config.GetConfigs().GetConfigsWithDefault("harpy.remoteRunner.nodeSetupScript", "")
+	root := config.GetConfigs().GetConfigWithDefault("harpy.remoteRunner.scriptsRoot", "")
+	setupScript := config.GetConfigs().GetConfigWithDefault("harpy.remoteRunner.nodeSetupScript", "")
 	fullPath := root + "/" + setupScript
 	err := ExecCommandNoEcho(fullPath)
 	if err != nil {

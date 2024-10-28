@@ -1,0 +1,71 @@
+name: Build
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      #----------------------------------------------
+      #       check-out repo and set-up python
+      #----------------------------------------------
+      - name: Check out repository
+        uses: actions/checkout@v4
+      - name: Set up python
+        id: setup-python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10.9'
+      #----------------------------------------------
+      #  -----  install & configure poetry  -----
+      #----------------------------------------------
+      - name: Install Poetry
+        uses: snok/install-poetry@v1
+        with:
+          virtualenvs-create: true
+          virtualenvs-in-project: true
+          virtualenvs-path: .venv
+          installer-parallel: true
+
+      #----------------------------------------------
+      #       load cached venv if cache exists
+      #----------------------------------------------
+      - name: Load cached venv
+        id: cached-poetry-dependencies
+        uses: actions/cache@v4
+        with:
+          path: .venv
+          key: venv-${{ runner.os }}-${{ steps.setup-python.outputs.python-version }}-${{ hashFiles('**/poetry.lock') }}
+      #----------------------------------------------
+      #  -----  Install dependencies  -----  
+      # protobuf-compiler, grpcio-tools, make and go 
+      #----------------------------------------------
+      - name: Install protoc and grpcio-tools
+        id : install-protoc
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y protobuf-compiler make golang-go 
+          python -m pip install grpcio-tools
+          go install google.golang.org/protobuf/cmd/protoc-gen-go@latest
+          go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@latest
+      - name: Build
+        run: |
+          export PATH=$PATH:$(go env GOPATH)/bin
+          make build
+          make run-export-image
+      #----------------------------------------------
+      # -----  Upload artifacts to be used later -----
+      #----------------------------------------------
+      - name: Upload artifacts (1/2)
+        uses: actions/upload-artifact@v2
+        with:
+          name: docker-image-export
+          path: ./harpy.tar
+          retention-days: 1
+      - name: Upload artifacts (2/2)
+        uses: actions/upload-artifact@v2
+        with:
+          name: python-package
+          path: ./dist
+          retention-days: 1

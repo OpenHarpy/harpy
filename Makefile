@@ -107,3 +107,6 @@ run-server:
 
 run-client-example:
 	cd $(PYTHON_PROJECT_ROOT) && $(PYTHON) main.py
+
+run-export-image:
+	$(DOCKER) save harpy:$(RELEASE_VERSION) > harpy.tar

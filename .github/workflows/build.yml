@@ -58,14 +58,16 @@ jobs:
       # -----  Upload artifacts to be used later -----
       #----------------------------------------------
       - name: Upload artifacts (1/2)
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v4
         with:
           name: docker-image-export
           path: ./harpy.tar
-          retention-days: 1
+          retention-days: 5
+          if-no-files-found: error
       - name: Upload artifacts (2/2)
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v4
         with:
           name: python-package
           path: ./dist
-          retention-days: 1
+          retention-days: 5
+          if-no-files-found: error

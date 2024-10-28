@@ -4,6 +4,8 @@ class Configs(metaclass=SingletonMeta):
         self.configs = {}
 
     def get(self, key):
+        if key not in self.configs:
+            return None
         return self.configs[key]
     
     def set(self, key, value):

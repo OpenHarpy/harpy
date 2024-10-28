@@ -53,18 +53,25 @@ jobs:
         run: |
           export PATH=$PATH:$(go env GOPATH)/bin
           make build
-          make run-export-image
+          make run-export-images
       #----------------------------------------------
       # -----  Upload artifacts to be used later -----
       #----------------------------------------------
-      - name: Upload artifacts (1/2)
+      - name: Upload artifacts (1/3)
         uses: actions/upload-artifact@v4
         with:
-          name: docker-image-export
+          name: docker-image-harpy
           path: ./harpy.tar
           retention-days: 5
           if-no-files-found: error
-      - name: Upload artifacts (2/2)
+      - name: Upload artifacts (2/3)
+        uses: actions/upload-artifact@v4
+        with:
+          name: docker-image-jupyter-server
+          path: ./harpy-jupyter-server.tar
+          retention-days: 5
+          if-no-files-found: error
+      - name: Upload artifacts (3/3)
         uses: actions/upload-artifact@v4
         with:
           name: python-package

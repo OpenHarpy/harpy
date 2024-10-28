@@ -81,6 +81,7 @@ build-docker-images:
 	$(DOCKER) system prune -f
 	$(DOCKER) build -t harpy-base-go-python:$(RELEASE_VERSION) -f ./images/base-image/Dockerfile ./images/base-image/
 	$(DOCKER) build -t harpy:$(RELEASE_VERSION) -f ./images/harpy-image/Dockerfile .
+	$(DOCKER) build -t harpy-jupyter-server:$(RELEASE_VERSION) -f ./images/harpy-jupyter-server/Dockerfile .
 
 # Prepare the environment
 prepare-env:
@@ -108,5 +109,6 @@ run-server:
 run-client-example:
 	cd $(PYTHON_PROJECT_ROOT) && $(PYTHON) main.py
 
-run-export-image:
+run-export-images:
 	$(DOCKER) save harpy:$(RELEASE_VERSION) > harpy.tar
+	$(DOCKER) save harpy-jupyter-server:$(RELEASE_VERSION) > harpy-jupyter-server.tar

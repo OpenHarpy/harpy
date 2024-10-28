@@ -2,8 +2,6 @@
 from typing import List
 import grpc
 import atexit
-import pandas as pd
-import pyarrow as pa
 
 from harpy.primitives import SingletonMeta, check_variable
 from harpy.configs import Configs
@@ -57,6 +55,10 @@ def check_session():
         return wrapper
     return decorator
 
+def ensure_set_default(config_key, default_value):
+    if Configs().get(config_key) is None:
+        Configs().set(config_key, default_value)
+
 class Session(metaclass=SessionSingletonMeta):
     def __init__(self):
         self.conf = Configs()
@@ -66,10 +68,10 @@ class Session(metaclass=SessionSingletonMeta):
         self.__init_session__()
     
     def __reset_instance__(self):
-        self.conf.set('harpy.sdk.remote.controller.grpcHost', 'localhost')
-        self.conf.set('harpy.sdk.remote.controller.grpcPort', '50051')
-        self.conf.set('harpy.tasks.node.request.type', 'small-4cpu-1gb')
-        self.conf.set('harpy.tasks.node.request.count', '1')
+        ensure_set_default('harpy.sdk.remote.controller.grpcHost', 'localhost')
+        ensure_set_default('harpy.sdk.remote.controller.grpcPort', '50051')
+        ensure_set_default('harpy.tasks.node.request.type', 'small-4cpu-1gb')
+        ensure_set_default('harpy.tasks.node.request.count', '1')
         self._close_requested: bool = False
         self._instance_id: str = None
         self._session_stub: SessionStub = None

@@ -23,9 +23,11 @@ from harpy.grpc_ce_protocol.ceprotocol_pb2_grpc import (
     TaskSetStub,
 )
 from harpy.processing.types import (
-    MapTask, ReduceTask, TransformTask, FanOutTask, TaskSetResults, Result
+    MapTask, 
+    BatchMapTask,
+    ReduceTask, TransformTask, TaskSetResults, Result
 )
-from harpy.tasksets.code_quality_check import validate_function, get_output_type
+from harpy.tasksets.code_quality_check import validate_function, get_output_type, validate_batch_map
 from harpy.session.block_read_write_proxy import BlockReadWriteProxy
 from harpy.tasksets.progress_displays import get_progress_viewer
 
@@ -53,6 +55,14 @@ def deserialize_result(result: TaskResult, block_proxy:BlockReadWriteProxy) -> R
         success=result.Success
     )
 
+def get_block_for_object(block_proxy:BlockReadWriteProxy, block_hash_map:dict, obj:Any) -> str:
+    if id(obj) in block_hash_map:
+        return block_hash_map[id(obj)]
+    obj_binary = cloudpickle.dumps(obj)
+    block_hash = block_proxy.write_block(obj_binary)
+    block_hash_map[id(obj)] = block_hash
+    return block_hash
+
 class TaskSet:
     def __init__(self, session, taskSetHandler: TaskSetHandler):
         self._session = session
@@ -61,18 +71,17 @@ class TaskSet:
         ))
         self._taskset_handler = taskSetHandler
         self._last_function_type = None
+        self._block_hash_map = {}
         self._number_of_nodes_added = 0
     
+    def __get_block_for_object__(self, obj:Any) -> str:
+        return get_block_for_object(self._session.get_block_read_write_proxy(), self._block_hash_map, obj)
+    
     def __define_task__(self, task_definition: MapTask | ReduceTask | TransformTask) -> TaskHandler:
-        # We start by getting blockIDs for the function and the arguments
-        callableBinary = cloudpickle.dumps(task_definition.fun)
-        argsBinary = [cloudpickle.dumps(arg) for arg in task_definition.args]
-        kwargsBinary = {key: cloudpickle.dumps(value) for key, value in task_definition.kwargs.items()}
-        # We then stream all the blocks
-        block_proxy = self._session.get_block_read_write_proxy()
-        callableBlock = block_proxy.write_block(callableBinary)
-        argsBlocks = [block_proxy.write_block(arg) for arg in argsBinary]
-        kwargsBlocks = {key: block_proxy.write_block(value) for key, value in kwargsBinary.items()}
+        # We start by getting blockIDs for the function and the arguments        
+        callableBlock = self.__get_block_for_object__(task_definition.fun)
+        argsBlocks = [self.__get_block_for_object__(arg) for arg in task_definition.args]
+        kwargsBlocks = {key: self.__get_block_for_object__(value) for key, value in task_definition.kwargs.items()}
         # We then create the task definition chunk
         response:TaskHandler = self._taskset_stub.DefineTask(
             TaskDefinition(
@@ -111,7 +120,7 @@ class TaskSet:
         task_handlers = [
             self.__define_task__(map_task)
             for map_task in map_tasks
-        ]           
+        ]
         map_adder = MapAdder(
             taskSetHandler=self._taskset_handler,
             MappersDefinition=task_handlers
@@ -176,6 +185,63 @@ class TaskSet:
             return self
         else:
             raise Exception("Failed to add transform task")
+    
+    @check_variable('_taskset_handler', INVALID_TASKSET_MESSAGE)
+    def add_batch_maps(self, batch_map_task: BatchMapTask) -> 'TaskSet':
+        # Map task validation checks
+        if self._number_of_nodes_added > 0:
+            raise TaskSetDefinitionError("InvalidMapPlacement: Cannot add batch map tasks after reduce or transform tasks")
+        
+        all_errors = []
+        errors = validate_batch_map(batch_map_task)
+        if len(errors) > 0:
+            error_breakdown = "BatchMap definition failed validation with:"
+            for error in errors:
+                error_breakdown += "\n - " + error
+            all_errors.append(error_breakdown)
+            raise TaskSetDefinitionError("InvalidBatchMapFunction: \n" + "\n".join(all_errors))
+        
+        output_type = get_output_type(batch_map_task.map_tasks[0].fun)
+        self._last_function_type = list[output_type]
+        
+        # We will wrap the batch map task into chunked map tasks based on the batch size
+        passed_map_tasks_size = len(batch_map_task.map_tasks)
+        tasks_per_chunk = batch_map_task.batch_size        
+        # Create the chunked map tasks
+        chunked_map_tasks = [
+            batch_map_task.map_tasks[i:i + tasks_per_chunk]
+            for i in range(0, passed_map_tasks_size, tasks_per_chunk)
+        ]
+        # We will create a map task for each chunk
+        def map_wrap(chunk: list[MapTask]) -> list[Any]:
+            return [task.fun(*task.args, **task.kwargs) for task in chunk]
+        
+        chunked_map_task_handlers = [
+            MapTask(
+                name = f'chunked_map_{i}',
+                fun=map_wrap,
+                args=[],
+                kwargs={"chunk": chunk}
+            )
+            for i, chunk in enumerate(chunked_map_tasks)
+        ]
+        
+        # Map definition passed all the checks
+        task_handlers = [
+            self.__define_task__(map_task)
+            for map_task in chunked_map_task_handlers
+        ]
+        map_adder = MapAdder(
+            taskSetHandler=self._taskset_handler,
+            MappersDefinition=task_handlers
+        )
+        response = self._taskset_stub.AddMap(map_adder)
+        if (response.Success):
+            self._number_of_nodes_added += 1
+            return self
+        else:
+            raise Exception("Failed to add map tasks")
+        
     
     @check_variable('_taskset_handler', INVALID_TASKSET_MESSAGE)
     def __execute__(self, collect=False) -> TaskSetResults:

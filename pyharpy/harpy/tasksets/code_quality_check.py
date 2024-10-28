@@ -1,5 +1,5 @@
 import inspect
-
+from harpy.processing.types import (BatchMapTask)
 def get_output_type(callable):
     function_signature = inspect.signature(callable)
     return function_signature.return_annotation
@@ -62,3 +62,19 @@ def validate_function(callable, function_type, expect_output_type=None):
     else:
         raise ValueError("Invalid function type")
     return errors_description
+
+def validate_batch_map(batch_maps:BatchMapTask):
+    # Code quality gates - B. BatchMapTask can only have maps that have the same function
+    errors_description = []
+    if len(batch_maps.map_tasks) == 0:
+        errors_description.append("BatchMapTask must have at least one map")
+        return errors_description
+    for map_task in batch_maps.map_tasks:
+        if map_task.fun != batch_maps.map_tasks[0].fun:
+            errors_description.append("All maps in a BatchMapTask must use the same function")
+            break
+    error_extend = validate_function(batch_maps.map_tasks[0].fun, "map")
+    if len(error_extend) > 0:
+        errors_description.extend(error_extend)
+    return errors_description
+    

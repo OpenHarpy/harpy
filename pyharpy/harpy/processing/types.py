@@ -76,12 +76,11 @@ class TransformTask:
             raise ValueError("The first argument of the transform function must be typed as a result")
 
 @dataclass
-class FanOutTask:
+class BatchMapTask:
     name: str
-    fun: callable
-    args: List[Any]
-    kwargs: dict[str, Any]
-    
+    batch_size: int
+    map_tasks: List[MapTask]
+
     def _validate(self):
         if not callable(self.fun):
             raise ValueError("fun must be a callable")
@@ -89,10 +88,3 @@ class FanOutTask:
             raise ValueError("args must be a list")
         if not isinstance(self.kwargs, dict):
             raise ValueError("kwargs must be a dict")
-        # The first argument of the fan out function must be typed as a result
-        first_arg_name = list(self.fun.__annotations__.keys())[0]
-        provided_type = self.fun.__annotations__.get(first_arg_name)
-        if provided_type is None:
-            raise ValueError("The first argument of the fan out function must be typed as a result")
-        if provided_type != Result:
-            raise ValueError("The first argument of the fan out function must be typed as a result")

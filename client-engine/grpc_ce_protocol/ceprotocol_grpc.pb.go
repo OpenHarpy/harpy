@@ -235,13 +235,14 @@ var Session_ServiceDesc = grpc.ServiceDesc{
 }
 
 const (
-	TaskSet_DefineTask_FullMethodName        = "/proto.TaskSet/DefineTask"
-	TaskSet_AddMap_FullMethodName            = "/proto.TaskSet/AddMap"
-	TaskSet_AddReduce_FullMethodName         = "/proto.TaskSet/AddReduce"
-	TaskSet_AddTransform_FullMethodName      = "/proto.TaskSet/AddTransform"
-	TaskSet_Execute_FullMethodName           = "/proto.TaskSet/Execute"
-	TaskSet_Dismantle_FullMethodName         = "/proto.TaskSet/Dismantle"
-	TaskSet_GetTaskSetResults_FullMethodName = "/proto.TaskSet/GetTaskSetResults"
+	TaskSet_DefineTask_FullMethodName              = "/proto.TaskSet/DefineTask"
+	TaskSet_AddMap_FullMethodName                  = "/proto.TaskSet/AddMap"
+	TaskSet_AddReduce_FullMethodName               = "/proto.TaskSet/AddReduce"
+	TaskSet_AddTransform_FullMethodName            = "/proto.TaskSet/AddTransform"
+	TaskSet_Execute_FullMethodName                 = "/proto.TaskSet/Execute"
+	TaskSet_SetBlockRetentionPolicy_FullMethodName = "/proto.TaskSet/SetBlockRetentionPolicy"
+	TaskSet_Dismantle_FullMethodName               = "/proto.TaskSet/Dismantle"
+	TaskSet_GetTaskSetResults_FullMethodName       = "/proto.TaskSet/GetTaskSetResults"
 )
 
 // TaskSetClient is the client API for TaskSet service.
@@ -253,6 +254,7 @@ type TaskSetClient interface {
 	AddReduce(ctx context.Context, in *ReduceAdder, opts ...grpc.CallOption) (*TaskAdderResult, error)
 	AddTransform(ctx context.Context, in *TransformAdder, opts ...grpc.CallOption) (*TaskAdderResult, error)
 	Execute(ctx context.Context, in *TaskSetHandler, opts ...grpc.CallOption) (grpc.ServerStreamingClient[TaskSetProgressReport], error)
+	SetBlockRetentionPolicy(ctx context.Context, in *SetRetentionPolicy, opts ...grpc.CallOption) (*TaskSetHandler, error)
 	Dismantle(ctx context.Context, in *TaskSetHandler, opts ...grpc.CallOption) (*TaskSetHandler, error)
 	GetTaskSetResults(ctx context.Context, in *TaskSetHandler, opts ...grpc.CallOption) (*TaskSetResult, error)
 }
@@ -324,6 +326,16 @@ func (c *taskSetClient) Execute(ctx context.Context, in *TaskSetHandler, opts ..
 // This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
 type TaskSet_ExecuteClient = grpc.ServerStreamingClient[TaskSetProgressReport]
 
+func (c *taskSetClient) SetBlockRetentionPolicy(ctx context.Context, in *SetRetentionPolicy, opts ...grpc.CallOption) (*TaskSetHandler, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(TaskSetHandler)
+	err := c.cc.Invoke(ctx, TaskSet_SetBlockRetentionPolicy_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *taskSetClient) Dismantle(ctx context.Context, in *TaskSetHandler, opts ...grpc.CallOption) (*TaskSetHandler, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(TaskSetHandler)
@@ -353,6 +365,7 @@ type TaskSetServer interface {
 	AddReduce(context.Context, *ReduceAdder) (*TaskAdderResult, error)
 	AddTransform(context.Context, *TransformAdder) (*TaskAdderResult, error)
 	Execute(*TaskSetHandler, grpc.ServerStreamingServer[TaskSetProgressReport]) error
+	SetBlockRetentionPolicy(context.Context, *SetRetentionPolicy) (*TaskSetHandler, error)
 	Dismantle(context.Context, *TaskSetHandler) (*TaskSetHandler, error)
 	GetTaskSetResults(context.Context, *TaskSetHandler) (*TaskSetResult, error)
 	mustEmbedUnimplementedTaskSetServer()
@@ -379,6 +392,9 @@ func (UnimplementedTaskSetServer) AddTransform(context.Context, *TransformAdder)
 }
 func (UnimplementedTaskSetServer) Execute(*TaskSetHandler, grpc.ServerStreamingServer[TaskSetProgressReport]) error {
 	return status.Errorf(codes.Unimplemented, "method Execute not implemented")
+}
+func (UnimplementedTaskSetServer) SetBlockRetentionPolicy(context.Context, *SetRetentionPolicy) (*TaskSetHandler, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method SetBlockRetentionPolicy not implemented")
 }
 func (UnimplementedTaskSetServer) Dismantle(context.Context, *TaskSetHandler) (*TaskSetHandler, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Dismantle not implemented")
@@ -490,6 +506,24 @@ func _TaskSet_Execute_Handler(srv interface{}, stream grpc.ServerStream) error {
 // This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
 type TaskSet_ExecuteServer = grpc.ServerStreamingServer[TaskSetProgressReport]
 
+func _TaskSet_SetBlockRetentionPolicy_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(SetRetentionPolicy)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(TaskSetServer).SetBlockRetentionPolicy(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: TaskSet_SetBlockRetentionPolicy_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(TaskSetServer).SetBlockRetentionPolicy(ctx, req.(*SetRetentionPolicy))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _TaskSet_Dismantle_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(TaskSetHandler)
 	if err := dec(in); err != nil {
@@ -548,6 +582,10 @@ var TaskSet_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "AddTransform",
 			Handler:    _TaskSet_AddTransform_Handler,
+		},
+		{
+			MethodName: "SetBlockRetentionPolicy",
+			Handler:    _TaskSet_SetBlockRetentionPolicy_Handler,
 		},
 		{
 			MethodName: "Dismantle",

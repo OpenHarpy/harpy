@@ -14,6 +14,8 @@ import (
 	"errors"
 	"fmt"
 	"time"
+
+	"github.com/sirupsen/logrus"
 )
 
 const (
@@ -142,7 +144,7 @@ func (t TaskGroup) RemoteGRPCExecute(previousResult TaskGroupResult, session *Se
 
 	// Register the callback handler
 	callbackHandlerID := session.RegisterCallbackPointer(t.CallbackHandler)
-
+	logger.Info("CallbackHandler registered", "TASKGROUP", logrus.Fields{"blockGroupID": t.TaskSet.CurrentBlockGroupID, "callbackHandlerID": callbackHandlerID})
 	for _, task := range t.TaskRuns {
 		// For each task we get the node from the session
 		node := session.NodeTracker.GetNextNode()

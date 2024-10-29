@@ -18,6 +18,15 @@ import (
 	"github.com/google/uuid"
 )
 
+type BlockRetentionPolicy int
+
+const (
+	BlockRetentionPolicyRemoveAll          BlockRetentionPolicy = 0
+	BlockRetentionPolicyKeepAll            BlockRetentionPolicy = 1
+	BlockRetentionPolicyKeepLastLastOutput BlockRetentionPolicy = 2
+	BlockRetentionPolicyKeepAllOutputs     BlockRetentionPolicy = 3
+)
+
 type TaskSetResult struct {
 	// This did not exist in the original Python implementation of the task set
 	//
@@ -39,11 +48,14 @@ type TaskSet struct {
 	TaskReporter      *Reporter
 	TaskGroupReporter *Reporter
 	//ResourceReporter *Reporter
-	Session            *Session
-	TaskSetResultCache *TaskSetResult // This is used to cache the result of the task set
+	Session             *Session
+	TaskSetResultCache  *TaskSetResult // This is used to cache the result of the task set
+	RetentionPolicy     BlockRetentionPolicy
+	CurrentBlockGroupID *string
+	BlockGroupIDs       map[int]string
 }
 
-func (t TaskSet) generateDefaultTaskGroup(factory TaskFactory, options map[string]string) TaskGroup {
+func (t *TaskSet) generateDefaultTaskGroup(factory TaskFactory, options map[string]string) TaskGroup {
 	// This will generate the default options for the task group
 	//   This will allow the user to override the default options
 	idx := fmt.Sprintf("tg-%s", uuid.New().String())
@@ -55,7 +67,7 @@ func (t TaskSet) generateDefaultTaskGroup(factory TaskFactory, options map[strin
 		name,
 		t.TaskGroupReporter,
 		t.TaskReporter,
-		&t,
+		t,
 	)
 	return tskGrp
 }
@@ -135,7 +147,12 @@ func (t *TaskSet) Execute() (TaskSetResult, error) {
 	nextNode := t.RootNode
 	lastResult := TaskGroupResult{}
 	failing := false
+	layer := 0
 	for nextNode != nil {
+		// We are now starting the task group we need to refresh the BlockGroupID
+		formattedID := fmt.Sprintf("bg-%s-%d", t.TaskSetId, layer)
+		t.CurrentBlockGroupID = &formattedID
+		t.BlockGroupIDs[layer] = *t.CurrentBlockGroupID
 		if failing {
 			nextNode.SkipRemaining()
 		} else {
@@ -154,6 +171,7 @@ func (t *TaskSet) Execute() (TaskSetResult, error) {
 			}
 		}
 		nextNode = nextNode.NextNode
+		layer++
 	}
 
 	if failing {
@@ -224,11 +242,45 @@ func NewTaskSet(session *Session) *TaskSet {
 	}, context)
 
 	return &TaskSet{
-		TaskSetId:         idx,
-		TaskSetReporter:   taskSetReporter,
-		TaskGroupReporter: taskGroupReporter,
-		TaskReporter:      taskReporter,
-		Session:           session,
+		TaskSetId:           idx,
+		TaskSetReporter:     taskSetReporter,
+		TaskGroupReporter:   taskGroupReporter,
+		TaskReporter:        taskReporter,
+		Session:             session,
+		CurrentBlockGroupID: nil,
+		BlockGroupIDs:       make(map[int]string),
+		RetentionPolicy:     BlockRetentionPolicyRemoveAll,
+	}
+}
+
+func (t TaskSet) Dismantle() {
+	logger.Info("Dismantling TaskSet", "TASKSET")
+	// Consider for now that all the blocks are to be flushed
+	if t.RetentionPolicy == BlockRetentionPolicyRemoveAll {
+		for _, blockGroupID := range t.BlockGroupIDs {
+			t.Session.NodeTracker.FlushBlocks(blockGroupID, nil)
+		}
+	} else if t.RetentionPolicy == BlockRetentionPolicyKeepLastLastOutput {
+		// We will keep the last output block
+		last := len(t.BlockGroupIDs) - 1
+		for idx, blockGroupID := range t.BlockGroupIDs {
+			if idx != last {
+				t.Session.NodeTracker.FlushBlocks(blockGroupID, nil)
+			} else {
+				t.Session.NodeTracker.FlushBlocks(blockGroupID, []string{"output"})
+			}
+		}
+	} else if t.RetentionPolicy == BlockRetentionPolicyKeepAllOutputs {
+		// We will keep all the output blocks
+		for _, blockGroupID := range t.BlockGroupIDs {
+			t.Session.NodeTracker.FlushBlocks(blockGroupID, []string{"output"})
+		}
+	} else if t.RetentionPolicy != BlockRetentionPolicyKeepAll {
+		// We simply print a warning
+		logger.Warn("Unknown block retention policy, defaulting to flush all blocks", "TASKSET")
+		for _, blockGroupID := range t.BlockGroupIDs {
+			t.Session.NodeTracker.FlushBlocks(blockGroupID, nil)
+		}
 	}
 }
 

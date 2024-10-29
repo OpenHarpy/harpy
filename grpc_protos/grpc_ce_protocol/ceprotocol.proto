@@ -97,6 +97,17 @@ message TaskSetProgressReport {
   map<string, string> ProgressDetails = 6; // This is an arbitrary key-value pair to provide more information
 }
 
+enum BlockRetentionPolicy {
+  RemoveAll = 0;
+  KeepAll = 1;
+  KeepLastLayerOutput = 2;
+  KeelAllOutput = 3;
+}
+message SetRetentionPolicy {
+  TaskSetHandler taskSetHandler = 1;
+  BlockRetentionPolicy RetentionPolicy = 2;
+}
+
 service TaskSet {
   rpc DefineTask (TaskDefinition) returns (TaskHandler) {}
 
@@ -104,6 +115,7 @@ service TaskSet {
   rpc AddReduce (ReduceAdder) returns (TaskAdderResult) {}
   rpc AddTransform (TransformAdder) returns (TaskAdderResult) {}
   rpc Execute (TaskSetHandler) returns (stream TaskSetProgressReport) {}
+  rpc SetBlockRetentionPolicy (SetRetentionPolicy) returns (TaskSetHandler) {}
   rpc Dismantle (TaskSetHandler) returns (TaskSetHandler) {}
 
   rpc GetTaskSetResults (TaskSetHandler) returns (TaskSetResult) {}

@@ -260,6 +260,11 @@ class TaskSetStub(object):
                 request_serializer=ceprotocol__pb2.TaskSetHandler.SerializeToString,
                 response_deserializer=ceprotocol__pb2.TaskSetProgressReport.FromString,
                 _registered_method=True)
+        self.SetBlockRetentionPolicy = channel.unary_unary(
+                '/proto.TaskSet/SetBlockRetentionPolicy',
+                request_serializer=ceprotocol__pb2.SetRetentionPolicy.SerializeToString,
+                response_deserializer=ceprotocol__pb2.TaskSetHandler.FromString,
+                _registered_method=True)
         self.Dismantle = channel.unary_unary(
                 '/proto.TaskSet/Dismantle',
                 request_serializer=ceprotocol__pb2.TaskSetHandler.SerializeToString,
@@ -305,6 +310,12 @@ class TaskSetServicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def SetBlockRetentionPolicy(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
     def Dismantle(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
@@ -344,6 +355,11 @@ def add_TaskSetServicer_to_server(servicer, server):
                     servicer.Execute,
                     request_deserializer=ceprotocol__pb2.TaskSetHandler.FromString,
                     response_serializer=ceprotocol__pb2.TaskSetProgressReport.SerializeToString,
+            ),
+            'SetBlockRetentionPolicy': grpc.unary_unary_rpc_method_handler(
+                    servicer.SetBlockRetentionPolicy,
+                    request_deserializer=ceprotocol__pb2.SetRetentionPolicy.FromString,
+                    response_serializer=ceprotocol__pb2.TaskSetHandler.SerializeToString,
             ),
             'Dismantle': grpc.unary_unary_rpc_method_handler(
                     servicer.Dismantle,
@@ -491,6 +507,33 @@ class TaskSet(object):
             '/proto.TaskSet/Execute',
             ceprotocol__pb2.TaskSetHandler.SerializeToString,
             ceprotocol__pb2.TaskSetProgressReport.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def SetBlockRetentionPolicy(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/proto.TaskSet/SetBlockRetentionPolicy',
+            ceprotocol__pb2.SetRetentionPolicy.SerializeToString,
+            ceprotocol__pb2.TaskSetHandler.FromString,
             options,
             channel_credentials,
             insecure,

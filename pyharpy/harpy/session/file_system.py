@@ -85,7 +85,8 @@ class FileSystem():
             "tail": lambda path, n=10: run_fs_command(session, fs_tail, path, n),
             "wc": lambda path: run_fs_command(session, fs_wc, path),
             "mkdir": lambda path, recursive=False: run_fs_command(session, fs_mkdir, path, recursive=recursive),
-            "rm": lambda path, recursive=False: run_fs_command(session, fs_rm, path, recursive=recursive)
+            "rm": lambda path, recursive=False: run_fs_command(session, fs_rm, path, recursive=recursive),
+            "folder_exists": lambda path: os.path.exists(path) and os.path.isdir(path),
         }
     def __getattribute__(self, name: str) -> callable:
         if name in object.__getattribute__(self, "_fs_functions"):

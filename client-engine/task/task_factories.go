@@ -81,3 +81,33 @@ func (r ReduceFactory) MakeTasks(previousResult TaskGroupResult) []TaskDefinitio
 func (r ReduceFactory) String() string {
 	return fmt.Sprintf("ReduceFactory with reducer %s", r.Reducer.String())
 }
+
+// ** FanoutFactory **
+type FanoutFactory struct {
+	Fanout      FanoutDefinition
+	FanoutCount int
+}
+
+func (f FanoutFactory) MakeTasks(previousResult TaskGroupResult) []TaskDefinition {
+	// The fanout works like transformers, but it will exapand each result int "FanoutCount" tasks
+	//  Each task will have the same arguments as the transformer
+	tasks := []TaskDefinition{}
+	for i, result := range previousResult.Results {
+		for y := 0; y < f.FanoutCount; y++ {
+			if !result.Success {
+				return []TaskDefinition{}
+			}
+			task := TaskDefinition(f.Fanout)
+			task.Metadata = map[string]string{"fanout_index": fmt.Sprintf("%d", y), "fanout_result_index": fmt.Sprintf("%d", i)}
+			args := f.Fanout.ArgumentsBlockIDs
+			// Add the result object to the beginning of the arguments
+			args = append([]BlockID{result.ObjectReturnBlockID}, args...)
+			task.ArgumentsBlockIDs = args
+			tasks = append(tasks, task)
+		}
+	}
+	return tasks
+}
+func (f FanoutFactory) String() string {
+	return fmt.Sprintf("FanoutFactory with fanout %s and fanout count %d", f.Fanout.String(), f.FanoutCount)
+}

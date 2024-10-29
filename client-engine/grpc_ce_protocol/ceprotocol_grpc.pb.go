@@ -239,6 +239,7 @@ const (
 	TaskSet_AddMap_FullMethodName                  = "/proto.TaskSet/AddMap"
 	TaskSet_AddReduce_FullMethodName               = "/proto.TaskSet/AddReduce"
 	TaskSet_AddTransform_FullMethodName            = "/proto.TaskSet/AddTransform"
+	TaskSet_AddFanout_FullMethodName               = "/proto.TaskSet/AddFanout"
 	TaskSet_Execute_FullMethodName                 = "/proto.TaskSet/Execute"
 	TaskSet_SetBlockRetentionPolicy_FullMethodName = "/proto.TaskSet/SetBlockRetentionPolicy"
 	TaskSet_Dismantle_FullMethodName               = "/proto.TaskSet/Dismantle"
@@ -253,6 +254,7 @@ type TaskSetClient interface {
 	AddMap(ctx context.Context, in *MapAdder, opts ...grpc.CallOption) (*TaskAdderResult, error)
 	AddReduce(ctx context.Context, in *ReduceAdder, opts ...grpc.CallOption) (*TaskAdderResult, error)
 	AddTransform(ctx context.Context, in *TransformAdder, opts ...grpc.CallOption) (*TaskAdderResult, error)
+	AddFanout(ctx context.Context, in *FanoutAdder, opts ...grpc.CallOption) (*TaskAdderResult, error)
 	Execute(ctx context.Context, in *TaskSetHandler, opts ...grpc.CallOption) (grpc.ServerStreamingClient[TaskSetProgressReport], error)
 	SetBlockRetentionPolicy(ctx context.Context, in *SetRetentionPolicy, opts ...grpc.CallOption) (*TaskSetHandler, error)
 	Dismantle(ctx context.Context, in *TaskSetHandler, opts ...grpc.CallOption) (*TaskSetHandler, error)
@@ -301,6 +303,16 @@ func (c *taskSetClient) AddTransform(ctx context.Context, in *TransformAdder, op
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(TaskAdderResult)
 	err := c.cc.Invoke(ctx, TaskSet_AddTransform_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *taskSetClient) AddFanout(ctx context.Context, in *FanoutAdder, opts ...grpc.CallOption) (*TaskAdderResult, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(TaskAdderResult)
+	err := c.cc.Invoke(ctx, TaskSet_AddFanout_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -364,6 +376,7 @@ type TaskSetServer interface {
 	AddMap(context.Context, *MapAdder) (*TaskAdderResult, error)
 	AddReduce(context.Context, *ReduceAdder) (*TaskAdderResult, error)
 	AddTransform(context.Context, *TransformAdder) (*TaskAdderResult, error)
+	AddFanout(context.Context, *FanoutAdder) (*TaskAdderResult, error)
 	Execute(*TaskSetHandler, grpc.ServerStreamingServer[TaskSetProgressReport]) error
 	SetBlockRetentionPolicy(context.Context, *SetRetentionPolicy) (*TaskSetHandler, error)
 	Dismantle(context.Context, *TaskSetHandler) (*TaskSetHandler, error)
@@ -389,6 +402,9 @@ func (UnimplementedTaskSetServer) AddReduce(context.Context, *ReduceAdder) (*Tas
 }
 func (UnimplementedTaskSetServer) AddTransform(context.Context, *TransformAdder) (*TaskAdderResult, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method AddTransform not implemented")
+}
+func (UnimplementedTaskSetServer) AddFanout(context.Context, *FanoutAdder) (*TaskAdderResult, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method AddFanout not implemented")
 }
 func (UnimplementedTaskSetServer) Execute(*TaskSetHandler, grpc.ServerStreamingServer[TaskSetProgressReport]) error {
 	return status.Errorf(codes.Unimplemented, "method Execute not implemented")
@@ -495,6 +511,24 @@ func _TaskSet_AddTransform_Handler(srv interface{}, ctx context.Context, dec fun
 	return interceptor(ctx, in, info, handler)
 }
 
+func _TaskSet_AddFanout_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(FanoutAdder)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(TaskSetServer).AddFanout(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: TaskSet_AddFanout_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(TaskSetServer).AddFanout(ctx, req.(*FanoutAdder))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _TaskSet_Execute_Handler(srv interface{}, stream grpc.ServerStream) error {
 	m := new(TaskSetHandler)
 	if err := stream.RecvMsg(m); err != nil {
@@ -582,6 +616,10 @@ var TaskSet_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "AddTransform",
 			Handler:    _TaskSet_AddTransform_Handler,
+		},
+		{
+			MethodName: "AddFanout",
+			Handler:    _TaskSet_AddFanout_Handler,
 		},
 		{
 			MethodName: "SetBlockRetentionPolicy",

@@ -23,6 +23,7 @@ import (
 	pb "client-engine/grpc_node_protocol"
 	"client-engine/logger"
 	"context"
+	"encoding/json"
 	"errors"
 	"io"
 	"sync"
@@ -204,6 +205,23 @@ func (n *Node) disconnect() error {
 	return nil
 }
 
+func (n *Node) StreamMetadataJson(metadata map[string]string) (string, error) {
+	metadataJson, err := json.Marshal(metadata)
+	if err != nil {
+		return "", err
+	}
+	BlockStreamWriter := NewBlockStreamingWriter(n)
+	err = BlockStreamWriter.Write(metadataJson)
+	if err != nil {
+		return "", err
+	}
+	err = BlockStreamWriter.Close()
+	if err != nil {
+		return "", err
+	}
+	return BlockStreamWriter.BlockID, nil
+}
+
 func (n *Node) InitIsolatedEnv() error {
 	// We need to make sure that the node can isolate the enviroment for the task
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*300) // Higher timeout because this can take a while
@@ -277,12 +295,22 @@ func (n *Node) RegisterTask(task *TaskDefinition, TaskSet *TaskSet) (string, err
 		kwargsBockIDs[key] = &pb.BlockHandler{BlockID: string(value)}
 		n.BlockTracker.AddBlock(&BlockInternalReference{BlockID: string(value), BlockType: "kwargs", BlockGroup: *TaskSet.CurrentBlockGroupID})
 	}
+	var MetadataBlockHandler *pb.BlockHandler = nil
+	if task.Metadata != nil {
+		metadataBlockID, err := n.StreamMetadataJson(task.Metadata)
+		if err != nil {
+			return "", err
+		}
+		n.BlockTracker.AddBlock(&BlockInternalReference{BlockID: metadataBlockID, BlockType: "metadata", BlockGroup: *TaskSet.CurrentBlockGroupID})
+		MetadataBlockHandler = &pb.BlockHandler{BlockID: metadataBlockID}
+	}
 
 	// Now we can register the command
 	commandRegistration := pb.CommandRegistration{
 		CallableBlockHandler:    &pb.BlockHandler{BlockID: string(task.CallableBlockID)},
 		ArgumentsBlocksHandlers: argumentsBlockIDs,
 		KwargsBlocksHandlers:    kwargsBockIDs,
+		MetadataBlockHandler:    MetadataBlockHandler,
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*10)
 	defer cancel()
@@ -297,7 +325,11 @@ func (n *Node) RunCommand(commandID string) error {
 	commandHandler := pb.CommandHandler{CommandID: commandID}
 	callbackHandler := pb.CallbackHandler{CallbackID: n.CallbackID}
 	isolatedEnv := pb.IsolatedEnv{IsolatedEnvID: n.SessionID}
-	commandRequest := pb.CommandRequest{CommandHandler: &commandHandler, CallbackHandler: &callbackHandler, IsolatedEnv: &isolatedEnv}
+	commandRequest := pb.CommandRequest{
+		CommandHandler:  &commandHandler,
+		CallbackHandler: &callbackHandler,
+		IsolatedEnv:     &isolatedEnv,
+	}
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*10)
 	defer cancel()
 	res, err := n.client.RunCommand(ctx, &commandRequest)

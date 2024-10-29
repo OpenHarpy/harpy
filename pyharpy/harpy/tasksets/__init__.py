@@ -16,6 +16,7 @@ from harpy.grpc_ce_protocol.ceprotocol_pb2 import (
     MapAdder,
     ReduceAdder,
     TransformAdder,
+    FanoutAdder,
     
     ProgressType
 )
@@ -25,7 +26,11 @@ from harpy.grpc_ce_protocol.ceprotocol_pb2_grpc import (
 from harpy.processing.types import (
     MapTask, 
     BatchMapTask,
-    ReduceTask, TransformTask, TaskSetResults, Result
+    FanoutTask,
+    ReduceTask, 
+    TransformTask, 
+    TaskSetResults,
+    Result
 )
 from harpy.tasksets.code_quality_check import validate_function, get_output_type, validate_batch_map
 from harpy.session.block_read_write_proxy import BlockReadWriteProxy
@@ -138,7 +143,7 @@ class TaskSet:
         if self._number_of_nodes_added == 0:
             raise TaskSetDefinitionError("InvalidReducePlacement: Cannot add reduce tasks before map tasks")
         if self._last_function_type is None:
-            raise TaskSetDefinitionError("InvalidReducePlacement: Cannot add reduce tasks without previous map tasks")
+            raise TaskSetDefinitionError("InvalidReducePlacement: Cannot add reduce tasks without previous tasks")
         
         errors = validate_function(reduce_task.fun, "reduce", self._last_function_type)
         if len(errors) > 0:
@@ -165,7 +170,7 @@ class TaskSet:
         if self._number_of_nodes_added == 0:
             raise TaskSetDefinitionError("InvalidTransformPlacement: Cannot add transform tasks before map tasks")
         if self._last_function_type is None:
-            raise TaskSetDefinitionError("InvalidTransformPlacement: Cannot add transform tasks without previous map tasks")
+            raise TaskSetDefinitionError("InvalidTransformPlacement: Cannot add transform tasks without previous tasks")
         
         errors = validate_function(transform_task.fun, "transform", self._last_function_type)
         if len(errors) > 0:
@@ -186,6 +191,36 @@ class TaskSet:
         else:
             raise Exception("Failed to add transform task")
     
+    @check_variable('_taskset_handler', INVALID_TASKSET_MESSAGE)
+    def add_fanout(self, fanout_task: FanoutTask) -> 'TaskSet':
+        # Fanout task validation checks
+        if self._number_of_nodes_added == 0:
+            raise TaskSetDefinitionError("InvalidFanoutPlacement: Cannot add fanout tasks before map tasks")
+        if self._last_function_type is None:
+            raise TaskSetDefinitionError("InvalidFanoutPlacement: Cannot add fanout tasks without previous map tasks")
+        
+        errors = validate_function(fanout_task.fun, "fanout", self._last_function_type)
+        if len(errors) > 0:
+            errors = [" - " + error for error in errors]
+            raise TaskSetDefinitionError("InvalidFanoutFunction: \n" + "\n".join(errors)
+        )
+        self._last_function_type = get_output_type(fanout_task.fun)
+        # Fanout definition passed all the checks
+        
+        task_handler = self.__define_task__(fanout_task)
+        fanout_adder = FanoutAdder(
+            taskSetHandler=self._taskset_handler,
+            FanoutDefinition=task_handler,
+            FanoutCount=fanout_task.fanout_count
+        )
+        response = self._taskset_stub.AddFanout(fanout_adder)
+        if (response.Success):
+            self._number_of_nodes_added += 1
+            return self
+        else:
+            raise Exception("Failed to add fanout task")            
+    
+    # Extended types
     @check_variable('_taskset_handler', INVALID_TASKSET_MESSAGE)
     def add_batch_maps(self, batch_map_task: BatchMapTask) -> 'TaskSet':
         # Map task validation checks

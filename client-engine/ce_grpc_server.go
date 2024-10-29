@@ -183,6 +183,29 @@ func (s *CEgRPCServer) AddTransform(ctx context.Context, in *pb.TransformAdder) 
 	return &pb.TaskAdderResult{Success: true, ErrorMesssage: ""}, nil
 }
 
+func (s *CEgRPCServer) AddFanout(ctx context.Context, in *pb.FanoutAdder) (*pb.TaskAdderResult, error) {
+	ts, ok := s.lm.TaskSetDefinitions[in.TaskSetHandler.TaskSetId]
+	if !ok {
+		logger.Warn("task_set_not_found", "TASKSET_SERVICE", logrus.Fields{"task_set_id": in.TaskSetHandler.TaskSetId})
+		return &pb.TaskAdderResult{Success: false, ErrorMesssage: "Task Set not found"}, nil
+	}
+
+	// Fanouts only have one task definition
+	taskHandler := in.FanoutDefinition
+	taskInMem, ok := s.lm.TaskDefinitions[taskHandler.TaskID]
+	if !ok {
+		logger.Warn("task_definition_not_found", "TASKSET_SERVICE", logrus.Fields{"task_id": taskHandler.TaskID})
+		return &pb.TaskAdderResult{Success: false, ErrorMesssage: "Task Definition not found"}, nil
+	}
+	taskDef := task.NewFanoutDefinition(*taskInMem)
+	// We can now flush the task definition from the live memory
+	delete(s.lm.TaskDefinitions, taskHandler.TaskID)
+	opt := map[string]string{}
+	ts.Fanout(taskDef, int(in.FanoutCount), opt)
+	logger.Info("Added fanout to task set", "TASKSET_SERVICE", logrus.Fields{"task_set_id": in.TaskSetHandler.TaskSetId})
+	return &pb.TaskAdderResult{Success: true, ErrorMesssage: ""}, nil
+}
+
 type TaskSetStreamListener struct {
 	// We add a stream here to listen for the task set results
 	stream pb.TaskSet_ExecuteServer

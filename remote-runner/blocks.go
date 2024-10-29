@@ -96,6 +96,12 @@ func WriteBytesToBlock(data []byte, block *Block) error {
 	return nil
 }
 
+func NewBlockFromString(blockID string, data string) (*Block, error) {
+	block := NewBlock(blockID)
+	err := WriteBytesToBlock([]byte(data), block)
+	return block, err
+}
+
 // ** Block Reader ** //
 type BlockReader struct {
 	Block      *Block

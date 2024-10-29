@@ -126,6 +126,18 @@ func (t *TaskSet) Reduce(reducerDef ReducerDefinition, options map[string]string
 	return e
 }
 
+func (t *TaskSet) Fanout(fanoutDef FanoutDefinition, fanoutCount int, options map[string]string) error {
+	// Fanout cannot be the root node
+	if t.RootNode == nil {
+		return fmt.Errorf("RootNode is nil - cannot add transformer as root node")
+	}
+	// This will create a new task set with the fanout as the root node
+	fanoutFactory := FanoutFactory{Fanout: fanoutDef, FanoutCount: fanoutCount}
+	taskGroup := t.generateDefaultTaskGroup(fanoutFactory, options)
+	e := t.AddNewTaskGroup(taskGroup)
+	return e
+}
+
 func (t *TaskSet) Report() {
 	if t.TaskSetReporter != nil {
 		t.TaskSetReporter.Report(t)

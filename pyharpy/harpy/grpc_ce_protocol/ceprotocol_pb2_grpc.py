@@ -255,6 +255,11 @@ class TaskSetStub(object):
                 request_serializer=ceprotocol__pb2.TransformAdder.SerializeToString,
                 response_deserializer=ceprotocol__pb2.TaskAdderResult.FromString,
                 _registered_method=True)
+        self.AddFanout = channel.unary_unary(
+                '/proto.TaskSet/AddFanout',
+                request_serializer=ceprotocol__pb2.FanoutAdder.SerializeToString,
+                response_deserializer=ceprotocol__pb2.TaskAdderResult.FromString,
+                _registered_method=True)
         self.Execute = channel.unary_stream(
                 '/proto.TaskSet/Execute',
                 request_serializer=ceprotocol__pb2.TaskSetHandler.SerializeToString,
@@ -299,6 +304,12 @@ class TaskSetServicer(object):
         raise NotImplementedError('Method not implemented!')
 
     def AddTransform(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def AddFanout(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
@@ -349,6 +360,11 @@ def add_TaskSetServicer_to_server(servicer, server):
             'AddTransform': grpc.unary_unary_rpc_method_handler(
                     servicer.AddTransform,
                     request_deserializer=ceprotocol__pb2.TransformAdder.FromString,
+                    response_serializer=ceprotocol__pb2.TaskAdderResult.SerializeToString,
+            ),
+            'AddFanout': grpc.unary_unary_rpc_method_handler(
+                    servicer.AddFanout,
+                    request_deserializer=ceprotocol__pb2.FanoutAdder.FromString,
                     response_serializer=ceprotocol__pb2.TaskAdderResult.SerializeToString,
             ),
             'Execute': grpc.unary_stream_rpc_method_handler(
@@ -479,6 +495,33 @@ class TaskSet(object):
             target,
             '/proto.TaskSet/AddTransform',
             ceprotocol__pb2.TransformAdder.SerializeToString,
+            ceprotocol__pb2.TaskAdderResult.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def AddFanout(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/proto.TaskSet/AddFanout',
+            ceprotocol__pb2.FanoutAdder.SerializeToString,
             ceprotocol__pb2.TaskAdderResult.FromString,
             options,
             channel_credentials,

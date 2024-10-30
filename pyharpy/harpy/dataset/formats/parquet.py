@@ -55,9 +55,10 @@ class ParquetRead(ReadType):
             for index, frag in enumerate(frags)
         ]
     
-    def __get_maps__(self) -> list[MapTask]:
+    def __add_tasks__(self) -> list[MapTask]:
         if self.read_options.get_option("map_strategies") == "fragment":
-            return self.__get_maps_fragment__()
+            maps = self.__get_maps_fragment__()
+            self.dataset._taskset_.add_maps(maps)
         else:
             raise ValueError("Unknown map strategy")
 
@@ -72,11 +73,12 @@ class ParquetWrite(WriteType):
     def write(self):
         pass
 
-    def __get_transform__(self) -> TransformTask:
+    def __add_tasks__(self) -> TransformTask:
         # Parquet requires that the folder exists before writing
         if self._write_options_.get_option("write_mode") == "overwrite":
             Session().fs.rm(self._parquet_path_, recursive=True)
         Session().fs.mkdir(self._parquet_path_)
-        return TransformTask(
+        transform_task = TransformTask(
             name="write_parquet", fun=write_pa_to_parquet, args=[], kwargs={ "path": self._parquet_path_, "write_idx": str(uuid4()) }
         )
+        self.dataset._taskset_.add_transform(transform_task)

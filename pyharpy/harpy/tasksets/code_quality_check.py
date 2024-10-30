@@ -65,7 +65,7 @@ def validate_function(callable, function_type, expect_output_type=None):
         # The first argument MUST be typed according to the EXPECT_OUTPUT_TYPE
         values = list(function_signature.parameters.values())
         check_1 = (output_signed and input_signed)
-        check_2 = len(values) == 1 and values[0].kind == inspect.Parameter.POSITIONAL_OR_KEYWORD
+        check_2 = len(values) >= 1 and values[0].kind == inspect.Parameter.POSITIONAL_OR_KEYWORD
         check_3 = values[0].annotation == expect_output_type
         if check_1 and check_2 and check_3:
             return []
@@ -73,9 +73,9 @@ def validate_function(callable, function_type, expect_output_type=None):
             if not check_1:
                 errors_description.append("Fanout function must have typed input and output")
             if not check_2:
-                errors_description.append("Fanout function must have one argument and it must be POSITIONAL_OR_KEYWORD kind")
+                errors_description.append(f"Fanout function must have one or more arguments and it must be POSITIONAL_OR_KEYWORD kind, you passed: {len(values)}")
             if not check_3:
-                errors_description.append("Fanout functions first argument MUST be match the type of the previous function in the chain")
+                errors_description.append(f"Fanout functions first argument MUST be match the type of the previous function in the chain, you passed: {str(values[0].annotation)} and expected: {str(expect_output_type)}")
     else:
         raise ValueError("Invalid function type")
     return errors_description

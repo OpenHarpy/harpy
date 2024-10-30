@@ -3,6 +3,7 @@ from dataclasses import dataclass
 from harpy.processing.types import MapTask, TransformTask, ReduceTask
 from harpy.session import Session
 from harpy.dataset.formats.parquet import ParquetRead, ParquetWrite
+from harpy.dataset.formats.sql import SqlRead
 
 @dataclass
 class ReadOptions:
@@ -22,10 +23,15 @@ class ReadOptions:
         return self.options[key]
 
     def parquet(self, path: str) -> 'Dataset':
-        reader = ParquetRead(self, path, self)
+        reader = ParquetRead(self.dataset, path, self)
         self.dataset._reader_ = reader
-        maps = reader.__get_maps__()
-        self.dataset._taskset_.add_maps(maps)
+        reader.__add_tasks__()
+        return self.dataset
+    
+    def sql(self, query: str) -> 'Dataset':
+        reader = SqlRead(self.dataset, query, self)
+        self.dataset._reader_ = reader
+        reader.__add_tasks__()
         return self.dataset
 
 class WriteOptions:
@@ -49,9 +55,9 @@ class WriteOptions:
         writer = ParquetWrite(self.dataset, self, path)
         self.dataset._writer_ = writer
         self.dataset._sealed = True
-        self.dataset._taskset_.add_transform(writer.__get_transform__())
+        writer.__add_tasks__()
         return self.dataset
-    
+
 class Dataset:
     def __init__(self) -> "Dataset":
         self.read = ReadOptions(self)
@@ -78,3 +84,7 @@ class Dataset:
             raise ValueError("Dataset is not sealed")
         return self._taskset_.run(collect=True, detailed=True)
     
+    def show(self):
+        if self._sealed:
+            raise ValueError("Dataset is sealed")
+        

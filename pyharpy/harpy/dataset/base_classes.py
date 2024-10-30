@@ -14,7 +14,7 @@ class WriteType(ABC):
         pass
 
     @abstractmethod
-    def __get_transform__(self):
+    def __add_tasks__(self):
         pass
 
 class ReadType(ABC):
@@ -22,7 +22,7 @@ class ReadType(ABC):
         self._options_ = {}
     
     @abstractmethod
-    def __get_maps__(self):
+    def __add_tasks__(self):
         pass
 
 @dataclass

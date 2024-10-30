@@ -68,7 +68,7 @@ def fs_rm(path: str, recursive: bool = False) -> bool:
 def run_fs_command(session, func: callable, path: str, *args, **kwargs):
     ts: TaskSet = session.create_task_set()
     name = func.__name__
-    mapper = MapTask(name=f"fs-command-{name}", fun=func, args=[], kwargs={"path": path, **kwargs})
+    mapper = MapTask(name=f"fs-command-{name}", fun=func, kwargs={"path": path, **kwargs})
     ts.add_maps([mapper])
     result: TaskSetResults = ts.collect(detailed=True)
     if result.success:

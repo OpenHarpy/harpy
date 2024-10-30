@@ -65,6 +65,7 @@ func (t TransformFactory) String() string {
 // ** ReduceFactory **
 type ReduceFactory struct {
 	Reducer ReducerDefinition
+	Limit   int
 }
 
 func (r ReduceFactory) MakeTasks(previousResult TaskGroupResult) []TaskDefinition {
@@ -73,8 +74,13 @@ func (r ReduceFactory) MakeTasks(previousResult TaskGroupResult) []TaskDefinitio
 	//   This is will result in a single task that will reduce all the results into a single result
 	task := TaskDefinition(r.Reducer)
 	task.ArgumentsBlockIDs = []BlockID{}
+	idx := 0
 	for _, result := range previousResult.Results {
+		if idx >= r.Limit { // Limit the number of results to be reduced to the limit defined in the factory
+			break
+		}
 		task.ArgumentsBlockIDs = append(task.ArgumentsBlockIDs, result.ObjectReturnBlockID)
+		idx++
 	}
 	return []TaskDefinition{task}
 }

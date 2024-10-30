@@ -114,13 +114,18 @@ func (t *TaskSet) Map(mappers []MapperDefinition, options map[string]string) err
 	return e
 }
 
-func (t *TaskSet) Reduce(reducerDef ReducerDefinition, options map[string]string) error {
+func (t *TaskSet) Reduce(reducerDef ReducerDefinition, options map[string]string, limit int) error {
 	// Reduce cannot be the root node
 	if t.RootNode == nil {
 		return fmt.Errorf("RootNode is nil - cannot add transformer as root node")
 	}
+	var reduceFactory ReduceFactory
+	if limit < 0 {
+		reduceFactory = ReduceFactory{Reducer: reducerDef}
+	} else {
+		reduceFactory = ReduceFactory{Reducer: reducerDef, Limit: limit}
+	}
 	// This will create a new task set with the reducer as the root node
-	reduceFactory := ReduceFactory{Reducer: reducerDef}
 	taskGroup := t.generateDefaultTaskGroup(reduceFactory, options)
 	e := t.AddNewTaskGroup(taskGroup)
 	return e

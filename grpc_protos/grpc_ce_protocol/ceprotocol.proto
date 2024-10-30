@@ -72,6 +72,7 @@ message MapAdder {
 message ReduceAdder {
   TaskSetHandler taskSetHandler = 1;
   TaskHandler ReducerDefinition = 2;
+  int32 Limit = 3;
 }
 
 message TransformAdder {

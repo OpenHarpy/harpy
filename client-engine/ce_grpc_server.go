@@ -155,7 +155,12 @@ func (s *CEgRPCServer) AddReduce(ctx context.Context, in *pb.ReduceAdder) (*pb.T
 	// We can now flush the task definition from the live memory
 	delete(s.lm.TaskDefinitions, taskHandler.TaskID)
 	opt := map[string]string{}
-	ts.Reduce(taskDef, opt)
+	limit := -1 // Default limit is -1 (no limit)
+	if in.Limit >= 0 {
+		// From a grpc call perspective we simply ignore if the limit is invalid
+		limit = int(in.Limit)
+	}
+	ts.Reduce(taskDef, opt, limit)
 	logger.Info("Added reduce to task set", "TASKSET_SERVICE", logrus.Fields{"task_set_id": in.TaskSetHandler.TaskSetId})
 	return &pb.TaskAdderResult{Success: true, ErrorMesssage: ""}, nil
 }

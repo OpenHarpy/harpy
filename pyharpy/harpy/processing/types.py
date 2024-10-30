@@ -1,5 +1,9 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any, List
+
+DEFAULT_ARGS = field(default_factory=lambda: [])
+DEFAULT_KWARGS = field(default_factory=lambda: {})
+DEFAULT_NONE = field(default=None)
 
 @dataclass
 class Result:
@@ -20,8 +24,8 @@ class TaskSetResults:
 class MapTask:
     name: str
     fun: callable
-    args: List[Any]
-    kwargs: dict[str, Any]
+    args: List[Any] = DEFAULT_ARGS
+    kwargs: dict[str, Any] = DEFAULT_KWARGS
     
     def _validate(self):
         if not callable(self.fun):
@@ -35,8 +39,9 @@ class MapTask:
 class ReduceTask:
     name: str
     fun: callable
-    args: List[Any]
-    kwargs: dict[str, Any]
+    args: List[Any] = DEFAULT_ARGS
+    kwargs: dict[str, Any] = DEFAULT_KWARGS
+    limit: int = DEFAULT_NONE
     
     def _validate(self):
         if not callable(self.fun):
@@ -57,8 +62,8 @@ class ReduceTask:
 class TransformTask:
     name: str
     fun: callable
-    args: List[Any]
-    kwargs: dict[str, Any]
+    args: List[Any] = DEFAULT_ARGS
+    kwargs: dict[str, Any] = DEFAULT_KWARGS
     
     def _validate(self):
         if not callable(self.fun):
@@ -80,8 +85,8 @@ class FanoutTask:
     name: str
     fun: callable
     fanout_count: int
-    args: List[Any]
-    kwargs: dict[str, Any]
+    args: List[Any] = DEFAULT_ARGS
+    kwargs: dict[str, Any] = DEFAULT_KWARGS
     
     def _validate(self):
         if not callable(self.fun):

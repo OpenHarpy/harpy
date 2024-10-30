@@ -52,14 +52,14 @@ class SqlRead(ReadType):
         if self.read_options.get_option("distribute_on_read"):
             # If we are distributing on read, we should use the parallelism
             parallelism = self.read_options.get_option("parallelism")
-            map_count = MapTask(name="query_count", fun=definition_quack_query_count, args=[], kwargs={"query": self._sql_})
+            map_count = MapTask(name="query_count", fun=definition_quack_query_count, kwargs={"query": self._sql_})
             fanout_task = FanoutTask(
-                name="query_fanout", fun=definition_quack_query_arrow_distributed, args=[], kwargs={"query": self._sql_, "fanout_count": parallelism},
+                name="query_fanout", fun=definition_quack_query_arrow_distributed, kwargs={"query": self._sql_, "fanout_count": parallelism},
                 fanout_count=parallelism
             )
             self.dataset._taskset_.add_maps([map_count])
             self.dataset._taskset_.add_fanout(fanout_task)
         else:
             # If we are not distributing on read, we should just run the query
-            map_task = MapTask(name="query", fun=definition_quack_query_arrow, args=[], kwargs={"query": self._sql_})
+            map_task = MapTask(name="query", fun=definition_quack_query_arrow, kwargs={"query": self._sql_})
             self.dataset._taskset_.add_maps([map_task])

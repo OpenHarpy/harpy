@@ -22,12 +22,12 @@ def transform_fun(result: int) -> int:
 session = Session()
 taskSet = session.create_task_set()
 
-map_task_1 = MapTask(name="map", fun=map_fun, args=[], kwargs={"number": 2})
-map_task_2 = MapTask(name="map", fun=map_fun, args=[], kwargs={"number": 4})
-map_task_3 = MapTask(name="map", fun=map_fun, args=[], kwargs={"number": 6})
+map_task_1 = MapTask(name="map", fun=map_fun, kwargs={"number": 2})
+map_task_2 = MapTask(name="map", fun=map_fun, kwargs={"number": 4})
+map_task_3 = MapTask(name="map", fun=map_fun, kwargs={"number": 6})
 
-reduce_task = ReduceTask(name="reduce", fun=reduce_fun, args=[], kwargs={})
-transform_task = TransformTask(name="transform", fun=transform_fun, args=[], kwargs={})
+reduce_task = ReduceTask(name="reduce", fun=reduce_fun, kwargs={})
+transform_task = TransformTask(name="transform", fun=transform_fun, kwargs={})
 
 taskSet.add_maps([map_task_1, map_task_2, map_task_3])
 taskSet.add_reduce(reduce_task)

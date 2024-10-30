@@ -30,9 +30,9 @@ taskSet = session.create_task_set()
 N = 500
 
 def make_map_task(i, n):
-    return MapTask(name="map", fun=map_fun, args=[], kwargs={"i": i, "n": n})
+    return MapTask(name="map", fun=map_fun, kwargs={"i": i, "n": n})
 
-reduce_task = ReduceTask(name="reduce", fun=reduce_fun, args=[], kwargs={"n": N})
+reduce_task = ReduceTask(name="reduce", fun=reduce_fun, kwargs={"n": N})
 
 bmt = BatchMapTask(
     name="batch_map",

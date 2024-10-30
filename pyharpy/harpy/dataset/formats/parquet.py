@@ -31,7 +31,7 @@ def collect_fragments(location: str) -> list[Fragment]:
     ts = Session().create_task_set()
     ts.add_maps(
         [
-            MapTask(name="collect_fragments", fun=collect_frags, args=[], kwargs={"location": location})
+            MapTask(name="collect_fragments", fun=collect_frags, kwargs={"location": location})
         ]
     )
     result = ts.run(collect=True)[0]
@@ -50,7 +50,7 @@ class ParquetRead(ReadType):
         frags = collect_fragments(self._parquet_path_)
         return [
             MapTask(
-                name="read_parquet", fun=read_pa_from_fragment, args=[], kwargs={"fragment":frag, "index": index }
+                name="read_parquet", fun=read_pa_from_fragment, kwargs={"fragment":frag, "index": index }
             )
             for index, frag in enumerate(frags)
         ]
@@ -79,6 +79,6 @@ class ParquetWrite(WriteType):
             Session().fs.rm(self._parquet_path_, recursive=True)
         Session().fs.mkdir(self._parquet_path_)
         transform_task = TransformTask(
-            name="write_parquet", fun=write_pa_to_parquet, args=[], kwargs={ "path": self._parquet_path_, "write_idx": str(uuid4()) }
+            name="write_parquet", fun=write_pa_to_parquet, kwargs={ "path": self._parquet_path_, "write_idx": str(uuid4()) }
         )
         self.dataset._taskset_.add_transform(transform_task)

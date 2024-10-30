@@ -28,8 +28,8 @@ taskSet = session.create_task_set()
 N = 250
 
 def make_map_task(i, n):
-    return MapTask(name="map", fun=map_fun, args=[], kwargs={"i": i, "n": n})
-reduce_task = ReduceTask(name="reduce", fun=reduce_fun, args=[], kwargs={"n": N})
+    return MapTask(name="map", fun=map_fun, kwargs={"i": i, "n": n})
+reduce_task = ReduceTask(name="reduce", fun=reduce_fun, kwargs={"n": N})
 
 taskSet.add_maps([make_map_task(i, N) for i in range(1, N+1)])
 taskSet.add_reduce(reduce_task)

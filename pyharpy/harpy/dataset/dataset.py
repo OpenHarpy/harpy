@@ -1,9 +1,12 @@
 from dataclasses import dataclass
+import pandas as pd
+import pyarrow as pa
 
 from harpy.processing.types import MapTask, TransformTask, ReduceTask
 from harpy.session import Session
 from harpy.dataset.formats.parquet import ParquetRead, ParquetWrite
 from harpy.dataset.formats.sql import SqlRead
+from harpy.dataset.base_classes import DataFragment
 
 @dataclass
 class ReadOptions:
@@ -58,6 +61,15 @@ class WriteOptions:
         writer.__add_tasks__()
         return self.dataset
 
+def collect_to_pandas(*datafragments: DataFragment) -> pd.DataFrame:
+    # Concatenate the tables
+    tables = [df.table for df in datafragments]
+    return pa.concat_tables(tables).to_pandas()
+
+def collect_to_arrow(*datafragments: DataFragment) -> pa.Table:
+    tables = [df.table for df in datafragments]
+    return pa.concat_tables(tables)
+
 class Dataset:
     def __init__(self) -> "Dataset":
         self.read = ReadOptions(self)
@@ -70,13 +82,13 @@ class Dataset:
     def add_transform(self, function: callable, **kwargs) -> "Dataset":
         if self._sealed:
             raise ValueError("Dataset is sealed")
-        self._taskset_.add_transform(TransformTask(name="transform", fun=function, args=[], kwargs=kwargs))
+        self._taskset_.add_transform(TransformTask(name="transform", fun=function, kwargs=kwargs))
         return self
 
     def add_reduce(self, function: callable, **kwargs) -> "Dataset":
         if self._sealed:
             raise ValueError("Dataset is sealed")
-        self._taskset_.add_reduce(ReduceTask(name="reduce", fun=function, args=[], kwargs=kwargs))
+        self._taskset_.add_reduce(ReduceTask(name="reduce", fun=function, kwargs=kwargs))
         return self
 
     def execute(self):
@@ -87,4 +99,27 @@ class Dataset:
     def show(self):
         if self._sealed:
             raise ValueError("Dataset is sealed")
-        
+    
+    def collect(self, detailed=False):
+        if self._sealed:
+            raise ValueError("Dataset is sealed")
+        return self._taskset_.run(collect=True, detailed=detailed)
+    
+    def show(self):
+        return self.to_pandas(limit_datafragments=1)
+    
+    def to_pandas(self, limit_datafragments: int = None) -> pd.DataFrame:
+        if self._sealed:
+            raise ValueError("Dataset is sealed")
+        self._taskset_.add_reduce(
+            ReduceTask(name="to_pandas", fun=collect_to_pandas, limit=limit_datafragments)
+        )
+        return self._taskset_.run(collect=True)[0]
+    
+    def to_arrow(self, limit_datafragments: int = None) -> pa.Table:
+        if self._sealed:
+            raise ValueError("Dataset is sealed")
+        self._taskset_.add_reduce(
+            ReduceTask(name="to_arrow", fun=collect_to_arrow, limit=limit_datafragments)
+        )
+        return self._taskset_.run(collect=True)[0]

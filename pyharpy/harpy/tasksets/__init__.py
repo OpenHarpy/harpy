@@ -153,9 +153,15 @@ class TaskSet:
         
         # Reduce definition passed all the checks        
         task_handler = self.__define_task__(reduce_task)
+        limit = -1
+        if reduce_task.limit is not None:
+            limit = reduce_task.limit
+        if limit <= 0:
+            raise TaskSetDefinitionError("InvalidReduceLimit: Reduce limit must be a positive integer")
         reduce_adder = ReduceAdder(
             taskSetHandler=self._taskset_handler,
-            ReducerDefinition=task_handler
+            ReducerDefinition=task_handler,
+            Limit=limit
         )
         response = self._taskset_stub.AddReduce(reduce_adder)
         if (response.Success):
@@ -255,7 +261,6 @@ class TaskSet:
             MapTask(
                 name = f'chunked_map_{i}',
                 fun=map_wrap,
-                args=[],
                 kwargs={"chunk": chunk}
             )
             for i, chunk in enumerate(chunked_map_tasks)

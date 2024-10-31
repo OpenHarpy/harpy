@@ -265,6 +265,13 @@ func (l *TaskSetStreamListener) OnTaskProgress(ts *task.TaskSet, tr *task.TaskRu
 	details["taskrun_id"] = tr.TaskRunID
 	details["taskrun_status"] = string(tr.Status)
 	details["taskrun_name"] = tr.Task.Name
+	if tr.Result != nil {
+		if tr.Result.Success {
+			details["taskrun_success"] = "true"
+		} else {
+			details["taskrun_success"] = "false"
+		}
+	}
 
 	tsHandler := &pb.TaskSetHandler{TaskSetId: ts.TaskSetId}
 	streamResult := pb.TaskSetProgressReport{

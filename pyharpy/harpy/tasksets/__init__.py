@@ -283,50 +283,58 @@ class TaskSet:
             raise Exception("Failed to add map tasks")
         
     
-    @check_variable('_taskset_handler', INVALID_TASKSET_MESSAGE)
-    def __execute__(self, collect=False) -> TaskSetResults:
-        statusSteam: TaskSetProgressReport = self._taskset_stub.Execute(self._taskset_handler)
-        # Here we will later add some tracking to the states, for now we just wait for the taskset to finish
-        # We will also print the progress as we go
+    def __track_progress__(self, status_stream, pview):
         last_taskset_status = "running"
-        taskset_id = self._taskset_handler.taskSetId
-        pview = get_progress_viewer()
         current_taskgroup = ""
-        for taskSetStatus in statusSteam:
+        taskset_id = None
+    
+        for taskSetStatus in status_stream:
             details = taskSetStatus.ProgressDetails
             if taskSetStatus.ProgressType == ProgressType.TaskSetProgress:
                 last_taskset_status = taskSetStatus.StatusMessage
                 taskset_id = taskSetStatus.RelatedID
             elif taskSetStatus.ProgressType == ProgressType.TaskGroupProgress:
                 current_taskgroup = details['taskgroup_name']
-                #print(f"TaskGroup {taskSetStatus.RelatedID} made progress")
             elif taskSetStatus.ProgressType == ProgressType.TaskProgress:
                 if current_taskgroup != "":
                     pview.add_step(current_taskgroup, taskSetStatus.RelatedID)
                     if taskSetStatus.StatusMessage == "running":
                         pview.task_running(current_taskgroup, taskSetStatus.RelatedID)
                     elif taskSetStatus.StatusMessage == "done":
-                        pview.task_success(current_taskgroup, taskSetStatus.RelatedID)
-                    elif taskSetStatus.StatusMessage == "panic":
+                        taskrun_success = details.get('taskrun_success')
+                        if taskrun_success == 'true':
+                            pview.task_success(current_taskgroup, taskSetStatus.RelatedID)
+                        elif taskrun_success == 'false':
                             pview.task_fail(current_taskgroup, taskSetStatus.RelatedID)
-                    pview.print_progress()
-                #print(f"Task {taskSetStatus.RelatedID}: {taskSetStatus.StatusMessage}")
+                    elif taskSetStatus.StatusMessage == "panic":
+                        pview.task_fail(current_taskgroup, taskSetStatus.RelatedID)
+    
+        return last_taskset_status, taskset_id
+    
+    @check_variable('_taskset_handler', INVALID_TASKSET_MESSAGE)
+    def __execute__(self, collect=False) -> TaskSetResults:
+        status_stream: TaskSetProgressReport = self._taskset_stub.Execute(self._taskset_handler)
+        
+        pview = get_progress_viewer()
+        last_taskset_status, taskset_id = self.__track_progress__(status_stream, pview)
+        
         response: TaskSetResult = self._taskset_stub.GetTaskSetResults(self._taskset_handler)
         results = None
+        
         if collect:
             pview.add_step("Collecting", 0)
-            pview.print_progress()
             results = [
                 deserialize_result(result, self._session.get_block_read_write_proxy())
                 for result in response.TaskResults
             ]
             pview.task_success("Collecting", 0)
-            pview.print_progress()            
+        pview.set_overall_status(response.OverallSuccess)
+        pview.print_progress()
         return TaskSetResults(
             task_set_id=taskset_id,
             results=results,
-            overall_status = last_taskset_status,
-            success = response.OverallSuccess
+            overall_status=last_taskset_status,
+            success=response.OverallSuccess
         )
     
     @check_variable('_taskset_handler', INVALID_TASKSET_MESSAGE)

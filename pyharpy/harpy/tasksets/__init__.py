@@ -284,6 +284,7 @@ class TaskSet:
         
     
     def __track_progress__(self, status_stream, pview):
+        pview.set_context_info("Running...")
         last_taskset_status = "running"
         current_taskgroup = ""
         taskset_id = None
@@ -322,14 +323,13 @@ class TaskSet:
         results = None
         
         if collect:
-            pview.add_step("Collecting", 0)
+            pview.set_context_info("Collecting results...", context_working=True)
             results = [
                 deserialize_result(result, self._session.get_block_read_write_proxy())
                 for result in response.TaskResults
             ]
-            pview.task_success("Collecting", 0)
         pview.set_overall_status(response.OverallSuccess)
-        pview.print_progress()
+        pview.set_context_info("Done")
         return TaskSetResults(
             task_set_id=taskset_id,
             results=results,

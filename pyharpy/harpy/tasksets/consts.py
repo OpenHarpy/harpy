@@ -59,6 +59,33 @@ HTML_JUPYTER_PROGRESS_VIEWER="""
         background-color: red;
     }
     
+    .context-info {
+        display: flex;
+        flex-direction: row;
+        justify-content: left;
+        align-items: center;
+        width: 100%;
+        margin-bottom: 10px;
+    }
+    .context-info label {
+        color: grey;
+    }
+    .context-info .context-working {
+        width: 10px;
+        height: 10px;
+        border-radius: 5px;
+        margin-right: 4px;
+        background: repeating-linear-gradient(
+            127deg,
+            rgb(228, 95, 0) 0,
+            rgb(228, 95, 0) 5px,
+            rgb(137, 65, 14)  0px,
+            rgb(137, 65, 14)  10px
+        );
+        background-size: 200% 100%;
+        animation: barbershop 10s linear infinite;
+    }
+
     @keyframes barbershop {
         0% {
             background-position: 0 0;

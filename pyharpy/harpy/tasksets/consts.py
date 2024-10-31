@@ -30,8 +30,8 @@ HTML_JUPYTER_PROGRESS_VIEWER="""
         margin-bottom: auto;
         margin-left: 4px;
         width: 100%;
-        max-width: 25px;
-        min-width: 25px;
+        max-width: 10px;
+        min-width: 10px;
         height: 10px; /* Adjust height for thicker bars */
         background-color: grey;
         border-radius: 5px;

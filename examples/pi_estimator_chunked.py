@@ -43,6 +43,7 @@ bmt = BatchMapTask(
 taskSet.add_batch_maps(bmt)
 taskSet.add_reduce(reduce_task)
 
+taskSet.explain()
 start_time = time.time()
 taskSetResult:TaskSetResults = taskSet.collect()
 print(f"Task set execution time: {time.time() - start_time:.4f} seconds")

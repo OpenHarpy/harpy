@@ -123,3 +123,6 @@ class Dataset:
             ReduceTask(name="to_arrow", fun=collect_to_arrow, limit=limit_datafragments)
         )
         return self._taskset_.run(collect=True)[0]
+    
+    def explain(self):
+        return self._taskset_.explain()

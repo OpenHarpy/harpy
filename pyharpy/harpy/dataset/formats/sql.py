@@ -48,7 +48,7 @@ class SqlRead(ReadType):
         self.read_options.set_default("distribute_on_read", False)
         self.read_options.set_default("parallelism", 4)
     
-    def __add_tasks__(self) -> list[MapTask]:
+    def __add_tasks__(self) -> None:
         if self.read_options.get_option("distribute_on_read"):
             # If we are distributing on read, we should use the parallelism
             parallelism = self.read_options.get_option("parallelism")

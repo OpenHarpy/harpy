@@ -78,6 +78,7 @@ class Session(metaclass=SessionSingletonMeta):
         self._controller_channel: grpc.Channel = None
         self._block_read_write_proxy: BlockReadWriteProxy = None
         self._session_tasksets: List[TaskSet] = []
+        self._session_raw_tasksets_close_callbacks: List[callable] = []
         self._quack_ctx = QuackContext()
         self.fs = FileSystem(self)
     
@@ -101,6 +102,12 @@ class Session(metaclass=SessionSingletonMeta):
         return instance_metadata.InstanceID
 
     @check_session()
+    def get_raw_taskset_handler(self, raw_tasksets_close_callbacks) -> TaskSetHandler:
+        taskSetHandler: TaskSetHandler = self._session_stub.CreateTaskSet(self._session_handler)
+        self._session_raw_tasksets_close_callbacks.append(raw_tasksets_close_callbacks)
+        return taskSetHandler
+    
+    @check_session()
     def install_packages(self, package_names: List[str]) -> int:
         return install_packages(self, package_names)
     
@@ -122,8 +129,7 @@ class Session(metaclass=SessionSingletonMeta):
     
     @check_session()
     def create_task_set(self) -> TaskSet:
-        taskSetHandler: TaskSetHandler = self._session_stub.CreateTaskSet(self._session_handler)
-        inst = TaskSet(self, taskSetHandler)
+        inst = TaskSet(self,)
         self._session_tasksets.append(inst)
         return inst
     
@@ -138,11 +144,16 @@ class Session(metaclass=SessionSingletonMeta):
         if self._instance_id != self.__get_remote_instance_id__():
             self.__reset_instance__()
             self._close_requested = True
-            return self
+            return
         if self._session_handler is None:
-            return self
+            return
         for taskset in self._session_tasksets:
             taskset.__dismantle__()
+        for callback in self._session_raw_tasksets_close_callbacks:
+            try:
+                callback()
+            except Exception as e:
+                print(e) # TODO: We need to improve the logging here 
         # Close the block read write proxy
         if self._block_read_write_proxy is not None:
             self._block_read_write_proxy = None
@@ -151,4 +162,4 @@ class Session(metaclass=SessionSingletonMeta):
         if result.Success:
             self.__reset_instance__()
         self._close_requested = True
-        return self
+        return

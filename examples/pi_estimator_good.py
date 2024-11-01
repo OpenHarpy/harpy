@@ -38,6 +38,7 @@ taskSet.add_reduce(
 
 # Measure task set execution time
 start_time = time.time()
+taskSet.explain()
 taskSetResult:TaskSetResults = taskSet.collect()
 print(f"Task set execution time: {time.time() - start_time:.4f} seconds")
 

@@ -55,7 +55,7 @@ class ParquetRead(ReadType):
             for index, frag in enumerate(frags)
         ]
     
-    def __add_tasks__(self) -> list[MapTask]:
+    def __add_tasks__(self) -> None:
         if self.read_options.get_option("map_strategies") == "fragment":
             maps = self.__get_maps_fragment__()
             self.dataset._taskset_.add_maps(maps)
@@ -73,7 +73,7 @@ class ParquetWrite(WriteType):
     def write(self):
         pass
 
-    def __add_tasks__(self) -> TransformTask:
+    def __add_tasks__(self) -> None:
         # Parquet requires that the folder exists before writing
         if self._write_options_.get_option("write_mode") == "overwrite":
             Session().fs.rm(self._parquet_path_, recursive=True)

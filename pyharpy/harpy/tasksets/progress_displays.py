@@ -162,23 +162,19 @@ class CLIProgressViewer(ProgressViewer):
         if task not in self._steps[step]:
             self._steps[step][task] = {'progress': 'pending'}
             if step not in self.progress_bars:
-                self.progress_bars[step] = tqdm(total=1, desc=f'Step {step}', position=len(self.progress_bars))
-        self.print_progress()
-
+                self.progress_bars[step] = tqdm(total=1, desc=f'{step}', position=len(self.progress_bars), unit='%')
+    
     def __task_running__(self, step, task):
         self._steps[step][task]['progress'] = 'running'
-        self.print_progress()
-
+    
     def __task_success__(self, step, task):
         self._steps[step][task]['progress'] = 'success'
-        self.progress_bars[step].update(1 / len(self._steps[step]))
-        self.print_progress()
-
+        self.progress_bars[step].update(round(1 / len(self._steps[step]), 2))
+    
     def __task_fail__(self, step, task):
         self._steps[step][task]['progress'] = 'fail'
-        self.progress_bars[step].update(1 / len(self._steps[step]))
-        self.print_progress()
-
+        self.progress_bars[step].update(round(1 / len(self._steps[step]), 2))
+    
     def __set_overall_status__(self, overall_status):
         self.overall_status = overall_status
         if overall_status == 'success':
@@ -187,8 +183,7 @@ class CLIProgressViewer(ProgressViewer):
                 for task in self._steps[step]:
                     if self._steps[step][task]['progress'] == 'pending':
                         self._steps[step][task]['progress'] = 'success'
-                        self.progress_bars[step].update(1 / len(self._steps[step]))
-        self.print_progress()
+                        self.progress_bars[step].update(round(1 / len(self._steps[step]), 2))
 
     def __set_context_info__(self, context_info, context_working=False):
         pass

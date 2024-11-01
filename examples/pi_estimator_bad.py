@@ -25,7 +25,7 @@ print(f"Session creation time: {time.time() - start_time:.4f} seconds")
 
 taskSet = session.create_task_set()
 
-N = 250
+N = 100
 
 def make_map_task(i, n):
     return MapTask(name="map", fun=map_fun, kwargs={"i": i, "n": n})
@@ -34,6 +34,7 @@ reduce_task = ReduceTask(name="reduce", fun=reduce_fun, kwargs={"n": N})
 taskSet.add_maps([make_map_task(i, N) for i in range(1, N+1)])
 taskSet.add_reduce(reduce_task)
 
+taskSet.explain()
 start_time = time.time()
 taskSetResult:TaskSetResults = taskSet.collect()
 print(f"Task set execution time: {time.time() - start_time:.4f} seconds")

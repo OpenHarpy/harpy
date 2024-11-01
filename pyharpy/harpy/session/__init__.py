@@ -139,6 +139,10 @@ class Session(metaclass=SessionSingletonMeta):
             self._block_read_write_proxy = BlockReadWriteProxy(self._controller_channel, self._session_handler)
         return self._block_read_write_proxy
     
+    def clear_taskset(self, taskset: TaskSet):
+        if taskset in self._session_tasksets:
+            self._session_tasksets.remove(taskset)
+    
     def close(self):
         # Clear all the tasksets
         if self._instance_id != self.__get_remote_instance_id__():

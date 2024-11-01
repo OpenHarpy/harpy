@@ -13,6 +13,7 @@ if TYPE_CHECKING:
     from harpy.dataset.dataset import Dataset
     from harpy.dataset.dataset import ReadOptions
     from harpy.dataset.dataset import WriteOptions
+    from harpy.tasksets import TaskSet
 
 
 def read_pa_from_fragment(fragment: Fragment, index:int) -> DataFragment:
@@ -38,13 +39,11 @@ def collect_fragments(location: str) -> list[Fragment]:
     return result
 
 class ParquetRead(ReadType):
-    def __init__(self, dataset:"Dataset", location:str, options: "ReadOptions"):
-        self.dataset = dataset
+    def __init__(self, location:str, options: "ReadOptions"):
         self.read_options = options
         if location is None:
             raise ValueError("No location set")
         self._parquet_path_ = location
-        self.read_options.set_default("map_strategies", "fragment")
     
     def __get_maps_fragment__(self) -> list[MapTask]:
         frags = collect_fragments(self._parquet_path_)
@@ -55,25 +54,20 @@ class ParquetRead(ReadType):
             for index, frag in enumerate(frags)
         ]
     
-    def __add_tasks__(self) -> None:
-        if self.read_options.get_option("map_strategies") == "fragment":
-            maps = self.__get_maps_fragment__()
-            self.dataset._taskset_.add_maps(maps)
-        else:
-            raise ValueError("Unknown map strategy")
+    def __add_tasks__(self, taskset: "TaskSet") -> None:
+        maps = self.__get_maps_fragment__()
+        taskset.add_maps(maps)
+    
+    def __repr__(self) -> str:
+        return f"ParquetRead({self._parquet_path_})"
 
 class ParquetWrite(WriteType):
-    def __init__(self, dataset: "Dataset", write_options: "WriteOptions", location: str):
-        self.dataset = dataset
+    def __init__(self, write_options: "WriteOptions", location: str):
         self._parquet_path_ = location
         self._write_options_ = write_options
         self._write_options_.set_default("write_mode", "overwrite")
-        self._write_options_.set_default("write_strategy", "fragment")
 
-    def write(self):
-        pass
-
-    def __add_tasks__(self) -> None:
+    def __add_tasks__(self, taskset: "TaskSet") -> None:
         # Parquet requires that the folder exists before writing
         if self._write_options_.get_option("write_mode") == "overwrite":
             Session().fs.rm(self._parquet_path_, recursive=True)
@@ -81,4 +75,7 @@ class ParquetWrite(WriteType):
         transform_task = TransformTask(
             name="write_parquet", fun=write_pa_to_parquet, kwargs={ "path": self._parquet_path_, "write_idx": str(uuid4()) }
         )
-        self.dataset._taskset_.add_transform(transform_task)
+        taskset.add_transform(transform_task)
+
+    def __repr__(self) -> str:
+        return f"ParquetWrite({self._parquet_path_})"

@@ -185,6 +185,7 @@ class TaskSetClient:
         limit = -1
         if reduce_task.limit is not None:
             limit = reduce_task.limit
+        print(limit)
         reduce_adder = ReduceAdder(
             taskSetHandler=self.taskset_handler,
             ReducerDefinition=task_handler,
@@ -207,7 +208,7 @@ class TaskSetClient:
         fanout_adder = FanoutAdder(
             taskSetHandler=self.taskset_handler,
             FanoutDefinition=task_handler,
-            FanoutCount=fanout_adder.fanout_count
+            FanoutCount=fanout_task.fanout_count
         )
         self.__check_response__(self.taskset_stub.AddFanout(fanout_adder))        
 
@@ -410,7 +411,7 @@ class TaskSet:
     
     # *** Printing plan ***
     def explain(self, return_plan=False) -> Optional[str]:
-        plan = "TaskSet Plan\n"
+        plan = ""
         for node_index, node in enumerate(self._lazy_nodes):
             layer_indent = " " +"--" * (node_index + 1)
             plan += f"{layer_indent}> Node {node_index}: {node}\n"
@@ -448,6 +449,8 @@ class TaskSet:
         return self.run(collect=True, detailed=detailed)
     
     def __dismantle__(self):
+        ret_data = None
         if self._taskset_client is not None:
-            return self._taskset_client.dismantle()
-        return None
+            ret_data = self._taskset_client.dismantle()
+        self._session.clear_taskset(self)
+        return ret_data

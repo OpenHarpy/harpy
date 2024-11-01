@@ -15,6 +15,7 @@ if TYPE_CHECKING:
     from harpy.dataset.dataset import Dataset
     from harpy.dataset.dataset import ReadOptions
     from harpy.dataset.dataset import WriteOptions
+    from harpy.tasksets import TaskSet
 
 def definition_quack_query_arrow(query: str) -> DataFragment:
     with QuackContext() as qc:
@@ -39,8 +40,7 @@ def definition_quack_query_arrow_distributed(row_count: int, query: str, fanout_
         return DataFragment(qc.sql(f"SELECT * FROM ({query}) LIMIT {limit} OFFSET {offset}").fetch_arrow_table(), fanout_index)
 
 class SqlRead(ReadType):
-    def __init__(self, dataset:"Dataset", query:str, options: "ReadOptions"):
-        self.dataset = dataset
+    def __init__(self, query:str, options: "ReadOptions"):
         self.read_options = options
         if query is None:
             raise ValueError("No query set")
@@ -48,7 +48,7 @@ class SqlRead(ReadType):
         self.read_options.set_default("distribute_on_read", False)
         self.read_options.set_default("parallelism", 4)
     
-    def __add_tasks__(self) -> None:
+    def __add_tasks__(self, taskset: "TaskSet") -> None:
         if self.read_options.get_option("distribute_on_read"):
             # If we are distributing on read, we should use the parallelism
             parallelism = self.read_options.get_option("parallelism")
@@ -57,9 +57,12 @@ class SqlRead(ReadType):
                 name="query_fanout", fun=definition_quack_query_arrow_distributed, kwargs={"query": self._sql_, "fanout_count": parallelism},
                 fanout_count=parallelism
             )
-            self.dataset._taskset_.add_maps([map_count])
-            self.dataset._taskset_.add_fanout(fanout_task)
+            taskset.add_maps([map_count])
+            taskset.add_fanout(fanout_task)
         else:
             # If we are not distributing on read, we should just run the query
             map_task = MapTask(name="query", fun=definition_quack_query_arrow, kwargs={"query": self._sql_})
-            self.dataset._taskset_.add_maps([map_task])
+            taskset.add_maps([map_task])
+            
+    def __repr__(self) -> str:
+        return f"SqlRead({self._sql_[:20]}...)"

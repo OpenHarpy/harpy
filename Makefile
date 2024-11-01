@@ -88,6 +88,7 @@ prepare-env:
 	cd $(PYTHON_PROJECT_ROOT) && poetry install
 
 build:
+	make run-compose-down
 	make prepare-env
 	make build-proto
 	make build-sdk
@@ -96,6 +97,8 @@ build:
 # These are testing calls (not used in the final version) - these may be unstable depending on how the environment is set up 
 run-compose:
 	cd $(COMPOSE_ROOT) && $(DOCKER_COMPOSE) up
+run-compose-down:
+	cd $(COMPOSE_ROOT) && $(DOCKER_COMPOSE) down
 # Prefer to use the docker images instead
 run-resource-manager:
 	cd $(GO_PROJECT_RESOURCE_MANAGER) && $(GO) run .

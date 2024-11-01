@@ -78,7 +78,7 @@ func (r ReduceFactory) MakeTasks(previousResult TaskGroupResult) []TaskDefinitio
 	for _, result := range previousResult.Results {
 		// In theory we could allow for 0. This can be used to not pass any arguments to the reducer
 		//  In practice, for now we are limiting this on the front SDK to be either NULL (-1) or > 0
-		if r.Limit < 0 {
+		if r.Limit > 0 {
 			if idx >= r.Limit { // Limit the number of results to be reduced to the limit defined in the factory
 				break
 			}

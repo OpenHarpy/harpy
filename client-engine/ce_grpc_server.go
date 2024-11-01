@@ -155,7 +155,12 @@ func (s *CEgRPCServer) AddReduce(ctx context.Context, in *pb.ReduceAdder) (*pb.T
 	// We can now flush the task definition from the live memory
 	delete(s.lm.TaskDefinitions, taskHandler.TaskID)
 	opt := map[string]string{}
-	ts.Reduce(taskDef, opt)
+	limit := -1 // Default limit is -1 (no limit)
+	if in.Limit >= 0 {
+		// From a grpc call perspective we simply ignore if the limit is invalid
+		limit = int(in.Limit)
+	}
+	ts.Reduce(taskDef, opt, limit)
 	logger.Info("Added reduce to task set", "TASKSET_SERVICE", logrus.Fields{"task_set_id": in.TaskSetHandler.TaskSetId})
 	return &pb.TaskAdderResult{Success: true, ErrorMesssage: ""}, nil
 }
@@ -180,6 +185,29 @@ func (s *CEgRPCServer) AddTransform(ctx context.Context, in *pb.TransformAdder) 
 	opt := map[string]string{}
 	ts.Transform(taskDef, opt)
 	logger.Info("Added transform to task set", "TASKSET_SERVICE", logrus.Fields{"task_set_id": in.TaskSetHandler.TaskSetId})
+	return &pb.TaskAdderResult{Success: true, ErrorMesssage: ""}, nil
+}
+
+func (s *CEgRPCServer) AddFanout(ctx context.Context, in *pb.FanoutAdder) (*pb.TaskAdderResult, error) {
+	ts, ok := s.lm.TaskSetDefinitions[in.TaskSetHandler.TaskSetId]
+	if !ok {
+		logger.Warn("task_set_not_found", "TASKSET_SERVICE", logrus.Fields{"task_set_id": in.TaskSetHandler.TaskSetId})
+		return &pb.TaskAdderResult{Success: false, ErrorMesssage: "Task Set not found"}, nil
+	}
+
+	// Fanouts only have one task definition
+	taskHandler := in.FanoutDefinition
+	taskInMem, ok := s.lm.TaskDefinitions[taskHandler.TaskID]
+	if !ok {
+		logger.Warn("task_definition_not_found", "TASKSET_SERVICE", logrus.Fields{"task_id": taskHandler.TaskID})
+		return &pb.TaskAdderResult{Success: false, ErrorMesssage: "Task Definition not found"}, nil
+	}
+	taskDef := task.NewFanoutDefinition(*taskInMem)
+	// We can now flush the task definition from the live memory
+	delete(s.lm.TaskDefinitions, taskHandler.TaskID)
+	opt := map[string]string{}
+	ts.Fanout(taskDef, int(in.FanoutCount), opt)
+	logger.Info("Added fanout to task set", "TASKSET_SERVICE", logrus.Fields{"task_set_id": in.TaskSetHandler.TaskSetId})
 	return &pb.TaskAdderResult{Success: true, ErrorMesssage: ""}, nil
 }
 
@@ -237,6 +265,13 @@ func (l *TaskSetStreamListener) OnTaskProgress(ts *task.TaskSet, tr *task.TaskRu
 	details["taskrun_id"] = tr.TaskRunID
 	details["taskrun_status"] = string(tr.Status)
 	details["taskrun_name"] = tr.Task.Name
+	if tr.Result != nil {
+		if tr.Result.Success {
+			details["taskrun_success"] = "true"
+		} else {
+			details["taskrun_success"] = "false"
+		}
+	}
 
 	tsHandler := &pb.TaskSetHandler{TaskSetId: ts.TaskSetId}
 	streamResult := pb.TaskSetProgressReport{

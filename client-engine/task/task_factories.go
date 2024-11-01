@@ -65,6 +65,7 @@ func (t TransformFactory) String() string {
 // ** ReduceFactory **
 type ReduceFactory struct {
 	Reducer ReducerDefinition
+	Limit   int
 }
 
 func (r ReduceFactory) MakeTasks(previousResult TaskGroupResult) []TaskDefinition {
@@ -73,11 +74,50 @@ func (r ReduceFactory) MakeTasks(previousResult TaskGroupResult) []TaskDefinitio
 	//   This is will result in a single task that will reduce all the results into a single result
 	task := TaskDefinition(r.Reducer)
 	task.ArgumentsBlockIDs = []BlockID{}
+	idx := 0
 	for _, result := range previousResult.Results {
+		// In theory we could allow for 0. This can be used to not pass any arguments to the reducer
+		//  In practice, for now we are limiting this on the front SDK to be either NULL (-1) or > 0
+		if r.Limit > 0 {
+			if idx >= r.Limit { // Limit the number of results to be reduced to the limit defined in the factory
+				break
+			}
+		}
 		task.ArgumentsBlockIDs = append(task.ArgumentsBlockIDs, result.ObjectReturnBlockID)
+		idx++
 	}
 	return []TaskDefinition{task}
 }
 func (r ReduceFactory) String() string {
 	return fmt.Sprintf("ReduceFactory with reducer %s", r.Reducer.String())
+}
+
+// ** FanoutFactory **
+type FanoutFactory struct {
+	Fanout      FanoutDefinition
+	FanoutCount int
+}
+
+func (f FanoutFactory) MakeTasks(previousResult TaskGroupResult) []TaskDefinition {
+	// The fanout works like transformers, but it will exapand each result int "FanoutCount" tasks
+	//  Each task will have the same arguments as the transformer
+	tasks := []TaskDefinition{}
+	for i, result := range previousResult.Results {
+		for y := 0; y < f.FanoutCount; y++ {
+			if !result.Success {
+				return []TaskDefinition{}
+			}
+			task := TaskDefinition(f.Fanout)
+			task.Metadata = map[string]string{"fanout_index": fmt.Sprintf("%d", y), "fanout_result_index": fmt.Sprintf("%d", i)}
+			args := f.Fanout.ArgumentsBlockIDs
+			// Add the result object to the beginning of the arguments
+			args = append([]BlockID{result.ObjectReturnBlockID}, args...)
+			task.ArgumentsBlockIDs = args
+			tasks = append(tasks, task)
+		}
+	}
+	return tasks
+}
+func (f FanoutFactory) String() string {
+	return fmt.Sprintf("FanoutFactory with fanout %s and fanout count %d", f.Fanout.String(), f.FanoutCount)
 }

@@ -24,7 +24,7 @@ _sym_db = _symbol_database.Default()
 
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x10\x63\x65protocol.proto\x12\x05proto\"u\n\x0eSessionRequest\x12\x33\n\x07Options\x18\x01 \x03(\x0b\x32\".proto.SessionRequest.OptionsEntry\x1a.\n\x0cOptionsEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t:\x02\x38\x01\"4\n\x0eSessionHandler\x12\x11\n\tsessionId\x18\x01 \x01(\t\x12\x0f\n\x07Success\x18\x02 \x01(\x08\"&\n\x10InstanceMetadata\x12\x12\n\nInstanceID\x18\x01 \x01(\t\"\xa6\x02\n\x0eTaskDefinition\x12\x0c\n\x04Name\x18\x01 \x01(\t\x12\x15\n\rCallableBlock\x18\x02 \x01(\t\x12\x43\n\x0f\x41rgumentsBlocks\x18\x03 \x03(\x0b\x32*.proto.TaskDefinition.ArgumentsBlocksEntry\x12=\n\x0cKwargsBlocks\x18\x04 \x03(\x0b\x32\'.proto.TaskDefinition.KwargsBlocksEntry\x1a\x36\n\x14\x41rgumentsBlocksEntry\x12\x0b\n\x03key\x18\x01 \x01(\r\x12\r\n\x05value\x18\x02 \x01(\t:\x02\x38\x01\x1a\x33\n\x11KwargsBlocksEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t:\x02\x38\x01\"\x1d\n\x0bTaskHandler\x12\x0e\n\x06TaskID\x18\x01 \x01(\t\"4\n\x0eTaskSetHandler\x12\x11\n\ttaskSetId\x18\x01 \x01(\t\x12\x0f\n\x07Success\x18\x02 \x01(\x08\"9\n\rTaskSetStatus\x12\x11\n\tTaskSetID\x18\x01 \x01(\t\x12\x15\n\rTaskSetStatus\x18\x02 \x01(\t\"u\n\nTaskResult\x12\x11\n\tTaskRunID\x18\x01 \x01(\t\x12\x19\n\x11ObjectReturnBlock\x18\x02 \x01(\t\x12\x13\n\x0bStdoutBlock\x18\x03 \x01(\t\x12\x13\n\x0bStderrBlock\x18\x04 \x01(\t\x12\x0f\n\x07Success\x18\x05 \x01(\x08\"b\n\rTaskSetResult\x12\x11\n\tTaskSetID\x18\x01 \x01(\t\x12\x16\n\x0eOverallSuccess\x18\x02 \x01(\x08\x12&\n\x0bTaskResults\x18\x03 \x03(\x0b\x32\x11.proto.TaskResult\"9\n\x0fTaskAdderResult\x12\x0f\n\x07Success\x18\x01 \x01(\x08\x12\x15\n\rErrorMesssage\x18\x02 \x01(\t\"h\n\x08MapAdder\x12-\n\x0etaskSetHandler\x18\x01 \x01(\x0b\x32\x15.proto.TaskSetHandler\x12-\n\x11MappersDefinition\x18\x02 \x03(\x0b\x32\x12.proto.TaskHandler\"k\n\x0bReduceAdder\x12-\n\x0etaskSetHandler\x18\x01 \x01(\x0b\x32\x15.proto.TaskSetHandler\x12-\n\x11ReducerDefinition\x18\x02 \x01(\x0b\x32\x12.proto.TaskHandler\"r\n\x0eTransformAdder\x12-\n\x0etaskSetHandler\x18\x01 \x01(\x0b\x32\x15.proto.TaskSetHandler\x12\x31\n\x15TransformerDefinition\x18\x02 \x01(\x0b\x32\x12.proto.TaskHandler\"\xb8\x02\n\x15TaskSetProgressReport\x12-\n\x0etaskSetHandler\x18\x01 \x01(\x0b\x32\x15.proto.TaskSetHandler\x12)\n\x0cProgressType\x18\x02 \x01(\x0e\x32\x13.proto.ProgressType\x12\x11\n\tRelatedID\x18\x03 \x01(\t\x12\x17\n\x0fProgressMessage\x18\x04 \x01(\t\x12\x15\n\rStatusMessage\x18\x05 \x01(\t\x12J\n\x0fProgressDetails\x18\x06 \x03(\x0b\x32\x31.proto.TaskSetProgressReport.ProgressDetailsEntry\x1a\x36\n\x14ProgressDetailsEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t:\x02\x38\x01\"T\n\x0fProxyBlockChunk\x12-\n\x0eSessionHandler\x18\x01 \x01(\x0b\x32\x15.proto.SessionHandler\x12\x12\n\nBlockChunk\x18\x02 \x01(\x0c\"S\n\x11ProxyBlockHandler\x12-\n\x0eSessionHandler\x18\x01 \x01(\x0b\x32\x15.proto.SessionHandler\x12\x0f\n\x07\x42lockID\x18\x02 \x01(\t*L\n\x0cProgressType\x12\x13\n\x0fTaskSetProgress\x10\x00\x12\x15\n\x11TaskGroupProgress\x10\x01\x12\x10\n\x0cTaskProgress\x10\x02\x32\x8e\x02\n\x07Session\x12?\n\rCreateSession\x12\x15.proto.SessionRequest\x1a\x15.proto.SessionHandler\"\x00\x12?\n\rCreateTaskSet\x12\x15.proto.SessionHandler\x1a\x15.proto.TaskSetHandler\"\x00\x12>\n\x0c\x43loseSession\x12\x15.proto.SessionHandler\x1a\x15.proto.SessionHandler\"\x00\x12\x41\n\rGetInstanceID\x12\x15.proto.SessionHandler\x1a\x17.proto.InstanceMetadata\"\x00\x32\xba\x03\n\x07TaskSet\x12\x39\n\nDefineTask\x12\x15.proto.TaskDefinition\x1a\x12.proto.TaskHandler\"\x00\x12\x33\n\x06\x41\x64\x64Map\x12\x0f.proto.MapAdder\x1a\x16.proto.TaskAdderResult\"\x00\x12\x39\n\tAddReduce\x12\x12.proto.ReduceAdder\x1a\x16.proto.TaskAdderResult\"\x00\x12?\n\x0c\x41\x64\x64Transform\x12\x15.proto.TransformAdder\x1a\x16.proto.TaskAdderResult\"\x00\x12\x42\n\x07\x45xecute\x12\x15.proto.TaskSetHandler\x1a\x1c.proto.TaskSetProgressReport\"\x00\x30\x01\x12;\n\tDismantle\x12\x15.proto.TaskSetHandler\x1a\x15.proto.TaskSetHandler\"\x00\x12\x42\n\x11GetTaskSetResults\x12\x15.proto.TaskSetHandler\x1a\x14.proto.TaskSetResult\"\x00\x32\x90\x01\n\nBlockProxy\x12@\n\x08GetBlock\x12\x18.proto.ProxyBlockHandler\x1a\x16.proto.ProxyBlockChunk\"\x00\x30\x01\x12@\n\x08PutBlock\x12\x16.proto.ProxyBlockChunk\x1a\x18.proto.ProxyBlockHandler\"\x00(\x01\x62\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x10\x63\x65protocol.proto\x12\x05proto\"u\n\x0eSessionRequest\x12\x33\n\x07Options\x18\x01 \x03(\x0b\x32\".proto.SessionRequest.OptionsEntry\x1a.\n\x0cOptionsEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t:\x02\x38\x01\"4\n\x0eSessionHandler\x12\x11\n\tsessionId\x18\x01 \x01(\t\x12\x0f\n\x07Success\x18\x02 \x01(\x08\"&\n\x10InstanceMetadata\x12\x12\n\nInstanceID\x18\x01 \x01(\t\"\xa6\x02\n\x0eTaskDefinition\x12\x0c\n\x04Name\x18\x01 \x01(\t\x12\x15\n\rCallableBlock\x18\x02 \x01(\t\x12\x43\n\x0f\x41rgumentsBlocks\x18\x03 \x03(\x0b\x32*.proto.TaskDefinition.ArgumentsBlocksEntry\x12=\n\x0cKwargsBlocks\x18\x04 \x03(\x0b\x32\'.proto.TaskDefinition.KwargsBlocksEntry\x1a\x36\n\x14\x41rgumentsBlocksEntry\x12\x0b\n\x03key\x18\x01 \x01(\r\x12\r\n\x05value\x18\x02 \x01(\t:\x02\x38\x01\x1a\x33\n\x11KwargsBlocksEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t:\x02\x38\x01\"\x1d\n\x0bTaskHandler\x12\x0e\n\x06TaskID\x18\x01 \x01(\t\"4\n\x0eTaskSetHandler\x12\x11\n\ttaskSetId\x18\x01 \x01(\t\x12\x0f\n\x07Success\x18\x02 \x01(\x08\"9\n\rTaskSetStatus\x12\x11\n\tTaskSetID\x18\x01 \x01(\t\x12\x15\n\rTaskSetStatus\x18\x02 \x01(\t\"u\n\nTaskResult\x12\x11\n\tTaskRunID\x18\x01 \x01(\t\x12\x19\n\x11ObjectReturnBlock\x18\x02 \x01(\t\x12\x13\n\x0bStdoutBlock\x18\x03 \x01(\t\x12\x13\n\x0bStderrBlock\x18\x04 \x01(\t\x12\x0f\n\x07Success\x18\x05 \x01(\x08\"b\n\rTaskSetResult\x12\x11\n\tTaskSetID\x18\x01 \x01(\t\x12\x16\n\x0eOverallSuccess\x18\x02 \x01(\x08\x12&\n\x0bTaskResults\x18\x03 \x03(\x0b\x32\x11.proto.TaskResult\"9\n\x0fTaskAdderResult\x12\x0f\n\x07Success\x18\x01 \x01(\x08\x12\x15\n\rErrorMesssage\x18\x02 \x01(\t\"h\n\x08MapAdder\x12-\n\x0etaskSetHandler\x18\x01 \x01(\x0b\x32\x15.proto.TaskSetHandler\x12-\n\x11MappersDefinition\x18\x02 \x03(\x0b\x32\x12.proto.TaskHandler\"z\n\x0bReduceAdder\x12-\n\x0etaskSetHandler\x18\x01 \x01(\x0b\x32\x15.proto.TaskSetHandler\x12-\n\x11ReducerDefinition\x18\x02 \x01(\x0b\x32\x12.proto.TaskHandler\x12\r\n\x05Limit\x18\x03 \x01(\x05\"r\n\x0eTransformAdder\x12-\n\x0etaskSetHandler\x18\x01 \x01(\x0b\x32\x15.proto.TaskSetHandler\x12\x31\n\x15TransformerDefinition\x18\x02 \x01(\x0b\x32\x12.proto.TaskHandler\"\x7f\n\x0b\x46\x61noutAdder\x12-\n\x0etaskSetHandler\x18\x01 \x01(\x0b\x32\x15.proto.TaskSetHandler\x12,\n\x10\x46\x61noutDefinition\x18\x02 \x01(\x0b\x32\x12.proto.TaskHandler\x12\x13\n\x0b\x46\x61noutCount\x18\x03 \x01(\x05\"\xb8\x02\n\x15TaskSetProgressReport\x12-\n\x0etaskSetHandler\x18\x01 \x01(\x0b\x32\x15.proto.TaskSetHandler\x12)\n\x0cProgressType\x18\x02 \x01(\x0e\x32\x13.proto.ProgressType\x12\x11\n\tRelatedID\x18\x03 \x01(\t\x12\x17\n\x0fProgressMessage\x18\x04 \x01(\t\x12\x15\n\rStatusMessage\x18\x05 \x01(\t\x12J\n\x0fProgressDetails\x18\x06 \x03(\x0b\x32\x31.proto.TaskSetProgressReport.ProgressDetailsEntry\x1a\x36\n\x14ProgressDetailsEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t:\x02\x38\x01\"y\n\x12SetRetentionPolicy\x12-\n\x0etaskSetHandler\x18\x01 \x01(\x0b\x32\x15.proto.TaskSetHandler\x12\x34\n\x0fRetentionPolicy\x18\x02 \x01(\x0e\x32\x1b.proto.BlockRetentionPolicy\"T\n\x0fProxyBlockChunk\x12-\n\x0eSessionHandler\x18\x01 \x01(\x0b\x32\x15.proto.SessionHandler\x12\x12\n\nBlockChunk\x18\x02 \x01(\x0c\"S\n\x11ProxyBlockHandler\x12-\n\x0eSessionHandler\x18\x01 \x01(\x0b\x32\x15.proto.SessionHandler\x12\x0f\n\x07\x42lockID\x18\x02 \x01(\t*L\n\x0cProgressType\x12\x13\n\x0fTaskSetProgress\x10\x00\x12\x15\n\x11TaskGroupProgress\x10\x01\x12\x10\n\x0cTaskProgress\x10\x02*^\n\x14\x42lockRetentionPolicy\x12\r\n\tRemoveAll\x10\x00\x12\x0b\n\x07KeepAll\x10\x01\x12\x17\n\x13KeepLastLayerOutput\x10\x02\x12\x11\n\rKeelAllOutput\x10\x03\x32\x8e\x02\n\x07Session\x12?\n\rCreateSession\x12\x15.proto.SessionRequest\x1a\x15.proto.SessionHandler\"\x00\x12?\n\rCreateTaskSet\x12\x15.proto.SessionHandler\x1a\x15.proto.TaskSetHandler\"\x00\x12>\n\x0c\x43loseSession\x12\x15.proto.SessionHandler\x1a\x15.proto.SessionHandler\"\x00\x12\x41\n\rGetInstanceID\x12\x15.proto.SessionHandler\x1a\x17.proto.InstanceMetadata\"\x00\x32\xc4\x04\n\x07TaskSet\x12\x39\n\nDefineTask\x12\x15.proto.TaskDefinition\x1a\x12.proto.TaskHandler\"\x00\x12\x33\n\x06\x41\x64\x64Map\x12\x0f.proto.MapAdder\x1a\x16.proto.TaskAdderResult\"\x00\x12\x39\n\tAddReduce\x12\x12.proto.ReduceAdder\x1a\x16.proto.TaskAdderResult\"\x00\x12?\n\x0c\x41\x64\x64Transform\x12\x15.proto.TransformAdder\x1a\x16.proto.TaskAdderResult\"\x00\x12\x39\n\tAddFanout\x12\x12.proto.FanoutAdder\x1a\x16.proto.TaskAdderResult\"\x00\x12\x42\n\x07\x45xecute\x12\x15.proto.TaskSetHandler\x1a\x1c.proto.TaskSetProgressReport\"\x00\x30\x01\x12M\n\x17SetBlockRetentionPolicy\x12\x19.proto.SetRetentionPolicy\x1a\x15.proto.TaskSetHandler\"\x00\x12;\n\tDismantle\x12\x15.proto.TaskSetHandler\x1a\x15.proto.TaskSetHandler\"\x00\x12\x42\n\x11GetTaskSetResults\x12\x15.proto.TaskSetHandler\x1a\x14.proto.TaskSetResult\"\x00\x32\x90\x01\n\nBlockProxy\x12@\n\x08GetBlock\x12\x18.proto.ProxyBlockHandler\x1a\x16.proto.ProxyBlockChunk\"\x00\x30\x01\x12@\n\x08PutBlock\x12\x16.proto.ProxyBlockChunk\x1a\x18.proto.ProxyBlockHandler\"\x00(\x01\x62\x06proto3')
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
@@ -39,8 +39,10 @@ if not _descriptor._USE_C_DESCRIPTORS:
   _globals['_TASKDEFINITION_KWARGSBLOCKSENTRY']._serialized_options = b'8\001'
   _globals['_TASKSETPROGRESSREPORT_PROGRESSDETAILSENTRY']._loaded_options = None
   _globals['_TASKSETPROGRESSREPORT_PROGRESSDETAILSENTRY']._serialized_options = b'8\001'
-  _globals['_PROGRESSTYPE']._serialized_start=1776
-  _globals['_PROGRESSTYPE']._serialized_end=1852
+  _globals['_PROGRESSTYPE']._serialized_start=2043
+  _globals['_PROGRESSTYPE']._serialized_end=2119
+  _globals['_BLOCKRETENTIONPOLICY']._serialized_start=2121
+  _globals['_BLOCKRETENTIONPOLICY']._serialized_end=2215
   _globals['_SESSIONREQUEST']._serialized_start=27
   _globals['_SESSIONREQUEST']._serialized_end=144
   _globals['_SESSIONREQUEST_OPTIONSENTRY']._serialized_start=98
@@ -70,21 +72,25 @@ if not _descriptor._USE_C_DESCRIPTORS:
   _globals['_MAPADDER']._serialized_start=959
   _globals['_MAPADDER']._serialized_end=1063
   _globals['_REDUCEADDER']._serialized_start=1065
-  _globals['_REDUCEADDER']._serialized_end=1172
-  _globals['_TRANSFORMADDER']._serialized_start=1174
-  _globals['_TRANSFORMADDER']._serialized_end=1288
-  _globals['_TASKSETPROGRESSREPORT']._serialized_start=1291
-  _globals['_TASKSETPROGRESSREPORT']._serialized_end=1603
-  _globals['_TASKSETPROGRESSREPORT_PROGRESSDETAILSENTRY']._serialized_start=1549
-  _globals['_TASKSETPROGRESSREPORT_PROGRESSDETAILSENTRY']._serialized_end=1603
-  _globals['_PROXYBLOCKCHUNK']._serialized_start=1605
-  _globals['_PROXYBLOCKCHUNK']._serialized_end=1689
-  _globals['_PROXYBLOCKHANDLER']._serialized_start=1691
-  _globals['_PROXYBLOCKHANDLER']._serialized_end=1774
-  _globals['_SESSION']._serialized_start=1855
-  _globals['_SESSION']._serialized_end=2125
-  _globals['_TASKSET']._serialized_start=2128
-  _globals['_TASKSET']._serialized_end=2570
-  _globals['_BLOCKPROXY']._serialized_start=2573
-  _globals['_BLOCKPROXY']._serialized_end=2717
+  _globals['_REDUCEADDER']._serialized_end=1187
+  _globals['_TRANSFORMADDER']._serialized_start=1189
+  _globals['_TRANSFORMADDER']._serialized_end=1303
+  _globals['_FANOUTADDER']._serialized_start=1305
+  _globals['_FANOUTADDER']._serialized_end=1432
+  _globals['_TASKSETPROGRESSREPORT']._serialized_start=1435
+  _globals['_TASKSETPROGRESSREPORT']._serialized_end=1747
+  _globals['_TASKSETPROGRESSREPORT_PROGRESSDETAILSENTRY']._serialized_start=1693
+  _globals['_TASKSETPROGRESSREPORT_PROGRESSDETAILSENTRY']._serialized_end=1747
+  _globals['_SETRETENTIONPOLICY']._serialized_start=1749
+  _globals['_SETRETENTIONPOLICY']._serialized_end=1870
+  _globals['_PROXYBLOCKCHUNK']._serialized_start=1872
+  _globals['_PROXYBLOCKCHUNK']._serialized_end=1956
+  _globals['_PROXYBLOCKHANDLER']._serialized_start=1958
+  _globals['_PROXYBLOCKHANDLER']._serialized_end=2041
+  _globals['_SESSION']._serialized_start=2218
+  _globals['_SESSION']._serialized_end=2488
+  _globals['_TASKSET']._serialized_start=2491
+  _globals['_TASKSET']._serialized_end=3071
+  _globals['_BLOCKPROXY']._serialized_start=3074
+  _globals['_BLOCKPROXY']._serialized_end=3218
 # @@protoc_insertion_point(module_scope)

@@ -20,7 +20,6 @@ const (
 	STATUS_DEFINED   Status = "defined"
 	STATUS_QUEUED    Status = "queued"
 	STATUS_RUNNING   Status = "running"
-	STATUS_FETCHING  Status = "fetching"
 	STATUS_DONE      Status = "done"
 	STATUS_PANIC     Status = "panic"
 	STATUS_KILLING   Status = "killing"
@@ -58,6 +57,7 @@ type TaskRun struct {
 	TaskSet   *TaskSet
 	TaskRunID string
 	Status    Status
+	Fetched   bool
 }
 
 func NewTaskRun(task *TaskDefinition, taskRunID string, reporter *Reporter, taskSet *TaskSet) *TaskRun {
@@ -66,7 +66,7 @@ func NewTaskRun(task *TaskDefinition, taskRunID string, reporter *Reporter, task
 	}
 	return &TaskRun{
 		Task: task, TaskRunID: taskRunID, Reporter: reporter, Status: "pending", Result: nil,
-		TaskSet: taskSet,
+		TaskSet: taskSet, Fetched: false,
 	}
 }
 
@@ -91,4 +91,5 @@ func (t *TaskRun) SetResult(resultBlockID BlockID, stdoutBlockID BlockID, stderr
 		stdoutBlockID,
 		stderrBlockID,
 	)
+	t.SetStatus(STATUS_DONE)
 }

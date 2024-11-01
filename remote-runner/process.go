@@ -126,12 +126,14 @@ type Process struct {
 	KillChan            chan bool
 	DoneChan            chan bool
 	EnvRef              *IsolatedEnvironment
+	Metadata            *Block
 }
 
 func NewProcess(
 	processID string, callableBlock *Block, argumentsBlocks []*Block, kwargsBlocks map[string]*Block,
 	OutputBlock *Block,
 	StdOutBlock *Block, StdErrBlock *Block,
+	Metadata *Block,
 ) *Process {
 	currentTime := time.Now().Unix()
 	return &Process{
@@ -150,6 +152,8 @@ func NewProcess(
 		Success:             false,
 		KillChan:            nil,
 		DoneChan:            nil,
+		EnvRef:              nil,
+		Metadata:            Metadata,
 	}
 }
 
@@ -176,7 +180,12 @@ func RunProcess(killChan chan bool, doneChan chan bool, process *Process) {
 	funcCommand := " --func " + process.CallableBlock.BlockLocation
 	// Write the output block
 	outputCommand := " --output " + process.OutputBlock.BlockLocation
+	metadataBlock := ""
 	// Write the arguments
+	// Add the metadata block
+	if process.Metadata != nil {
+		metadataBlock = " --commandMetadata " + process.Metadata.BlockLocation
+	}
 	argumentsCommand := " "
 	for i, arg := range process.ArgumentsBlocks {
 		argumentsCommand = argumentsCommand + " __pos__arg__" + fmt.Sprint(i) + "=" + arg.BlockLocation
@@ -188,7 +197,7 @@ func RunProcess(killChan chan bool, doneChan chan bool, process *Process) {
 	}
 
 	// Combine the command
-	fullCommand := entrypoint + funcCommand + outputCommand + " --blocks" + argumentsCommand + kwargsCommand
+	fullCommand := entrypoint + funcCommand + outputCommand + metadataBlock + " --blocks" + argumentsCommand + kwargsCommand
 	fullCommand = NormalizeCommand(fullCommand)
 	// Run the command
 	logger.Info("Running process", "RUN_PROCESS", logrus.Fields{"command": fullCommand})

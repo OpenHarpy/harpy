@@ -49,6 +49,7 @@ message CommandRegistration {
     BlockHandler CallableBlockHandler = 1;
     map<uint32, BlockHandler> ArgumentsBlocksHandlers = 2;
     map<string, BlockHandler> KwargsBlocksHandlers = 3;
+    BlockHandler MetadataBlockHandler = 4;
 }
 
 message CommandHandler {
@@ -69,6 +70,12 @@ message CommandRequest {
 message CommandRequestResponse {
     bool Success = 3;
     string ErrorMessage = 4;
+}
+
+message CommandKillRequest {
+    CommandHandler CommandHandler = 1;
+    CallbackHandler CallbackHandler = 2;
+    IsolatedEnv IsolatedEnv = 3;
 }
 
 //message CommandOutputChunk {
@@ -118,7 +125,7 @@ service Node {
     //rpc RegisterCommand (stream CommandRequestChunk) returns (CommandHandler) {}
     rpc RegisterCommand (CommandRegistration) returns (CommandHandler) {}
     rpc RunCommand (CommandRequest) returns (CommandRequestResponse) {}
-    rpc KillCommand (CommandRequest) returns (CommandRequestResponse) {}
+    rpc KillCommand (CommandKillRequest) returns (CommandRequestResponse) {}
     rpc GetCommandOutput (CommandHandler) returns (CommandOutput) {}
     // Blocks
     rpc StreamInBlock (stream BlockChunk) returns (BlockHandler) {}

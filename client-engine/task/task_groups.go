@@ -14,6 +14,8 @@ import (
 	"errors"
 	"fmt"
 	"time"
+
+	"github.com/sirupsen/logrus"
 )
 
 const (
@@ -116,6 +118,16 @@ func (t TaskGroup) SkipRemaining() {
 	}
 }
 
+func goFetchResult(commandID string, taskRun *TaskRun, tg *TaskGroup) {
+	nodeID := tg.CommandIDNodeMapping[commandID]
+	node := tg.TaskSet.Session.NodeTracker.GetNode(nodeID)
+	err := node.GetTaskOutput(commandID, taskRun)
+	if err != nil {
+		logger.Error("Error fetching task output", "TASKGROUP", err)
+	}
+	taskRun.Fetched = true
+}
+
 func (t *TaskGroup) CallbackHandler(commandID string, status Status) error {
 	taskRun, ok := t.CommandIDTaskMapping[commandID]
 	if !ok {
@@ -123,6 +135,9 @@ func (t *TaskGroup) CallbackHandler(commandID string, status Status) error {
 		return fmt.Errorf("commandID not found in CommandIDTaskMapping")
 	}
 	taskRun.SetStatus(status)
+	if status == STATUS_DONE {
+		go goFetchResult(commandID, taskRun, t)
+	}
 	return nil
 }
 
@@ -142,7 +157,7 @@ func (t TaskGroup) RemoteGRPCExecute(previousResult TaskGroupResult, session *Se
 
 	// Register the callback handler
 	callbackHandlerID := session.RegisterCallbackPointer(t.CallbackHandler)
-
+	logger.Info("CallbackHandler registered", "TASKGROUP", logrus.Fields{"blockGroupID": t.TaskSet.CurrentBlockGroupID, "callbackHandlerID": callbackHandlerID})
 	for _, task := range t.TaskRuns {
 		// For each task we get the node from the session
 		node := session.NodeTracker.GetNextNode()
@@ -180,35 +195,28 @@ func (t TaskGroup) RemoteGRPCExecute(previousResult TaskGroupResult, session *Se
 	t.Report()
 
 	for {
+		allDone := true // Assume all tasks are done at the beginning of each iteration
 		// We need to check if all the tasks are done
-		allDone := true
 		for _, taskRun := range t.TaskRuns {
-			if taskRun.Status != "done" {
-				allDone = false
+			if !taskRun.Fetched {
+				allDone = false // Set allDone to false if any task is not fetched
 				break
 			}
 		}
 		if allDone {
-			break
+			break // Exit the loop if all tasks are done
 		}
 		time.Sleep(POOLING_INTERVAL) // The pooling interval can be small because this is not a network call
 		// Lets change this to use channels instead of polling
 		// TODO: Change this after we test the new implementation of the server callback
 	}
 
-	// Now we need to get the results from the commandIDTaskMapping
-	for commandID, taskRun := range t.CommandIDTaskMapping {
-		nodeID := t.CommandIDNodeMapping[commandID]
-		node := session.NodeTracker.GetNode(nodeID)
-		taskRun.SetStatus(STATUS_FETCHING)
-		err := node.GetTaskOutput(commandID, taskRun)
-		if err != nil {
-			logger.Info("Error fetching task output", "TASKGROUP")
-			return TaskGroupResult{}, err
-		}
+	// We need to get the results from the commandIDTaskMapping
+	// This may not be safe to do concurrently so we will do it sequentially once all the results are fetched
+	for _, taskRun := range t.CommandIDTaskMapping {
 		results = append(results, *taskRun.Result)
 	}
-	// Deregister all the callbacks and kill the server
+
 	session.DeregisterCommandCallbackPointer(callbackHandlerID)
 
 	t.Report()

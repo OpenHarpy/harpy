@@ -1,5 +1,5 @@
 import inspect
-
+from harpy.processing.types import (BatchMapTask)
 def get_output_type(callable):
     function_signature = inspect.signature(callable)
     return function_signature.return_annotation
@@ -59,6 +59,39 @@ def validate_function(callable, function_type, expect_output_type=None):
                 errors_description.append("Transform function must have at least one argument and it must be POSITIONAL_OR_KEYWORD kind")
             if not check_3:
                 errors_description.append("Transform functions first argument MUST be match the type of the previous function in the chain")
+    elif function_type == "fanout":
+        # Funout function need to have typed input and output (there are no restrictions on how the arguments are passed)
+        # They need to have one argument and it must be POSITIONAL_OR_KEYWORD kind
+        # The first argument MUST be typed according to the EXPECT_OUTPUT_TYPE
+        values = list(function_signature.parameters.values())
+        check_1 = (output_signed and input_signed)
+        check_2 = len(values) >= 1 and values[0].kind == inspect.Parameter.POSITIONAL_OR_KEYWORD
+        check_3 = values[0].annotation == expect_output_type
+        if check_1 and check_2 and check_3:
+            return []
+        else:
+            if not check_1:
+                errors_description.append("Fanout function must have typed input and output")
+            if not check_2:
+                errors_description.append(f"Fanout function must have one or more arguments and it must be POSITIONAL_OR_KEYWORD kind, you passed: {len(values)}")
+            if not check_3:
+                errors_description.append(f"Fanout functions first argument MUST be match the type of the previous function in the chain, you passed: {str(values[0].annotation)} and expected: {str(expect_output_type)}")
     else:
         raise ValueError("Invalid function type")
     return errors_description
+
+def validate_batch_map(batch_maps:BatchMapTask):
+    # Code quality gates - B. BatchMapTask can only have maps that have the same function
+    errors_description = []
+    if len(batch_maps.map_tasks) == 0:
+        errors_description.append("BatchMapTask must have at least one map")
+        return errors_description
+    for map_task in batch_maps.map_tasks:
+        if map_task.fun != batch_maps.map_tasks[0].fun:
+            errors_description.append("All maps in a BatchMapTask must use the same function")
+            break
+    error_extend = validate_function(batch_maps.map_tasks[0].fun, "map")
+    if len(error_extend) > 0:
+        errors_description.extend(error_extend)
+    return errors_description
+    

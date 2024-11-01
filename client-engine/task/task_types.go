@@ -31,6 +31,7 @@ type Definition struct {
 	ExecutionType     string
 	ArgumentsBlockIDs []BlockID
 	KwargsBlockIDs    map[string]BlockID
+	Metadata          map[string]string
 }
 
 // TransformerDefinition --> This is used to define a transformer that will belong to a task group
@@ -74,6 +75,21 @@ func (m MapperDefinition) String() string {
 
 func NewMapperDefinition(definition Definition) MapperDefinition {
 	return MapperDefinition{
+		Definition: definition,
+	}
+}
+
+// FanoutDefinition --> This is used to define a fanout that will belong to a task group
+type FanoutDefinition struct {
+	Definition
+}
+
+func (f FanoutDefinition) String() string {
+	return fmt.Sprintf("FanoutDefinition[%s]", f.Name)
+}
+
+func NewFanoutDefinition(definition Definition) FanoutDefinition {
+	return FanoutDefinition{
 		Definition: definition,
 	}
 }

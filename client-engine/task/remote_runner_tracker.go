@@ -23,9 +23,9 @@ import (
 	pb "client-engine/grpc_node_protocol"
 	"client-engine/logger"
 	"context"
+	"encoding/json"
 	"errors"
 	"io"
-	"strconv"
 	"sync"
 	"time"
 
@@ -161,21 +161,15 @@ func (sr *BlockStreamingReader) Read() ([]byte, bool) {
 	return buffer, false
 }
 
-type BlockInternalReference struct {
-	BlockID         string
-	BlockIdentifier string
-	BlockGroup      string
-}
-
 type Node struct {
-	nodeID      string
-	NodeURI     string
-	CallbackURI string
-	CallbackID  string
-	SessionID   string
-	Blocks      []BlockInternalReference
-	conn        *grpc.ClientConn
-	client      pb.NodeClient
+	nodeID       string
+	NodeURI      string
+	CallbackURI  string
+	CallbackID   string
+	SessionID    string
+	BlockTracker *BlockTracker
+	conn         *grpc.ClientConn
+	client       pb.NodeClient
 }
 
 func (n *Node) connect() error {
@@ -209,6 +203,23 @@ func (n *Node) disconnect() error {
 		}
 	}
 	return nil
+}
+
+func (n *Node) StreamMetadataJson(metadata map[string]string) (string, error) {
+	metadataJson, err := json.Marshal(metadata)
+	if err != nil {
+		return "", err
+	}
+	BlockStreamWriter := NewBlockStreamingWriter(n)
+	err = BlockStreamWriter.Write(metadataJson)
+	if err != nil {
+		return "", err
+	}
+	err = BlockStreamWriter.Close()
+	if err != nil {
+		return "", err
+	}
+	return BlockStreamWriter.BlockID, nil
 }
 
 func (n *Node) InitIsolatedEnv() error {
@@ -272,17 +283,26 @@ func (n *Node) UnregisterCallback() error {
 
 func (n *Node) RegisterTask(task *TaskDefinition, TaskSet *TaskSet) (string, error) {
 	// We start by streaming each block
-	n.Blocks = append(n.Blocks, BlockInternalReference{BlockID: string(task.CallableBlockID), BlockIdentifier: "function-" + task.Name, BlockGroup: TaskSet.TaskSetId})
+	logger.Info("Registering task", "NODE", logrus.Fields{"BlockGroup": TaskSet.CurrentBlockGroupID})
+	n.BlockTracker.AddBlock(&BlockInternalReference{BlockID: string(task.CallableBlockID), BlockType: "function", BlockGroup: *TaskSet.CurrentBlockGroupID})
 	argumentsBlockIDs := make(map[uint32]*pb.BlockHandler)
 	for index, argument := range task.ArgumentsBlockIDs {
 		argumentsBlockIDs[uint32(index)] = &pb.BlockHandler{BlockID: string(argument)}
-		idAsString := strconv.Itoa(index)
-		n.Blocks = append(n.Blocks, BlockInternalReference{BlockID: string(argument), BlockIdentifier: "argument-" + idAsString + "-" + task.Name, BlockGroup: TaskSet.TaskSetId})
+		n.BlockTracker.AddBlock(&BlockInternalReference{BlockID: string(argument), BlockType: "argument", BlockGroup: *TaskSet.CurrentBlockGroupID})
 	}
 	kwargsBockIDs := make(map[string]*pb.BlockHandler)
 	for key, value := range task.KwargsBlockIDs {
 		kwargsBockIDs[key] = &pb.BlockHandler{BlockID: string(value)}
-		n.Blocks = append(n.Blocks, BlockInternalReference{BlockID: string(value), BlockIdentifier: "kwargs-" + key + "-" + task.Name, BlockGroup: TaskSet.TaskSetId})
+		n.BlockTracker.AddBlock(&BlockInternalReference{BlockID: string(value), BlockType: "kwargs", BlockGroup: *TaskSet.CurrentBlockGroupID})
+	}
+	var MetadataBlockHandler *pb.BlockHandler = nil
+	if task.Metadata != nil {
+		metadataBlockID, err := n.StreamMetadataJson(task.Metadata)
+		if err != nil {
+			return "", err
+		}
+		n.BlockTracker.AddBlock(&BlockInternalReference{BlockID: metadataBlockID, BlockType: "metadata", BlockGroup: *TaskSet.CurrentBlockGroupID})
+		MetadataBlockHandler = &pb.BlockHandler{BlockID: metadataBlockID}
 	}
 
 	// Now we can register the command
@@ -290,6 +310,7 @@ func (n *Node) RegisterTask(task *TaskDefinition, TaskSet *TaskSet) (string, err
 		CallableBlockHandler:    &pb.BlockHandler{BlockID: string(task.CallableBlockID)},
 		ArgumentsBlocksHandlers: argumentsBlockIDs,
 		KwargsBlocksHandlers:    kwargsBockIDs,
+		MetadataBlockHandler:    MetadataBlockHandler,
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*10)
 	defer cancel()
@@ -304,7 +325,11 @@ func (n *Node) RunCommand(commandID string) error {
 	commandHandler := pb.CommandHandler{CommandID: commandID}
 	callbackHandler := pb.CallbackHandler{CallbackID: n.CallbackID}
 	isolatedEnv := pb.IsolatedEnv{IsolatedEnvID: n.SessionID}
-	commandRequest := pb.CommandRequest{CommandHandler: &commandHandler, CallbackHandler: &callbackHandler, IsolatedEnv: &isolatedEnv}
+	commandRequest := pb.CommandRequest{
+		CommandHandler:  &commandHandler,
+		CallbackHandler: &callbackHandler,
+		IsolatedEnv:     &isolatedEnv,
+	}
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*10)
 	defer cancel()
 	res, err := n.client.RunCommand(ctx, &commandRequest)
@@ -334,46 +359,12 @@ func (n *Node) GetTaskOutput(commandID string, taskRun *TaskRun) error {
 	StdoutBlockHandler := output.StdoutBlockHandler
 	StdErrBlockHandler := output.StderrBlockHandler
 
-	// Map the Blocks
-	n.Blocks = append(n.Blocks, BlockInternalReference{BlockID: string(OutputBlockID), BlockIdentifier: "output-" + taskRun.Task.Name, BlockGroup: taskRun.TaskSet.TaskSetId})
-	n.Blocks = append(n.Blocks, BlockInternalReference{BlockID: string(StdoutBlockHandler.BlockID), BlockIdentifier: "stdout-" + taskRun.Task.Name, BlockGroup: taskRun.TaskSet.TaskSetId})
-	n.Blocks = append(n.Blocks, BlockInternalReference{BlockID: string(StdErrBlockHandler.BlockID), BlockIdentifier: "stderr-" + taskRun.Task.Name, BlockGroup: taskRun.TaskSet.TaskSetId})
-
+	// Track the blocks
+	n.BlockTracker.AddBlock(&BlockInternalReference{BlockID: string(OutputBlockID), BlockType: "output", BlockGroup: *taskRun.TaskSet.CurrentBlockGroupID})
+	n.BlockTracker.AddBlock(&BlockInternalReference{BlockID: string(StdoutBlockHandler.BlockID), BlockType: "stdout", BlockGroup: *taskRun.TaskSet.CurrentBlockGroupID})
+	n.BlockTracker.AddBlock(&BlockInternalReference{BlockID: string(StdErrBlockHandler.BlockID), BlockType: "stderr", BlockGroup: *taskRun.TaskSet.CurrentBlockGroupID})
 	taskRun.SetResult(BlockID(OutputBlockID), BlockID(StdoutBlockHandler.BlockID), BlockID(StdErrBlockHandler.BlockID), output.Success)
 	return nil
-}
-
-func (n *Node) FlushUsedBlocks(GroupID string) {
-	toRemoveFromMem := make(map[int]struct{})
-	for i, block := range n.Blocks {
-		if block.BlockGroup == GroupID {
-			destroyBlock := pb.BlockHandler{BlockID: block.BlockID}
-			ctx, cancel := context.WithTimeout(context.Background(), time.Second*10)
-			defer cancel()
-			ack, err := n.client.DestroyBlock(ctx, &destroyBlock)
-			if err != nil {
-				logger.Error("Critical failure when removing block", "NODE", err)
-			}
-			if !ack.Success {
-				// This error can be expected so we can just warn it (in the future we can even ignore it completely)
-				logger.Warn("Failed to destroy block, this can be normal depending on the taskset", "NODE", logrus.Fields{"BlockID": block.BlockID, "BlockIdentifier": block.BlockIdentifier, "BlockGroup": block.BlockGroup})
-			}
-			toRemoveFromMem[i] = struct{}{}
-		}
-	}
-
-	// Clear memory of the blocks
-	newBlocks := make([]BlockInternalReference, 0, len(n.Blocks)-len(toRemoveFromMem))
-	for i, block := range n.Blocks {
-		if _, found := toRemoveFromMem[i]; !found {
-			newBlocks = append(newBlocks, block)
-		}
-	}
-	n.Blocks = newBlocks
-	// If blocks are still in memory then we dump them to the standard output
-	for _, block := range n.Blocks {
-		logger.Warn("Block still in memory", "NODE", logrus.Fields{"BlockID": block.BlockID, "BlockIdentifier": block.BlockIdentifier, "BlockGroup": block.BlockGroup})
-	}
 }
 
 func (n *Node) FlushAllBlocks() error {
@@ -390,6 +381,20 @@ func (n *Node) FlushAllBlocks() error {
 	return nil
 }
 
+func (n *Node) FlushBlock(blockID string) error {
+	blockHandler := pb.BlockHandler{BlockID: blockID}
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*10)
+	defer cancel()
+	ack, err := n.client.DestroyBlock(ctx, &blockHandler)
+	if err != nil {
+		return err
+	}
+	if !ack.Success {
+		return errors.New("Failed to clear block [" + ack.ErrorMessage + "]")
+	}
+	return nil
+}
+
 /* NodeTracker */
 
 type NodeTracker struct {
@@ -399,6 +404,7 @@ type NodeTracker struct {
 	ResourceRequestResponse       *NodeRequestResponse
 	NodeTrackerHeartbeatExit      chan bool
 	NodeTrackerHeartbeatWaitGroup *sync.WaitGroup
+	BlockTracker                  *BlockTracker
 }
 
 func (n *NodeTracker) HeartbeatRoutine() {
@@ -417,6 +423,8 @@ func (n *NodeTracker) HeartbeatRoutine() {
 }
 
 func NewNodeTracker(CallbackURI string, ResourceManagerURI string, SessionID string) (*NodeTracker, error) {
+	// Start a new BlockTracker instance
+	blockTracker := NewBlockTracker()
 	// Later these will come from the session configuration
 	nodeType := "small-4cpu-8gb"
 	nodeCount := 1
@@ -458,6 +466,7 @@ func NewNodeTracker(CallbackURI string, ResourceManagerURI string, SessionID str
 		RoundRobinIndex:         0,
 		ResourceManager:         resourceManager,
 		ResourceRequestResponse: requestResponse,
+		BlockTracker:            blockTracker,
 	}
 
 	for _, liveNode := range requestResponse.Nodes {
@@ -481,10 +490,11 @@ func NewNodeTracker(CallbackURI string, ResourceManagerURI string, SessionID str
 
 func (n *NodeTracker) AddNode(nodeURI string, callbackURI string, SessionID string) error {
 	node := &Node{
-		nodeID:      uuid.New().String(),
-		NodeURI:     nodeURI,
-		CallbackURI: callbackURI,
-		SessionID:   SessionID,
+		nodeID:       uuid.New().String(),
+		NodeURI:      nodeURI,
+		CallbackURI:  callbackURI,
+		SessionID:    SessionID,
+		BlockTracker: n.BlockTracker,
 	}
 	err := node.connect()
 	if err != nil {
@@ -529,7 +539,18 @@ func (n *NodeTracker) Close() {
 	n.NodeTrackerHeartbeatWaitGroup.Wait() // Wait for the heartbeat to finish
 }
 
-func (n *NodeTracker) FlushBlocks(GroupID string) {
+func (n *NodeTracker) FlushBlocks(GroupID string, filterOutBlockTypes []string) {
 	node := n.GetNextNode() // Get any node to flush the blocks (we plan to use a distributed file system in the future)
-	node.FlushUsedBlocks(GroupID)
+	blocksToFlush := n.BlockTracker.GetBlockGroup(GroupID, filterOutBlockTypes)
+	if blocksToFlush == nil {
+		logger.Warn("No blocks to flush", "NODE-TRACKER", logrus.Fields{"GroupID": GroupID})
+		return
+	}
+	logger.Info("Flushing block", "NODE-TRACKER", logrus.Fields{"BlocksToFlush": len(blocksToFlush)})
+	for _, block := range blocksToFlush {
+		err := node.FlushBlock(block.BlockID)
+		if err != nil {
+			logger.Warn("Failed to flush block, this can be normal depending on the taskset setup", "NODE-TRACKER", logrus.Fields{"blockID": block.BlockID})
+		}
+	}
 }

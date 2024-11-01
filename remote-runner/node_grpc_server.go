@@ -157,6 +157,10 @@ func (s *NodeServer) RegisterCommand(ctx context.Context, in *pb.CommandRegistra
 		}
 		keywordArgumentsBlocks[key] = keywordArgumentsBlock
 	}
+	var metadataBlock *Block = nil
+	if in.MetadataBlockHandler != nil {
+		metadataBlock = GetBlock(s.lm, in.MetadataBlockHandler.BlockID)
+	}
 	// Create a new process
 	processID := uuid.New().String()
 	// Build blocks for the process
@@ -177,6 +181,7 @@ func (s *NodeServer) RegisterCommand(ctx context.Context, in *pb.CommandRegistra
 		OutputBlock,
 		StdOutBlock,
 		StdErrBlock,
+		metadataBlock,
 	)
 	// Add the process to the live memory
 	s.lm.Process[processID] = process
@@ -232,7 +237,7 @@ func (s *NodeServer) RunCommand(ctx context.Context, in *pb.CommandRequest) (*pb
 	}, nil
 }
 
-func (s *NodeServer) KillCommand(ctx context.Context, in *pb.CommandRequest) (*pb.CommandRequestResponse, error) {
+func (s *NodeServer) KillCommand(ctx context.Context, in *pb.CommandKillRequest) (*pb.CommandRequestResponse, error) {
 	// Cannot kill a command if the callback is not set
 	if s.lm.Callback == nil {
 		return &pb.CommandRequestResponse{

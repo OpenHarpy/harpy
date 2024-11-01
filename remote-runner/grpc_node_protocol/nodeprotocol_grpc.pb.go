@@ -149,7 +149,7 @@ type NodeClient interface {
 	// rpc RegisterCommand (stream CommandRequestChunk) returns (CommandHandler) {}
 	RegisterCommand(ctx context.Context, in *CommandRegistration, opts ...grpc.CallOption) (*CommandHandler, error)
 	RunCommand(ctx context.Context, in *CommandRequest, opts ...grpc.CallOption) (*CommandRequestResponse, error)
-	KillCommand(ctx context.Context, in *CommandRequest, opts ...grpc.CallOption) (*CommandRequestResponse, error)
+	KillCommand(ctx context.Context, in *CommandKillRequest, opts ...grpc.CallOption) (*CommandRequestResponse, error)
 	GetCommandOutput(ctx context.Context, in *CommandHandler, opts ...grpc.CallOption) (*CommandOutput, error)
 	// Blocks
 	StreamInBlock(ctx context.Context, opts ...grpc.CallOption) (grpc.ClientStreamingClient[BlockChunk, BlockHandler], error)
@@ -226,7 +226,7 @@ func (c *nodeClient) RunCommand(ctx context.Context, in *CommandRequest, opts ..
 	return out, nil
 }
 
-func (c *nodeClient) KillCommand(ctx context.Context, in *CommandRequest, opts ...grpc.CallOption) (*CommandRequestResponse, error) {
+func (c *nodeClient) KillCommand(ctx context.Context, in *CommandKillRequest, opts ...grpc.CallOption) (*CommandRequestResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(CommandRequestResponse)
 	err := c.cc.Invoke(ctx, Node_KillCommand_FullMethodName, in, out, cOpts...)
@@ -312,7 +312,7 @@ type NodeServer interface {
 	// rpc RegisterCommand (stream CommandRequestChunk) returns (CommandHandler) {}
 	RegisterCommand(context.Context, *CommandRegistration) (*CommandHandler, error)
 	RunCommand(context.Context, *CommandRequest) (*CommandRequestResponse, error)
-	KillCommand(context.Context, *CommandRequest) (*CommandRequestResponse, error)
+	KillCommand(context.Context, *CommandKillRequest) (*CommandRequestResponse, error)
 	GetCommandOutput(context.Context, *CommandHandler) (*CommandOutput, error)
 	// Blocks
 	StreamInBlock(grpc.ClientStreamingServer[BlockChunk, BlockHandler]) error
@@ -347,7 +347,7 @@ func (UnimplementedNodeServer) RegisterCommand(context.Context, *CommandRegistra
 func (UnimplementedNodeServer) RunCommand(context.Context, *CommandRequest) (*CommandRequestResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method RunCommand not implemented")
 }
-func (UnimplementedNodeServer) KillCommand(context.Context, *CommandRequest) (*CommandRequestResponse, error) {
+func (UnimplementedNodeServer) KillCommand(context.Context, *CommandKillRequest) (*CommandRequestResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method KillCommand not implemented")
 }
 func (UnimplementedNodeServer) GetCommandOutput(context.Context, *CommandHandler) (*CommandOutput, error) {
@@ -495,7 +495,7 @@ func _Node_RunCommand_Handler(srv interface{}, ctx context.Context, dec func(int
 }
 
 func _Node_KillCommand_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(CommandRequest)
+	in := new(CommandKillRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
@@ -507,7 +507,7 @@ func _Node_KillCommand_Handler(srv interface{}, ctx context.Context, dec func(in
 		FullMethod: Node_KillCommand_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(NodeServer).KillCommand(ctx, req.(*CommandRequest))
+		return srv.(NodeServer).KillCommand(ctx, req.(*CommandKillRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }

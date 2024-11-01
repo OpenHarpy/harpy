@@ -68,7 +68,7 @@ def fs_rm(path: str, recursive: bool = False) -> bool:
 def run_fs_command(session, func: callable, path: str, *args, **kwargs):
     ts: TaskSet = session.create_task_set()
     name = func.__name__
-    mapper = MapTask(name=f"fs-command-{name}", fun=func, args=[], kwargs={"path": path, **kwargs})
+    mapper = MapTask(name=f"fs-command-{name}", fun=func, kwargs={"path": path, **kwargs})
     ts.add_maps([mapper])
     result: TaskSetResults = ts.collect(detailed=True)
     if result.success:
@@ -85,7 +85,8 @@ class FileSystem():
             "tail": lambda path, n=10: run_fs_command(session, fs_tail, path, n),
             "wc": lambda path: run_fs_command(session, fs_wc, path),
             "mkdir": lambda path, recursive=False: run_fs_command(session, fs_mkdir, path, recursive=recursive),
-            "rm": lambda path, recursive=False: run_fs_command(session, fs_rm, path, recursive=recursive)
+            "rm": lambda path, recursive=False: run_fs_command(session, fs_rm, path, recursive=recursive),
+            "folder_exists": lambda path: os.path.exists(path) and os.path.isdir(path),
         }
     def __getattribute__(self, name: str) -> callable:
         if name in object.__getattribute__(self, "_fs_functions"):

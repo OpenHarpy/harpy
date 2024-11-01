@@ -17,9 +17,9 @@ def taskset_from_sql(sql:str, engine:str = 'pyarrow') -> TaskSet:
     session = Session()
     ts = session.create_task_set()
     if engine == 'pyarrow':
-        ts.add_maps([MapTask(name="duckdb-query-arrow", fun=task_definitions.definition_quack_query_arrow_table, args=[], kwargs={"query": sql, "rows_per_batch": 1000000})])
+        ts.add_maps([MapTask(name="duckdb-query-arrow", fun=task_definitions.definition_quack_query_arrow_table, kwargs={"query": sql, "rows_per_batch": 1000000})])
     elif engine == 'pandas':
-        ts.add_maps([MapTask(name="duckdb-query-pandas", fun=task_definitions.definition_quack_query_pandas, args=[], kwargs={"query": sql})])
+        ts.add_maps([MapTask(name="duckdb-query-pandas", fun=task_definitions.definition_quack_query_pandas, kwargs={"query": sql})])
     else:
         raise NotImplementedError(f"Return type {engine} is not implemented")
     return ts
@@ -117,7 +117,6 @@ def write_to_deltalake(ts:TaskSet, path:str, max_rows_per_file:int=1000000, max_
         TransformTask(
             name="write-delta-lake",
             fun=task_definitions.definition_write_delta_lake,
-            args=[],
             kwargs={
                 "path": path, 
                 "max_rows_per_file": max_rows_per_file, 
@@ -135,7 +134,6 @@ def compact_deltalake(path:str) -> TaskSet:
         TransformTask(
             name="compact-delta-lake",
             fun=task_definitions.compact_delta_lake,
-            args=[],
             kwargs={"path": path}
         )
     )
@@ -147,7 +145,6 @@ def vacuum_deltalake(path:str) -> TaskSet:
         TransformTask(
             name="vacuum-delta-lake",
             fun=task_definitions.vacuum_delta_lake,
-            args=[],
             kwargs={"path": path}
         )
     )

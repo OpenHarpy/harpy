@@ -185,7 +185,6 @@ class TaskSetClient:
         limit = -1
         if reduce_task.limit is not None:
             limit = reduce_task.limit
-        print(limit)
         reduce_adder = ReduceAdder(
             taskSetHandler=self.taskset_handler,
             ReducerDefinition=task_handler,

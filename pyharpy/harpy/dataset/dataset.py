@@ -145,8 +145,8 @@ class Dataset:
         self_clone = Dataset()
         self_clone._reader_ = self._reader_
         self_clone._transforms_ = self._transforms_
-        self_clone.write.option('write_engine', 'pandas').option('limit', limit_datafragments).memory()
-        return self.collect()[0]
+        self_clone.write.option('write_engine', 'arrow').option('limit', limit_datafragments).memory()
+        return self_clone.collect()[0]
     
     def explain(self, detailed=False, return_plan=False):
         lambda_add_layer = lambda strr, layer: " "+"--" * layer + f'> {strr}' + "\n"

@@ -3,29 +3,33 @@
 # Variables
 RELEASE_VERSION := 0.0.1
 
-# Compiler 
-GO := GODEBUG=gctrace=1 go
-PYTHON := poetry run python
-GOFLAGS := -buildmode=c-shared
+# --- Files and directories --- #
+# Harpy components
 GO_PROJECT_CLIENT_ENGING := $(shell pwd)/client-engine
 GO_PROJECT_REMOTE_RUNNER := $(shell pwd)/remote-runner
 GO_PROJECT_RESOURCE_MANAGER := $(shell pwd)/resource-manager
-
+# Python SDK
 PYTHON_PROJECT_DIR := $(shell pwd)/pyharpy/harpy
 PYTHON_PROJECT_ROOT := $(shell pwd)/pyharpy
-
+# Docker compose directory (this will set up the environment for testing)
 COMPOSE_ROOT := $(shell pwd)/compose_engine
-
-DOCKER := sudo docker
-DOCKER_COMPOSE := sudo docker compose
-DISTRIBUTION_DIR := $(shell pwd)/dist
-
 # Protobuf files
 PROTO_DIR := $(shell pwd)/grpc_protos
 PYTHON_PROTO := $(PYTHON_PROJECT_DIR)/grpc_ce_protocol
 GRPC_PYTHON_PLUGIN=$(shell $(PYTHON) -m grpc_tools.protoc --plugin)
-NODE_TESTING_DIR := $(GO_PROJECT_REMOTE_RUNNER)/py_src/venv
-NODE_TESTING_LIVE_DIR := $(GO_PROJECT_REMOTE_RUNNER)/_live_objects
+NODE_LOCAL_TESTING_DIR := $(GO_PROJECT_REMOTE_RUNNER)/py_src/venv
+NODE_LOCAL_TESTING_BLOCK_DIR := $(GO_PROJECT_REMOTE_RUNNER)/_block
+
+# --- Commands --- #
+# Compiler 
+GO := GODEBUG=gctrace=1 go
+PYTHON := poetry run python
+GOFLAGS := -buildmode=c-shared
+# Docker commands
+DOCKER := sudo docker
+DOCKER_COMPOSE := sudo docker compose
+DISTRIBUTION_DIR := $(shell pwd)/dist
+
 
 # Abstract protoc 
 define protoc_command
@@ -55,14 +59,15 @@ build-proto-python:
 build-proto:
 	make build-proto-go
 	make build-proto-python
+
 # Build the SDK binaries
 clean-sdk-python:
 	rm -rf $(PYTHON_PROJECT_ROOT)/dist
 	rm -rf $(PYTHON_PROJECT_ROOT)/build
 	rm -rf $(PYTHON_PROJECT_ROOT)/sdk.egg-info
 clean-node-testing:
-	rm -rf $(NODE_TESTING_DIR)
-	rm -rf $(NODE_TESTING_LIVE_DIR)
+	rm -rf $(NODE_LOCAL_TESTING_DIR)
+	rm -rf $(NODE_LOCAL_TESTING_BLOCK_DIR)
 move-sdk-dist:
 	cp $(DISTRIBUTION_DIR)/*.whl $(GO_PROJECT_REMOTE_RUNNER)/py_src
 clean-dist:
@@ -75,6 +80,7 @@ build-sdk:
 	cp $(PYTHON_PROJECT_ROOT)/dist/* $(DISTRIBUTION_DIR)
 	make clean-sdk-python
 	make move-sdk-dist
+
 # Build the docker images
 build-docker-images:
 	make clean-node-testing
@@ -86,6 +92,11 @@ build-docker-images:
 # Prepare the environment
 prepare-env:
 	cd $(PYTHON_PROJECT_ROOT) && poetry install
+# Docker compose instructions
+run-compose:
+	cd $(COMPOSE_ROOT) && $(DOCKER_COMPOSE) up
+run-compose-down:
+	cd $(COMPOSE_ROOT) && $(DOCKER_COMPOSE) down
 
 build:
 	make run-compose-down
@@ -94,24 +105,23 @@ build:
 	make build-sdk
 	make build-docker-images
 
-# These are testing calls (not used in the final version) - these may be unstable depending on how the environment is set up 
-run-compose:
-	cd $(COMPOSE_ROOT) && $(DOCKER_COMPOSE) up
-run-compose-down:
-	cd $(COMPOSE_ROOT) && $(DOCKER_COMPOSE) down
-# Prefer to use the docker images instead
-run-resource-manager:
-	cd $(GO_PROJECT_RESOURCE_MANAGER) && $(GO) run .
-
-run-remote-runner-local:
-	cd $(GO_PROJECT_REMOTE_RUNNER) && $(GO) run . local-1 small-4cpu-8gb localhost:50050
-
-run-server:
-	cd $(GO_PROJECT_CLIENT_ENGING) && $(GO) run .
-
-run-client-example:
-	cd $(PYTHON_PROJECT_ROOT) && $(PYTHON) main.py
-
 run-export-images:
 	$(DOCKER) save harpy:$(RELEASE_VERSION) > harpy.tar
 	$(DOCKER) save harpy-jupyter-server:$(RELEASE_VERSION) > harpy-jupyter-server.tar
+
+# These are testing calls (not used in the final version) - these may be unstable depending on how the environment is set up 
+# Prefer to use the docker images instead
+run-dev-resource-manager:
+	cd $(GO_PROJECT_RESOURCE_MANAGER) && $(GO) run .
+run-dev-remote-runner-local:
+	cd $(GO_PROJECT_REMOTE_RUNNER) && $(GO) run . local-1 small-4cpu-8gb localhost:50050
+run-dev-server:
+	cd $(GO_PROJECT_CLIENT_ENGING) && $(GO) run .
+run-dev-client-example:
+	cd $(PYTHON_PROJECT_ROOT) && $(PYTHON) main.py
+
+ifneq ($(K_FLAG),)
+    K_FLAG_P := -k $(K_FLAG)
+endif
+run-integrety-test:
+	cd $(PYTHON_PROJECT_ROOT) && $(PYTHON) -m pytest $(K_FLAG_P) -v ../test/. 

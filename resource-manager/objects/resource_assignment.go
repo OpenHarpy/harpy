@@ -75,3 +75,7 @@ func GetResourceAssignment(requestID string) (*ResourceAssignment, bool) {
 func GetResourceAssignmentsByStatus(status ResourceAssignmentStatusEnum) []*ResourceAssignment {
 	return ResourceAssignmentsWithWhereClause("serving_status = ?", status)
 }
+
+func GetResourceAssignmentsWithHeartbeatThreshold(threshold int64) []*ResourceAssignment {
+	return ResourceAssignmentsWithWhereClause("last_heartbeat_received < ? AND serving_status <> ?", threshold, ResourceAssignmentStatusEnum_RESOURCE_ALLOCATED)
+}

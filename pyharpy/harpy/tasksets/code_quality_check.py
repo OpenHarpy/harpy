@@ -1,5 +1,5 @@
 import inspect
-from harpy.processing.types import (BatchMapTask)
+from harpy.processing.types import (BatchMapTask, MapTask)
 def get_output_type(callable):
     function_signature = inspect.signature(callable)
     return function_signature.return_annotation
@@ -85,6 +85,12 @@ def validate_batch_map(batch_maps:BatchMapTask):
     errors_description = []
     if len(batch_maps.map_tasks) == 0:
         errors_description.append("BatchMapTask must have at least one map")
+        return errors_description
+    if list(set([type(x) for x in batch_maps.map_tasks])) != [MapTask]:
+        errors_description.append("BatchMapTask must have a list of MapTask")
+        return errors_description
+    if batch_maps.batch_size <= 0:
+        errors_description.append("BatchMapTask batch size must be greater than 0")
         return errors_description
     for map_task in batch_maps.map_tasks:
         if map_task.fun != batch_maps.map_tasks[0].fun:

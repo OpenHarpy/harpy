@@ -65,6 +65,24 @@ def fs_rm(path: str, recursive: bool = False) -> bool:
         return False
     return True
 
+def put(path: str, content: str) -> bool:
+    with open(path, 'w') as file:
+        file.write(content)
+    return True
+    
+
+def put_binary(path: str, content: bytes) -> bool:
+    with open(path, 'wb') as file:
+        file.write(content)
+    return True
+
+def get(path: str) -> bytes:
+    with open(path, 'rb') as file:
+        return file.read()
+
+def folder_exists(path: str) -> bool:
+    return os.path.exists(path) and os.path.isdir(path)
+
 def run_fs_command(session, func: callable, path: str, *args, **kwargs):
     ts: TaskSet = session.create_task_set()
     name = func.__name__
@@ -81,12 +99,15 @@ class FileSystem():
         self._fs_functions = {
             "ls": lambda path: run_fs_command(session, fs_ls, path),
             "cat": lambda path: run_fs_command(session, fs_cat, path),
-            "head": lambda path, n=10: run_fs_command(session, fs_head, path, n),
-            "tail": lambda path, n=10: run_fs_command(session, fs_tail, path, n),
+            "head": lambda path, n=10: run_fs_command(session, fs_head, path, n=n),
+            "tail": lambda path, n=10: run_fs_command(session, fs_tail, path, n=n),
             "wc": lambda path: run_fs_command(session, fs_wc, path),
             "mkdir": lambda path, recursive=False: run_fs_command(session, fs_mkdir, path, recursive=recursive),
             "rm": lambda path, recursive=False: run_fs_command(session, fs_rm, path, recursive=recursive),
-            "folder_exists": lambda path: os.path.exists(path) and os.path.isdir(path),
+            "folder_exists": lambda path: run_fs_command(session, folder_exists, path),
+            "put": lambda path, content: run_fs_command(session, put, path, content=content),
+            "put_binary": lambda path, content: run_fs_command(session, put_binary, path, content=content),
+            "get": lambda path: run_fs_command(session, get, path),
         }
     def __getattribute__(self, name: str) -> callable:
         if name in object.__getattribute__(self, "_fs_functions"):

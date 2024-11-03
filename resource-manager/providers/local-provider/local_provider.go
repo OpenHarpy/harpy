@@ -149,6 +149,11 @@ func (l *LocalProvider) GeneratedProviderDescription() providers.ProviderProps {
 	}
 }
 
+func (l *LocalProvider) CanAutoScale(nodeType string) bool {
+	// This function will check if the provider can autoscale the node type
+	return false
+}
+
 func NewLocalProvider(CommandToExecute string) *LocalProvider {
 	return &LocalProvider{
 		CommandToExecute: CommandToExecute,

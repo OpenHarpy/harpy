@@ -41,6 +41,8 @@ type ProviderInterface interface {
 	Cleanup() error // IMPORTANT: This is supposed to be a blocking call
 	// Other functions
 	GeneratedProviderDescription() ProviderProps
+	// Check if the provider can autoscale the node type
+	CanAutoScale(nodeType string) bool
 }
 
 func StartProvider(p ProviderInterface) error {

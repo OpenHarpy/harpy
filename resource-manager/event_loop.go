@@ -69,7 +69,12 @@ func EvalNodeAllocation(runningProvider providers.ProviderInterface) {
 		// Check: If there are not enough nodes available then spin up the required number of nodes
 		if len(availableNodes) < int(requestedCount) {
 			logger.Info("Not enough nodes available", "EVAL_NODE_ALLOCATION")
-			SpinupNode(runningProvider, requestedType, int(requestedCount)-len(availableNodes))
+			// Autoscalle signal
+			if runningProvider.CanAutoScale(requestedType) {
+				SpinupNode(runningProvider, requestedType, int(requestedCount)-len(availableNodes))
+			}
+			// Else we do nothing and skip this request for now (we will check again in the next iteration)
+			continue
 		} else {
 			// Assign the nodes to the request
 			for i := 0; i < int(requestedCount); i++ {
@@ -78,15 +83,17 @@ func EvalNodeAllocation(runningProvider providers.ProviderInterface) {
 				node.IsServingRequest = true
 				node.Sync()
 			}
+			// We have found the nodes for this request, now we transition the request to RESOURCE_ALLOCATING
+			nodeRequest.ServingStatus = obj.ResourceAssignmentStatusEnum_RESOURCE_ALLOCATING
+			nodeRequest.Sync()
 		}
-		nodeRequest.ServingStatus = obj.ResourceAssignmentStatusEnum_RESOURCE_ALLOCATING
-		nodeRequest.Sync()
 	}
 }
 
 func EvalNodesReady() {
 	// This function will get any request that is in the RESOURCE_ALLOCATING state and check if the nodes are ready
 	// If all the nodes are ready then we will transition the request to RESOURCE_ALLOCATED
+	//  Nodes not ready can mean that the node is still booting up
 	nodeRequests := obj.GetResourceAssignmentsByStatus(obj.ResourceAssignmentStatusEnum_RESOURCE_ALLOCATING)
 	for _, nodeRequest := range nodeRequests {
 		// Check if all the nodes are ready
@@ -131,19 +138,14 @@ func EvalResourceReleaseRequest() {
 	}
 }
 
-func EvalResourceRequestReleasedTimeout() {
+func EvalResourceRequestTimeout() {
 	// This function will loop through all the requests and check if they are in the RESOURCE_RELEASED state
 	// If their heartbeat crosses a certain threshold then we will remove the request from the database
-	nodeRequests := obj.GetResourceAssignmentsByStatus(obj.ResourceAssignmentStatusEnum_RESOURCE_RELEASED)
+	threshold := time.Now().Unix() - int64(resourceRequestReleasedTimeout.Seconds())
+	nodeRequests := obj.GetResourceAssignmentsWithHeartbeatThreshold(threshold)
 	for _, nodeRequest := range nodeRequests {
-		// Check if the heartbeat has crossed a certain threshold
-		// If it has then we will remove the request from the database
-		timeSince := time.Since(time.Unix(nodeRequest.LastHeartbeatReceived, 0))
-		if timeSince > resourceRequestReleasedTimeout {
-			logger.Info("Request has been released for too long", "EVAL_RESOURCE_REQUEST_RELEASED_TIMEOUT", logrus.Fields{"request_id": nodeRequest.RequestID, "time_since": timeSince})
-			// Remove the request from the database
-			nodeRequest.Delete()
-		}
+		logger.Info("Request has been released for too long", "EVAL_RESOURCE_REQUEST_RELEASED_TIMEOUT", logrus.Fields{"request_id": nodeRequest.RequestID, "threshold": threshold})
+		nodeRequest.Delete()
 	}
 }
 
@@ -216,13 +218,13 @@ func DoProcessLoop(runningProvider providers.ProviderInterface, exitEventLoop ch
 			return
 		default:
 			// Current running processes
+			EvalResourceRequestTimeout()
 			EvalWarmpool(runningProvider)
 			EvalNodeAllocation(runningProvider)
 			EvalNodesReady()
 			EvalResourceReleaseRequest()
 			EvalRequestIdleTimeout()
 			// TODO: We also need to implement logic to handle panics and nodes that are not able to come up
-			EvalResourceRequestReleasedTimeout()
 			EvalNodeShutdownCallbackProvider(runningProvider)
 			time.Sleep(processPoolingInterval)
 		}

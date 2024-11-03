@@ -56,21 +56,22 @@ class MemoryRead(ReadType):
 
     def __add_tasks__(self, taskset: "TaskSet") -> None:
         selected_function = read_pa_from_df if isinstance(self._data_, pd.DataFrame) else read_pa_from_pa_table
+        data_key = 'df' if isinstance(self._data_, pd.DataFrame) else 'table'
         if self.read_options.get_option("distribute_on_read"):
             # If we are distributing on read, we should use the parallelism
             parallelism = self.read_options.get_option("parallelism")
-            maps = [
+            taskset.add_maps([
                 MapTask(
-                    name="read_memory", fun=selected_function, kwargs={"df": self._data_, "index": i, "n": parallelism}
+                    name="read_memory", fun=selected_function, kwargs={data_key: self._data_, "index": i, "n": parallelism}
                 )
                 for i in range(parallelism)
-            ]
+            ])
         else:
             # If we are not distributing on read, we should just read the data
             taskset.add_maps(
                 [
                     MapTask(
-                        name="read_memory", fun=selected_function, kwargs={"df": self._data_, "index": 0, "n": 1}
+                        name="read_memory", fun=selected_function, kwargs={data_key: self._data_, "index": 0, "n": 1}
                     )
                 ]
            )

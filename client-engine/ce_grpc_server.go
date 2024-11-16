@@ -387,7 +387,7 @@ func (s *CEgRPCServer) PutBlock(stream pb.BlockProxy_PutBlockServer) error {
 func (s *CEgRPCServer) GetBlock(in *pb.ProxyBlockHandler, stream pb.BlockProxy_GetBlockServer) error {
 	sessionID := in.SessionHandler.SessionId
 	blockID := in.BlockID
-	logger.Info("Getting block", "BLOCK_PROXY", logrus.Fields{"session_id": sessionID, "block_id": blockID})
+	logger.Debug("Getting block", "BLOCK_PROXY", logrus.Fields{"session_id": sessionID, "block_id": blockID})
 
 	session := s.lm.Sessions[sessionID]
 	if session == nil {

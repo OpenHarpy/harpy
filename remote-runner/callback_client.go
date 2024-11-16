@@ -68,7 +68,7 @@ func (n *CallbackClient) Callback(commandID string, status string) error {
 	if err != nil {
 		return err
 	}
-	logger.Info("Callback sent to the controller", "CALLBACK", logrus.Fields{"command_id": commandID, "status": status})
+	logger.Debug("Callback sent to the controller", "CALLBACK", logrus.Fields{"command_id": commandID, "status": status})
 	return nil
 }
 

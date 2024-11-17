@@ -107,11 +107,11 @@ class Dataset:
         self._transforms_ = []
         self._writer_ = None
     
-    def add_transform(self, transform: TaskType) -> "Dataset":
+    def add_task(self, transform: TaskType) -> "Dataset":
         if self.read is None:
-            raise ValueError("No reader set")
-        if self.write is not None:
-            raise ValueError("Writer already set")
+            raise ValueError("Cannot add task: No reader set")
+        if self._writer_ is not None:
+            raise ValueError("Cannot add task: Writer already set")
         self._transforms_.append(transform)
         return self
     

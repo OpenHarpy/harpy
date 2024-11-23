@@ -20,3 +20,13 @@ func GetConfig(configKey string) (*Config, bool) {
 	}
 	return &c, true
 }
+
+func GetConfigs() []*Config {
+	db := GetDBInstance().db
+	var cs []*Config
+	result := db.Find(&cs)
+	if result.Error != nil {
+		return nil
+	}
+	return cs
+}

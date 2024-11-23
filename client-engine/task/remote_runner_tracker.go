@@ -426,13 +426,12 @@ func NewNodeTracker(CallbackURI string, ResourceManagerURI string, SessionID str
 	// Start a new BlockTracker instance
 	blockTracker := NewBlockTracker()
 	// Later these will come from the session configuration
-	nodeType := "small-4cpu-8gb"
 	nodeCount := 1
 
 	// We will need to get the nodes from the resource manager
 	resourceManager := NewNodeResourceManagerClient(ResourceManagerURI)
 	resourceManager.connect()
-	requestResponse, err := resourceManager.RequestNode(nodeType, nodeCount)
+	requestResponse, err := resourceManager.RequestNode(nodeCount)
 	logger.Debug("Requesting node", "NODE-TRACKER", logrus.Fields{"RequestID": requestResponse.RequestID, "nodeCount": requestResponse.RequestStatus})
 
 	if err != nil {
@@ -450,7 +449,7 @@ func NewNodeTracker(CallbackURI string, ResourceManagerURI string, SessionID str
 		}
 
 		if requestResponse.RequestStatus == REQUEST_ALLOCATED {
-			logger.Debug("Nodes allocated", "NODE-TRACKER", logrus.Fields{"nodeType": requestResponse.RequestID})
+			logger.Debug("Nodes allocated", "NODE-TRACKER")
 			break
 		} else if requestResponse.RequestStatus == REQUEST_ERROR {
 			resourceManager.ReleaseNodes(requestResponse)

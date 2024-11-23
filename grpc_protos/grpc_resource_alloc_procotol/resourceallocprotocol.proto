@@ -27,7 +27,6 @@ message RequestHandler {
 }
 
 message NodeRequest {
-    string NodeType = 1;
     uint32 NodeCount = 2;
 }
 
@@ -49,7 +48,6 @@ message NodeReleaseResponse {
 
 message LiveNode {
     string NodeID = 1;
-    string NodeType = 2;
     string NodeGRPCAddress = 3;
     NodeStatus NodeStatus = 4;
 }

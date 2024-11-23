@@ -22,24 +22,12 @@ type ResourceAllocServer struct {
 func (s *ResourceAllocServer) RequestNodes(ctx context.Context, in *pb.NodeRequest) (*pb.NodeAllocationResponse, error) {
 	// This function is used to handle the request for a node
 	requestId := uuid.New().String()
-	logger.Info("Request for node received", "RESOURCE_ALLOC_SERVER", logrus.Fields{"request_id": requestId, "node_type": in.NodeType, "node_count": in.NodeCount})
-
-	// Check if the node type is valid
-	_, ok := obj.GetNodeCatalog(in.NodeType)
-	if !ok {
-		response := &pb.NodeAllocationResponse{
-			Success:        false,
-			ErrorMessage:   "Invalid node type",
-			RequestHandler: nil,
-		}
-		return response, nil
-	}
+	logger.Info("Request for node received", "RESOURCE_ALLOC_SERVER", logrus.Fields{"request_id": requestId, "node_count": in.NodeCount})
 
 	// Create new assigment for the request
 	now := time.Now()
 	assignment := &obj.ResourceAssignment{
 		RequestID:             requestId,
-		NodeType:              in.NodeType,
 		NodeCount:             in.NodeCount,
 		ServingStatus:         obj.ResourceAssignmentStatusEnum_RESOURCE_REQUESTED,
 		RequestCreatedAt:      now.Unix(),
@@ -103,7 +91,6 @@ func (s *ResourceAllocServer) NodeRequestStatus(ctx context.Context, in *pb.Requ
 	for _, node := range nodes {
 		nodesReturn = append(nodesReturn, &pb.LiveNode{
 			NodeID:          node.NodeID,
-			NodeType:        node.NodeType,
 			NodeGRPCAddress: node.NodeGRPCAddress,
 			NodeStatus:      pb.NodeStatus(node.NodeStatus),
 		})

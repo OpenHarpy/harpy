@@ -40,7 +40,6 @@ RUN cd /opt/remote-runner/_python_base && ls && ./setup.sh
 RUN rm -rf /app/_build && chmod +x /app/resource-manager/main && chmod +x /app/remote-runner/main
 
 # Set environment variables
-ENV RESOURCE_MANAGER_CATALOG_FILE /opt/configs/resource_manager_catalog.json
 ENV GLOBAL_CONFIG_FILE /opt/configs/global_env_config.json
 ENV COMPONENT UNK
 
@@ -64,7 +63,6 @@ case "\$COMPONENT" in
         /app/remote-runner/main
         ;;
     resource-manager)
-        file_exists "\$RESOURCE_MANAGER_CATALOG_FILE"
         /app/resource-manager/main
         ;;
     client-engine)

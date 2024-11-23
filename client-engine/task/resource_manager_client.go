@@ -49,7 +49,6 @@ type NodeRequestClient struct {
 
 type NodeRequest struct {
 	RequestID string
-	NodeType  string
 	NodeCount int
 }
 
@@ -61,7 +60,6 @@ type LiveNode struct {
 
 type NodeRequestResponse struct {
 	RequestID     string
-	NodeType      string
 	NodeCount     int
 	RequestStatus RequestStatus
 	Nodes         []LiveNode
@@ -93,9 +91,8 @@ func (n *NodeRequestClient) disconnect() error {
 	return nil
 }
 
-func (nodeRequestClient *NodeRequestClient) RequestNode(nodeType string, nodeCount int) (*NodeRequestResponse, error) {
+func (nodeRequestClient *NodeRequestClient) RequestNode(nodeCount int) (*NodeRequestResponse, error) {
 	nodeRequest := &pb.NodeRequest{
-		NodeType:  nodeType,
 		NodeCount: uint32(nodeCount),
 	}
 
@@ -111,7 +108,6 @@ func (nodeRequestClient *NodeRequestClient) RequestNode(nodeType string, nodeCou
 	}
 	return &NodeRequestResponse{
 		RequestID:     res.RequestHandler.RequestID,
-		NodeType:      nodeType,
 		NodeCount:     nodeCount,
 		RequestStatus: REQUEST_REQUESTED,
 		Nodes:         []LiveNode{},
@@ -162,7 +158,6 @@ func (nodeRequestClient *NodeRequestClient) GetNodeRequestStatus(request *NodeRe
 
 	return &NodeRequestResponse{
 		RequestID:     request.RequestID,
-		NodeType:      request.NodeType,
 		NodeCount:     request.NodeCount,
 		RequestStatus: RequestStatus(res.ServingStatus),
 		Nodes:         nodes,

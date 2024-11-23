@@ -23,7 +23,6 @@ type HealthCheckResponse struct {
 
 type Node struct {
 	NodeID                string `json:"node_id"`
-	NodeType              string `json:"node_type"`
 	NodeGRPCAddress       string `json:"node_grpc_address"`
 	NodeStatus            string `json:"node_status"`
 	LastHeartbeatReceived string `json:"last_heartbeat_received"`
@@ -34,7 +33,6 @@ type Node struct {
 
 type Request struct {
 	RequestID             string `json:"request_id"`
-	NodeType              string `json:"node_type"`
 	NodeCount             uint32 `json:"node_count"`
 	ServingStatus         string `json:"serving_status"`
 	LastHeartbeatReceived string `json:"last_heartbeat_received"`
@@ -89,7 +87,6 @@ func (s *ResourceManagerHTTPServer) NodesHandler(w http.ResponseWriter, r *http.
 	}
 	// Check for filter parameters
 	nodeID := r.URL.Query().Get("node_id")
-	nodeType := r.URL.Query().Get("node_type")
 	nodeStatus := objects.StringToEnum(objects.TypeMarker_LiveNodeStatusEnum, r.URL.Query().Get("node_status"))
 
 	// Get the nodes from the database
@@ -98,10 +95,6 @@ func (s *ResourceManagerHTTPServer) NodesHandler(w http.ResponseWriter, r *http.
 	if nodeID != "" {
 		queryComponents = append(queryComponents, "node_id = ?")
 		queryParams = append(queryParams, nodeID)
-	}
-	if nodeType != "" {
-		queryComponents = append(queryComponents, "node_type = ?")
-		queryParams = append(queryParams, nodeType)
 	}
 	if nodeStatus != nil {
 		queryComponents = append(queryComponents, "node_status = ?")
@@ -120,7 +113,6 @@ func (s *ResourceManagerHTTPServer) NodesHandler(w http.ResponseWriter, r *http.
 	for _, node := range results {
 		nodes = append(nodes, Node{
 			NodeID:                node.NodeID,
-			NodeType:              node.NodeType,
 			NodeGRPCAddress:       node.NodeGRPCAddress,
 			NodeStatus:            objects.EnumToString(node.NodeStatus),
 			LastHeartbeatReceived: toIsoDate(node.LastHeartbeatReceived),
@@ -142,7 +134,6 @@ func (s *ResourceManagerHTTPServer) RequestsHandler(w http.ResponseWriter, r *ht
 	}
 	// Check for filter parameters
 	requestID := r.URL.Query().Get("request_id")
-	nodeType := r.URL.Query().Get("node_type")
 	servingStatus := objects.StringToEnum(objects.TypeMarker_ResourceAssignmentStatusEnum, r.URL.Query().Get("serving_status"))
 
 	queryComponents := []string{}
@@ -150,10 +141,6 @@ func (s *ResourceManagerHTTPServer) RequestsHandler(w http.ResponseWriter, r *ht
 	if requestID != "" {
 		queryComponents = append(queryComponents, "request_id = ?")
 		queryParams = append(queryParams, requestID)
-	}
-	if nodeType != "" {
-		queryComponents = append(queryComponents, "node_type = ?")
-		queryParams = append(queryParams, nodeType)
 	}
 	if servingStatus != nil {
 		queryComponents = append(queryComponents, "serving_status = ?")
@@ -174,7 +161,6 @@ func (s *ResourceManagerHTTPServer) RequestsHandler(w http.ResponseWriter, r *ht
 	for _, request := range results {
 		requests = append(requests, Request{
 			RequestID:             request.RequestID,
-			NodeType:              request.NodeType,
 			NodeCount:             request.NodeCount,
 			ServingStatus:         objects.EnumToString(request.ServingStatus),
 			LastHeartbeatReceived: toIsoDate(request.LastHeartbeatReceived),
@@ -186,39 +172,16 @@ func (s *ResourceManagerHTTPServer) RequestsHandler(w http.ResponseWriter, r *ht
 	WriteJSONResponse(w, requests)
 }
 
-func (s *ResourceManagerHTTPServer) CatalogHandler(w http.ResponseWriter, r *http.Request) {
-	// Check is the request is a GET request
-	if r.Method != http.MethodGet {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
-
-	// Check for filter parameters
-	nodeType := r.URL.Query().Get("node_type")
-
-	if nodeType != "" {
-		// Get the catalog from the database
-		result, ok := objects.GetNodeCatalog(nodeType)
-		if !ok {
-			http.Error(w, "Catalog not found", http.StatusNotFound)
-			return
-		}
-
-		// Write the response (JSON)
-		WriteJSONResponse(w, result)
-		return
-	}
-
-	// Get the catalog from the database
-	results := objects.NodeCatalogs()
-
-	// Write the response (JSON)
-	WriteJSONResponse(w, results)
+func (s *ResourceManagerHTTPServer) ProviderHandler(w http.ResponseWriter, r *http.Request) {
+	// Return not implemented status
+	provider := objects.GetProvider()
+	WriteJSONResponse(w, provider)
 }
 
 func (s *ResourceManagerHTTPServer) ConfigHandler(w http.ResponseWriter, r *http.Request) {
 	// Return not implemented status
-	http.Error(w, "Not implemented", http.StatusNotImplemented)
+	config := objects.GetConfigs()
+	WriteJSONResponse(w, config)
 }
 
 // StartServer starts the http server
@@ -229,7 +192,6 @@ func StartServer(stopChan chan bool, wg *sync.WaitGroup, port string, staticServ
 	// /nodes - This endpoint will return the current state of the nodes
 	// /requests - This endpoint will return the current state of the requests
 	// /config - This endpoint will return the current configuration of the resource manager
-	// /catalog - This endpoint will return the current catalog of the nodes
 	if staticServerFiles == "" {
 		return errors.New("static server files not provided, cannot start server")
 	}
@@ -244,7 +206,7 @@ func StartServer(stopChan chan bool, wg *sync.WaitGroup, port string, staticServ
 	http.HandleFunc("/nodes", s.NodesHandler)
 	http.HandleFunc("/requests", s.RequestsHandler)
 	http.HandleFunc("/config", s.ConfigHandler)
-	http.HandleFunc("/catalog", s.CatalogHandler)
+	http.HandleFunc("/provider", s.ProviderHandler)
 	// Static files handler
 	http.Handle("/", http.FileServer(http.Dir(staticServerFiles)))
 

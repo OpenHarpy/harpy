@@ -25,7 +25,6 @@ func databaseMain() *gorm.DB {
 	}
 
 	// Migrate the schema
-	db.AutoMigrate(&NodeCatalog{})
 	db.AutoMigrate(&LiveNode{})
 	db.AutoMigrate(&ResourceAssignment{})
 	db.AutoMigrate(&Config{})

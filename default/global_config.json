@@ -29,9 +29,8 @@
     "harpy.resourceManager.eventLoop.requestIdleTimeoutSec" : "120",
     "harpy.resourceManager.nodeProvider" : "local",
     "harpy.resourceManager.localProvider.node.uri" : "localhost:50053",
-    "harpy.resourceManager.localProvider.command" : "cd ../remote-runner && go run . local-1 small-4cpu-8gb localhost:50050 localhost",
+    "harpy.resourceManager.localProvider.command" : "cd ../remote-runner && go run . local-1 localhost:50050 localhost",
     "harpy.resourceManager.ui.staticFiles" : "resource-manager-ui",
     "harpy.resourceManager.database.provider" : "sqlite",
-    "harpy.resourceManager.database.uri" : "sqlite:///resource-manager.db",
-    "harpy.resourceManager.nodeCatalog.location" : "catalog.json"
+    "harpy.resourceManager.database.uri" : "sqlite:///resource-manager.db"
 }

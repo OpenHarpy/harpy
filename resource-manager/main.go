@@ -1,13 +1,12 @@
 package main
 
 import (
-	"encoding/json"
 	"errors"
 	"os"
 	"os/signal"
 	"resource-manager/config"
 	"resource-manager/logger"
-	"resource-manager/objects"
+	obj "resource-manager/objects"
 	"resource-manager/providers"
 	lp "resource-manager/providers/local-provider"
 	"sync"
@@ -21,43 +20,12 @@ var requiredConfigs = []string{
 	"harpy.resourceManager.httpServer.servePort",
 	"harpy.resourceManager.httpServer.serveHost",
 	"harpy.resourceManager.nodeProvider",
-	"harpy.resourceManager.nodeCatalog.location",
 	"harpy.resourceManager.database.provider",
 	"harpy.resourceManager.database.uri",
 }
 
-func NodeLoader() error {
-	// Load the node catalog
-	catalogData := config.GetConfigs().GetConfigWithDefault("harpy.resourceManager.nodeCatalog.location", "catalog.json")
-	// Read the json file
-	jsonFile, err := os.ReadFile(catalogData)
-	if err != nil {
-		logger.Error("Failed to open node catalog", "MAIN", err)
-		return err
-	}
-
-	// Parse the json file
-	var nodes []objects.NodeCatalog
-	err = json.Unmarshal(jsonFile, &nodes)
-	if err != nil {
-		logger.Error("Failed to parse node catalog", "MAIN", err)
-		return err
-	}
-
-	// Set the default configurations For each key value pair in the default configurations
-	for _, node := range nodes {
-		// We add the key value pair on the database
-		node.Sync()
-	}
-	return nil
-}
-
 func GetProvider() (providers.ProviderInterface, error) {
-	// Load the node catalog
-	err := NodeLoader()
-	if err != nil {
-		return nil, err
-	}
+	// Load the provider
 	nodeProvider := config.GetConfigs().GetConfigWithDefault("harpy.resourceManager.nodeProvider", "local")
 	var provider providers.ProviderInterface
 	if nodeProvider == "local" {
@@ -65,15 +33,28 @@ func GetProvider() (providers.ProviderInterface, error) {
 		if !ok {
 			return nil, errors.New("local provider command not set, cannot continue")
 		}
+
 		provider = lp.NewLocalProvider(command)
 	} else {
 		return nil, errors.New("invalid provider option was set")
 	}
-	err = providers.StartProvider(provider)
+	err := providers.StartProvider(provider)
 	if err != nil {
 		return nil, err
 	}
 	return provider, nil
+}
+
+func SyncConfig() {
+	// Sync the configuration
+	configs := config.GetConfigs().GetAllConfigsWithPrefix("")
+	for key, value := range configs {
+		confObj := &obj.Config{
+			ConfigKey:   key,
+			ConfigValue: value,
+		}
+		confObj.Sync()
+	}
 }
 
 func main() {
@@ -86,6 +67,8 @@ func main() {
 		logger.Error("Failed to validate required configs", "MAIN", err)
 		return
 	}
+	// Sync the configuration
+	SyncConfig()
 
 	// Add some local nodes
 	runningProvider, err := GetProvider()

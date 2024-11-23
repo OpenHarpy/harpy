@@ -75,13 +75,10 @@ func (l *LocalProvider) Begin() error {
 	return nil
 }
 
-func (l *LocalProvider) ProvisionNodes(nodeType string, nodeCount int) ([]*providers.ProviderProvisionResponse, error) {
-	logger.Info("Provisioning node", "PROVISION_NODES", logrus.Fields{"nodeType": nodeType, "nodeCount": nodeCount})
+func (l *LocalProvider) ProvisionNodes(nodeCount int) ([]*providers.ProviderProvisionResponse, error) {
+	logger.Info("Provisioning node", "PROVISION_NODES", logrus.Fields{"nodeCount": nodeCount})
 	// This function will provision a node of the specified type
 	// The node will be added to the pool
-	if nodeType != "small-4cpu-8gb" {
-		return nil, errors.New("node type not supported by local provider")
-	}
 	if nodeCount > 1 {
 		return nil, errors.New("local provider can only provision one node at a time")
 	}
@@ -102,7 +99,6 @@ func (l *LocalProvider) ProvisionNodes(nodeType string, nodeCount int) ([]*provi
 
 	return []*providers.ProviderProvisionResponse{
 		{
-			NodeType:        "small-4cpu-8gb",
 			NodeID:          "local-1",
 			NodeGRPCAddress: grpcAddress,
 		},
@@ -131,9 +127,16 @@ func (l *LocalProvider) NodeShutdownCallback(nodeID string) error {
 	}
 }
 
-func (l LocalProvider) GetNodeTypes() ([]string, error) {
-	// This function will return a list of node types that the provider supports
-	return []string{"small-4cpu-8gb"}, nil
+func (l *LocalProvider) ProviderTick() ([]*providers.ProviderDecommissionResponse, []*providers.ProviderProvisionResponse, error) {
+	// Warm up the pool
+	if !l.NodeAlreadyProvisioned {
+		newNodes, err := l.ProvisionNodes(1)
+		if err != nil {
+			return nil, nil, err
+		}
+		return nil, newNodes, nil
+	}
+	return nil, nil, nil
 }
 
 func (l *LocalProvider) Cleanup() error {
@@ -144,13 +147,16 @@ func (l *LocalProvider) Cleanup() error {
 
 func (l *LocalProvider) GeneratedProviderDescription() providers.ProviderProps {
 	return providers.ProviderProps{
-		ProviderName:        "local",
-		ProviderDescription: "Local provider for debugging/testing purposes",
+		ProviderName:          "local",
+		ProviderDescription:   "Local provider for debugging/testing purposes",
+		ProviderCorePerNode:   4,
+		ProviderMemoryPerNode: 2048,
+		ProviderWarmpoolSize:  1,
 	}
 }
 
-func (l *LocalProvider) CanAutoScale(nodeType string) bool {
-	// This function will check if the provider can autoscale the node type
+func (l *LocalProvider) CanAutoScale() bool {
+	// This function will check if the provider can autoscale
 	return false
 }
 

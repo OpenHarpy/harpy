@@ -69,7 +69,6 @@ class Session(metaclass=SessionSingletonMeta):
     def __reset_instance__(self):
         ensure_set_default('harpy.sdk.remote.controller.grpcHost', 'localhost')
         ensure_set_default('harpy.sdk.remote.controller.grpcPort', '50051')
-        ensure_set_default('harpy.tasks.node.request.type', 'small-4cpu-1gb')
         ensure_set_default('harpy.tasks.node.request.count', '1')
         self._close_requested: bool = False
         self._instance_id: str = None

@@ -453,7 +453,7 @@ nest-asyncio = "*"
 packaging = "*"
 psutil = "*"
 pyzmq = ">=24"
-tornado = ">=6.1"
+tornado = ">=6.2"
 traitlets = ">=5.4.0"
 
 [package.extras]

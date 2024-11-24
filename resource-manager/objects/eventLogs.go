@@ -6,6 +6,7 @@ type EventLogEntry struct {
 	EventLogID   string `gorm:"primary_key"`
 	EventLogType string `gorm:"type:text"`
 	EventLogJSON string `gorm:"type:text"`
+	EventGroupID string `gorm:"type:text"`
 	EventLogTime int64
 }
 

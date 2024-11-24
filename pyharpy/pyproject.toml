@@ -10,7 +10,7 @@ packages = [{include = "harpy"}]
 python = "^3.10"
 grpcio = "^1.66.1"
 grpcio-tools = "^1.66.1"
-protobuf = "5.27.2"
+protobuf = "5.28.1"
 cloudpickle = "^3.0.0"
 pandas = "^2.2.3"
 duckdb = "^1.1.1"

@@ -38,7 +38,6 @@ nav ul li a.active {
 
 section {
     padding: 2em;
-    border-bottom: 1px solid #ccc;
 }
 
 section h2 {
@@ -47,6 +46,10 @@ section h2 {
 
 .dash-sub {
     padding: 2em;
+}
+
+.mt-2 {
+    margin-top: 2em;
 }
 
 /* Table Style */
@@ -66,3 +69,24 @@ table th {
 }
 
 /* Form Style */
+
+.plan-view {
+    display: flex;
+    flex-direction: column;
+    justify-content: left;
+    align-items: left;
+    padding: 1em;
+    width: 100%;
+    height: 100%;
+    box-sizing: border-box;
+    background-color: #f0f0f0; /* Light gray background */
+    font-family: 'Courier New', Courier, monospace; /* Console-like font */
+}
+.plan-view pre {
+    margin: 0;
+    padding: 0;
+    font-size: 12px;
+    line-height: 14px;
+    white-space: pre-wrap;
+    word-wrap: break-word;
+}

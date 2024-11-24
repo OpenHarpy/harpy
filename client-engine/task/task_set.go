@@ -194,10 +194,10 @@ func (t *TaskSet) Execute() (TaskSetResult, error) {
 
 	if failing {
 		t.TaskSetStatus = "failed"
-		t.TaskSetProgress = "compleated"
+		t.TaskSetProgress = "completed"
 	} else {
 		t.TaskSetStatus = "success"
-		t.TaskSetProgress = "compleated"
+		t.TaskSetProgress = "completed"
 	}
 	t.TaskSetResultCache = &TaskSetResult{
 		TaskSetID:     t.TaskSetId,
@@ -210,7 +210,7 @@ func (t *TaskSet) Execute() (TaskSetResult, error) {
 }
 
 func (t TaskSet) GetTaskSetResult() TaskSetResult {
-	if t.TaskSetProgress != "compleated" {
+	if t.TaskSetProgress != "completed" {
 		return TaskSetResult{OverallStatus: "pending"}
 	} else {
 		return *t.TaskSetResultCache

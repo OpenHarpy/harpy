@@ -43,6 +43,7 @@ type TaskSet struct {
 	TaskSetId         string
 	TaskSetStatus     string
 	TaskSetProgress   string
+	TaskSetOptions    map[string]string
 	RootNode          *TaskGroup
 	TaskSetReporter   *Reporter
 	TaskReporter      *Reporter
@@ -158,7 +159,7 @@ func (t *TaskSet) Execute() (TaskSetResult, error) {
 	logString := fmt.Sprintf("Executing TaskSet[%s]", t.TaskSetId)
 	logger.Info(logString, "TASKSET")
 	// Execute the task set
-	t.TaskSetProgress = "running"
+	t.TaskSetStatus = "running"
 	t.TaskSetProgress = "running"
 	t.Report()
 	nextNode := t.RootNode
@@ -219,6 +220,10 @@ func (t TaskSet) GetTaskSetResult() TaskSetResult {
 func OnTaskProgress(Task *TaskRun, Sess *Session, TaskSetIdx string) {
 	// For each TaskSetListener in the session, call the OnTaskProgress method
 	taskSet := Sess.GetTaskSet(TaskSetIdx)
+	// Check if the task set has TaskGroupEventLogging
+	if taskSet != nil {
+		LogTasksetEvent(taskSet)
+	}
 	for _, listener := range Sess.TaskSetListeners {
 		listener.OnTaskProgress(taskSet, Task)
 	}
@@ -226,18 +231,26 @@ func OnTaskProgress(Task *TaskRun, Sess *Session, TaskSetIdx string) {
 func OnTaskGroupProgress(TaskGroup *TaskGroup, Sess *Session, TaskSetIdx string) {
 	// For each TaskSetListener in the session, call the OnTaskGroupProgress method
 	taskSet := Sess.GetTaskSet(TaskSetIdx)
+	// Check if the task set has TaskGroupEventLogging
+	if taskSet != nil {
+		LogTasksetEvent(taskSet)
+	}
 	for _, listener := range Sess.TaskSetListeners {
 		listener.OnTaskGroupProgress(taskSet, TaskGroup)
 	}
 }
 func OnTaskSetProgress(TaskSet *TaskSet, Sess *Session) {
+	// Check if the task set has TasksetEventLogging
+	if TaskSet != nil {
+		LogTasksetEvent(TaskSet)
+	}
 	// For each TaskSetListener in the session, call the OnTaskSetProgress method
 	for _, listener := range Sess.TaskSetListeners {
 		listener.OnTaskSetProgress(TaskSet)
 	}
 }
 
-func NewTaskSet(session *Session) *TaskSet {
+func NewTaskSet(session *Session, options map[string]string) *TaskSet {
 	idx := fmt.Sprintf("ts-%s", uuid.New().String())
 	context := []interface{}{session, idx}
 
@@ -260,6 +273,7 @@ func NewTaskSet(session *Session) *TaskSet {
 
 	return &TaskSet{
 		TaskSetId:           idx,
+		TaskSetOptions:      options,
 		TaskSetReporter:     taskSetReporter,
 		TaskGroupReporter:   taskGroupReporter,
 		TaskReporter:        taskReporter,
@@ -275,28 +289,28 @@ func (t TaskSet) Dismantle() {
 	// Consider for now that all the blocks are to be flushed
 	if t.RetentionPolicy == BlockRetentionPolicyRemoveAll {
 		for _, blockGroupID := range t.BlockGroupIDs {
-			t.Session.NodeTracker.FlushBlocks(blockGroupID, nil)
+			t.Session.ResourceTracker.FlushBlocks(blockGroupID, nil)
 		}
 	} else if t.RetentionPolicy == BlockRetentionPolicyKeepLastLastOutput {
 		// We will keep the last output block
 		last := len(t.BlockGroupIDs) - 1
 		for idx, blockGroupID := range t.BlockGroupIDs {
 			if idx != last {
-				t.Session.NodeTracker.FlushBlocks(blockGroupID, nil)
+				t.Session.ResourceTracker.FlushBlocks(blockGroupID, nil)
 			} else {
-				t.Session.NodeTracker.FlushBlocks(blockGroupID, []string{"output"})
+				t.Session.ResourceTracker.FlushBlocks(blockGroupID, []string{"output"})
 			}
 		}
 	} else if t.RetentionPolicy == BlockRetentionPolicyKeepAllOutputs {
 		// We will keep all the output blocks
 		for _, blockGroupID := range t.BlockGroupIDs {
-			t.Session.NodeTracker.FlushBlocks(blockGroupID, []string{"output"})
+			t.Session.ResourceTracker.FlushBlocks(blockGroupID, []string{"output"})
 		}
 	} else if t.RetentionPolicy != BlockRetentionPolicyKeepAll {
 		// We simply print a warning
 		logger.Warn("Unknown block retention policy, defaulting to flush all blocks", "TASKSET")
 		for _, blockGroupID := range t.BlockGroupIDs {
-			t.Session.NodeTracker.FlushBlocks(blockGroupID, nil)
+			t.Session.ResourceTracker.FlushBlocks(blockGroupID, nil)
 		}
 	}
 }

@@ -84,7 +84,7 @@ def folder_exists(path: str) -> bool:
     return os.path.exists(path) and os.path.isdir(path)
 
 def run_fs_command(session, func: callable, path: str, *args, **kwargs):
-    ts: TaskSet = session.create_task_set()
+    ts: TaskSet = session.create_task_set(options={'harpy.taskset.name': 'pyharpy-fs-command-taskset'})
     name = func.__name__
     mapper = MapTask(name=f"fs-command-{name}", fun=func, kwargs={"path": path, **kwargs})
     ts.add_maps([mapper])

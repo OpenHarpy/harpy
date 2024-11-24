@@ -126,3 +126,10 @@ ifneq ($(K_FLAG),)
 endif
 run-integrety-test:
 	cd $(PYTHON_PROJECT_ROOT) && $(PYTHON) -m pytest $(K_FLAG_P) -v ../test/. 
+
+dev-nuke-all:
+	sudo fuser -k 50050/tcp
+	sudo fuser -k 50051/tcp
+	sudo fuser -k 50052/tcp
+	sudo fuser -k 50053/tcp
+	

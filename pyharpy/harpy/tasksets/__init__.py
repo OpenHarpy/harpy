@@ -69,12 +69,12 @@ def get_block_for_object(block_proxy:BlockReadWriteProxy, block_hash_map:dict, o
     return block_hash
 
 class TaskSetClient:
-    def __init__(self, session,):
+    def __init__(self, session, options={}):
         self.session = session
         self.taskset_stub = TaskSetStub(grpc.insecure_channel(
             f"{self.session.conf.get('harpy.sdk.remote.controller.grpcHost')}:{self.session.conf.get('harpy.sdk.remote.controller.grpcPort')}"
         ))
-        self.taskset_handler = self.session.get_raw_taskset_handler(raw_tasksets_close_callbacks=self.dismantle)
+        self.taskset_handler = self.session.get_raw_taskset_handler(raw_tasksets_close_callbacks=self.dismantle, options=options)
         self.block_hash_map = {}
     
     def __get_block_for_object__(self, obj:Any) -> str:
@@ -299,12 +299,13 @@ class NodeLazyBatchMap(NodeLazy):
         taskset_client.add_map(self.definitions)
 
 class TaskSet:
-    def __init__(self, session,):
+    def __init__(self, session, options={'harpy.taskset.name': 'pyharpy-unamed-taskset'}):
         self._session = session
         self._taskset_client = None
         self._last_function_type = None
         self._block_hash_map = {}
         self._lazy_nodes:list[NodeLazy] = []
+        self._options = options
     
     def add_maps(self, map_tasks: List[MapTask]) -> 'TaskSet':
         # Map task validation checks
@@ -332,8 +333,7 @@ class TaskSet:
         # Map definition passed all the checks
         self._lazy_nodes.append(NodeLazyMap(map_tasks,))
         return self
-        
-    
+
     def add_reduce(self, reduce_task: ReduceTask) -> 'TaskSet':
         # Reduce task validation checks
         if len(self._lazy_nodes) == 0:
@@ -421,7 +421,9 @@ class TaskSet:
     # *** Adding tasks to server ***
     def __add_tasks__(self):
         # Create taskset
-        self._taskset_client = TaskSetClient(self._session)
+        deep_plan = self.explain(return_plan=True)
+        self._options['harpy.taskset.plan'] = deep_plan
+        self._taskset_client = TaskSetClient(self._session, options=self._options)
         for node in self._lazy_nodes:
             node.add_to_taskset(self._taskset_client)
     

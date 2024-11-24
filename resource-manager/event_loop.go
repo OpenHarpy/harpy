@@ -37,6 +37,9 @@ func SpinupNode(runningProvider providers.ProviderInterface, count int) {
 }
 
 func EvalProviderTick(runningProvider providers.ProviderInterface) {
+	// Provider ticks are used to push the provider to do some work, like decommissioning nodes, starting nodes, etc
+	// The provider tick will return the nodes that have been decommissioned and the nodes that have been started
+	// We will sync the nodes in the database with the nodes that have been decommissioned and started
 	nodesDecommissioned, nodesStarted, err := runningProvider.ProviderTick()
 	if err != nil {
 		logger.Error("Provider tick failed", "EVAL_TICK", err)
@@ -211,6 +214,7 @@ func EvalNodeShutdownCallbackProvider(runningProvider providers.ProviderInterfac
 }
 
 func DoProcessLoop(runningProvider providers.ProviderInterface, exitEventLoop chan bool, wg *sync.WaitGroup) {
+	wg.Add(1)
 	logger.Info("Starting process event loop", "PROCESS_EVENT_LOOP")
 	// Load the default values according to the configuration
 	processPoolingInterval = PopulateFromConfigs("harpy.resourceManager.eventLoop.processPoolingIntervalMS", processPoolingInterval, time.Millisecond)

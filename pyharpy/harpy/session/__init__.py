@@ -6,6 +6,7 @@ import atexit
 from harpy.primitives import SingletonMeta, check_variable
 from harpy.configs import Configs
 from harpy.grpc_ce_protocol.ceprotocol_pb2 import (
+    TaskSetRequest,
     SessionRequest,
     SessionHandler,
     TaskSetHandler
@@ -101,8 +102,12 @@ class Session(metaclass=SessionSingletonMeta):
         return instance_metadata.InstanceID
 
     @check_session()
-    def get_raw_taskset_handler(self, raw_tasksets_close_callbacks) -> TaskSetHandler:
-        taskSetHandler: TaskSetHandler = self._session_stub.CreateTaskSet(self._session_handler)
+    def get_raw_taskset_handler(self, raw_tasksets_close_callbacks, options={}) -> TaskSetHandler:
+        tsr = TaskSetRequest(
+            Session=self._session_handler,
+            Options=options
+        )
+        taskSetHandler: TaskSetHandler = self._session_stub.CreateTaskSet(tsr)
         self._session_raw_tasksets_close_callbacks.append(raw_tasksets_close_callbacks)
         return taskSetHandler
     
@@ -127,8 +132,8 @@ class Session(metaclass=SessionSingletonMeta):
         return self._session_handler
     
     @check_session()
-    def create_task_set(self) -> TaskSet:
-        inst = TaskSet(self,)
+    def create_task_set(self, options={'harpy.taskset.name': 'pyharpy-unamed-taskset'}) -> TaskSet:
+        inst = TaskSet(self, options)
         self._session_tasksets.append(inst)
         return inst
     

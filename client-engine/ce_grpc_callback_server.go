@@ -59,6 +59,7 @@ func (s *CallbackServer) Callback(ctx context.Context, in *pb.CommandStatus) (*p
 }
 
 func StartCallbackServer(exit chan bool, wg *sync.WaitGroup, lm *LiveMemory, port string) error {
+	wg.Add(1)
 	port = ":" + port
 	logger.Info("Starting callback server", "CALLBACK_SERVER", logrus.Fields{"host": port})
 

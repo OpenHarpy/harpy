@@ -16,9 +16,14 @@ message InstanceMetadata {
   string InstanceID = 1;
 }
 
+message TaskSetRequest {
+  SessionHandler Session = 1;
+  map<string, string> Options = 2;
+}
+
 service Session {
   rpc CreateSession (SessionRequest) returns (SessionHandler) {}
-  rpc CreateTaskSet (SessionHandler) returns (TaskSetHandler) {}
+  rpc CreateTaskSet (TaskSetRequest) returns (TaskSetHandler) {}
   rpc CloseSession (SessionHandler) returns (SessionHandler) {}
   rpc GetInstanceID (SessionHandler) returns (InstanceMetadata) {}
 }

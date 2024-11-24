@@ -41,7 +41,7 @@ class SessionStub(object):
                 _registered_method=True)
         self.CreateTaskSet = channel.unary_unary(
                 '/proto.Session/CreateTaskSet',
-                request_serializer=ceprotocol__pb2.SessionHandler.SerializeToString,
+                request_serializer=ceprotocol__pb2.TaskSetRequest.SerializeToString,
                 response_deserializer=ceprotocol__pb2.TaskSetHandler.FromString,
                 _registered_method=True)
         self.CloseSession = channel.unary_unary(
@@ -93,7 +93,7 @@ def add_SessionServicer_to_server(servicer, server):
             ),
             'CreateTaskSet': grpc.unary_unary_rpc_method_handler(
                     servicer.CreateTaskSet,
-                    request_deserializer=ceprotocol__pb2.SessionHandler.FromString,
+                    request_deserializer=ceprotocol__pb2.TaskSetRequest.FromString,
                     response_serializer=ceprotocol__pb2.TaskSetHandler.SerializeToString,
             ),
             'CloseSession': grpc.unary_unary_rpc_method_handler(
@@ -159,7 +159,7 @@ class Session(object):
             request,
             target,
             '/proto.Session/CreateTaskSet',
-            ceprotocol__pb2.SessionHandler.SerializeToString,
+            ceprotocol__pb2.TaskSetRequest.SerializeToString,
             ceprotocol__pb2.TaskSetHandler.FromString,
             options,
             channel_credentials,

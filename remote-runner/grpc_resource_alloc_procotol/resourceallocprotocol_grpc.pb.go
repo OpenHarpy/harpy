@@ -374,3 +374,105 @@ var NodeStatusUpdateService_ServiceDesc = grpc.ServiceDesc{
 	Streams:  []grpc.StreamDesc{},
 	Metadata: "grpc_resource_alloc_procotol/resourceallocprotocol.proto",
 }
+
+const (
+	EventLogService_LogEvent_FullMethodName = "/proto.EventLogService/LogEvent"
+)
+
+// EventLogServiceClient is the client API for EventLogService service.
+//
+// For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
+type EventLogServiceClient interface {
+	LogEvent(ctx context.Context, in *EventLog, opts ...grpc.CallOption) (*UpdateOk, error)
+}
+
+type eventLogServiceClient struct {
+	cc grpc.ClientConnInterface
+}
+
+func NewEventLogServiceClient(cc grpc.ClientConnInterface) EventLogServiceClient {
+	return &eventLogServiceClient{cc}
+}
+
+func (c *eventLogServiceClient) LogEvent(ctx context.Context, in *EventLog, opts ...grpc.CallOption) (*UpdateOk, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(UpdateOk)
+	err := c.cc.Invoke(ctx, EventLogService_LogEvent_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// EventLogServiceServer is the server API for EventLogService service.
+// All implementations must embed UnimplementedEventLogServiceServer
+// for forward compatibility.
+type EventLogServiceServer interface {
+	LogEvent(context.Context, *EventLog) (*UpdateOk, error)
+	mustEmbedUnimplementedEventLogServiceServer()
+}
+
+// UnimplementedEventLogServiceServer must be embedded to have
+// forward compatible implementations.
+//
+// NOTE: this should be embedded by value instead of pointer to avoid a nil
+// pointer dereference when methods are called.
+type UnimplementedEventLogServiceServer struct{}
+
+func (UnimplementedEventLogServiceServer) LogEvent(context.Context, *EventLog) (*UpdateOk, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method LogEvent not implemented")
+}
+func (UnimplementedEventLogServiceServer) mustEmbedUnimplementedEventLogServiceServer() {}
+func (UnimplementedEventLogServiceServer) testEmbeddedByValue()                         {}
+
+// UnsafeEventLogServiceServer may be embedded to opt out of forward compatibility for this service.
+// Use of this interface is not recommended, as added methods to EventLogServiceServer will
+// result in compilation errors.
+type UnsafeEventLogServiceServer interface {
+	mustEmbedUnimplementedEventLogServiceServer()
+}
+
+func RegisterEventLogServiceServer(s grpc.ServiceRegistrar, srv EventLogServiceServer) {
+	// If the following call pancis, it indicates UnimplementedEventLogServiceServer was
+	// embedded by pointer and is nil.  This will cause panics if an
+	// unimplemented method is ever invoked, so we test this at initialization
+	// time to prevent it from happening at runtime later due to I/O.
+	if t, ok := srv.(interface{ testEmbeddedByValue() }); ok {
+		t.testEmbeddedByValue()
+	}
+	s.RegisterService(&EventLogService_ServiceDesc, srv)
+}
+
+func _EventLogService_LogEvent_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(EventLog)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(EventLogServiceServer).LogEvent(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: EventLogService_LogEvent_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(EventLogServiceServer).LogEvent(ctx, req.(*EventLog))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+// EventLogService_ServiceDesc is the grpc.ServiceDesc for EventLogService service.
+// It's only intended for direct use with grpc.RegisterService,
+// and not to be introspected or modified (even as a copy)
+var EventLogService_ServiceDesc = grpc.ServiceDesc{
+	ServiceName: "proto.EventLogService",
+	HandlerType: (*EventLogServiceServer)(nil),
+	Methods: []grpc.MethodDesc{
+		{
+			MethodName: "LogEvent",
+			Handler:    _EventLogService_LogEvent_Handler,
+		},
+	},
+	Streams:  []grpc.StreamDesc{},
+	Metadata: "grpc_resource_alloc_procotol/resourceallocprotocol.proto",
+}

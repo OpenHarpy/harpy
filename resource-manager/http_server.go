@@ -184,8 +184,23 @@ func (s *ResourceManagerHTTPServer) ConfigHandler(w http.ResponseWriter, r *http
 	WriteJSONResponse(w, config)
 }
 
+func (s *ResourceManagerHTTPServer) EventsHandler(w http.ResponseWriter, r *http.Request) {
+	// Return not implemented status
+
+	var events []*objects.EventLogEntry
+	var hasNext bool = false
+	events, hasNext = objects.GetEventLogs()
+	response := map[string]interface{}{
+		"events":  events,
+		"hasNext": hasNext,
+	}
+	WriteJSONResponse(w, response)
+
+}
+
 // StartServer starts the http server
 func StartServer(stopChan chan bool, wg *sync.WaitGroup, port string, staticServerFiles string) error {
+	wg.Add(1)
 	// The server serves to expose the current state of the deployment of the Harpy system
 	// The server will expose the following endpoints:
 	// /health - This endpoint will return a 200 OK if the server is up
@@ -193,6 +208,7 @@ func StartServer(stopChan chan bool, wg *sync.WaitGroup, port string, staticServ
 	// /requests - This endpoint will return the current state of the requests
 	// /config - This endpoint will return the current configuration of the resource manager
 	if staticServerFiles == "" {
+		defer wg.Done()
 		return errors.New("static server files not provided, cannot start server")
 	}
 
@@ -207,6 +223,7 @@ func StartServer(stopChan chan bool, wg *sync.WaitGroup, port string, staticServ
 	http.HandleFunc("/requests", s.RequestsHandler)
 	http.HandleFunc("/config", s.ConfigHandler)
 	http.HandleFunc("/provider", s.ProviderHandler)
+	http.HandleFunc("/events", s.EventsHandler)
 	// Static files handler
 	http.Handle("/", http.FileServer(http.Dir(staticServerFiles)))
 
@@ -215,6 +232,7 @@ func StartServer(stopChan chan bool, wg *sync.WaitGroup, port string, staticServ
 	ServerPort := ":" + port
 	l, err := net.Listen("tcp", ServerPort)
 	if err != nil {
+		defer wg.Done()
 		logger.Error("Failed to start HTTP server", "HTTP_SERVER", err)
 		return err
 	}
@@ -229,7 +247,7 @@ func StartServer(stopChan chan bool, wg *sync.WaitGroup, port string, staticServ
 		<-stopChan
 		logger.Info("Stopping HTTP server", "HTTP_SERVER")
 		l.Close()
-		wg.Done()
+		defer wg.Done()
 	}()
 
 	return nil

@@ -36,9 +36,9 @@ func (lm *LiveMemory) CreateSession(options map[string]string) *task.Session {
 	return sess
 }
 
-func (lm *LiveMemory) CreateTaskSet(sess *task.Session) *task.TaskSet {
+func (lm *LiveMemory) CreateTaskSet(sess *task.Session, options map[string]string) *task.TaskSet {
 	// Create a new task set
-	ts := sess.CreateTaskSet()
+	ts := sess.CreateTaskSet(options)
 	lm.TaskSetDefinitions[ts.TaskSetId] = ts
 	lm.TaskSetSession[ts.TaskSetId] = sess.SessionId
 	return ts
@@ -78,13 +78,18 @@ func (s *CEgRPCServer) CloseSession(ctx context.Context, in *pb.SessionHandler) 
 	runtime.GC() // Run the garbage collector
 	return &pb.SessionHandler{SessionId: "", Success: true}, nil
 }
-func (s *CEgRPCServer) CreateTaskSet(ctx context.Context, in *pb.SessionHandler) (*pb.TaskSetHandler, error) {
-	sess, ok := s.lm.Sessions[in.SessionId]
+func (s *CEgRPCServer) CreateTaskSet(ctx context.Context, in *pb.TaskSetRequest) (*pb.TaskSetHandler, error) {
+	sess, ok := s.lm.Sessions[in.Session.SessionId]
 	if !ok {
-		logger.Warn("session_not_found", "SESSION_SERVICE", logrus.Fields{"session_id": in.SessionId})
+		logger.Warn("session_not_found", "SESSION_SERVICE", logrus.Fields{"session_id": in.Session.SessionId})
 		return &pb.TaskSetHandler{TaskSetId: "", Success: false}, nil
 	}
-	ts := s.lm.CreateTaskSet(sess)
+	options := in.Options
+	if options == nil {
+		options = make(map[string]string)
+		options["harpy.taskset.name"] = "unnamed-taskset"
+	}
+	ts := s.lm.CreateTaskSet(sess, options)
 	logger.Info("Created task set", "SESSION_SERVICE", logrus.Fields{"task_set_id": ts.TaskSetId})
 	return &pb.TaskSetHandler{TaskSetId: ts.TaskSetId}, nil
 }
@@ -426,6 +431,7 @@ func (s *CEgRPCServer) GetInstanceID(ctx context.Context, in *pb.SessionHandler)
 }
 
 func NewCEServer(exit chan bool, wg *sync.WaitGroup, lm *LiveMemory, port string) error {
+	wg.Add(1)
 	port = ":" + port
 	logger.Info("gRPC server started", "SERVER", logrus.Fields{"host": port})
 

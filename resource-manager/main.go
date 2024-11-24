@@ -79,7 +79,6 @@ func main() {
 
 	// Waitgroup for the different components
 	wg := sync.WaitGroup{}
-	wg.Add(1)
 
 	// Start the gRPC server
 	exitMainServer := make(chan bool)
@@ -98,8 +97,6 @@ func main() {
 		exitEventLoop <- true
 		wg.Wait()
 		return
-	} else {
-		wg.Add(1)
 	}
 
 	// Start the HTTP server
@@ -113,8 +110,6 @@ func main() {
 		exitEventLoop <- true
 		wg.Wait()
 		return
-	} else {
-		wg.Add(1)
 	}
 
 	// Handle graceful shutdown

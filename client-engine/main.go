@@ -26,21 +26,20 @@ func main() {
 	err := config.GetConfigs().ValitateRequiredConfigs(requiredConfigs)
 	if err != nil {
 		logger.Error("Failed to validate required configs", "MAIN", err)
-		return
+		os.Exit(1)
 	}
 
 	// Create wait groups for the servers
 	var exitMainServerChan = make(chan bool)
 	var exitCallbackServerChan = make(chan bool)
 	var wg sync.WaitGroup
-	wg.Add(2)
 
 	// Start the gRPC server
 	port := config.GetConfigs().GetConfigWithDefault("harpy.clientEngine.grpcServer.servePort", "50051")
 	err = NewCEServer(exitMainServerChan, &wg, lm, port)
 	if err != nil {
 		logger.Error("Failed to start gRPC server", "MAIN", err)
-		return
+		os.Exit(1)
 	}
 
 	// Start the gRPC callback server
@@ -48,7 +47,7 @@ func main() {
 	err = StartCallbackServer(exitCallbackServerChan, &wg, lm, port)
 	if err != nil {
 		logger.Error("Failed to start gRPC callback server", "MAIN", err)
-		return
+		os.Exit(1)
 	}
 
 	// Handle graceful shutdown

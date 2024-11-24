@@ -13,8 +13,10 @@ import (
 	"client-engine/logger"
 	"context"
 	"errors"
+	"fmt"
 	"time"
 
+	"github.com/google/uuid"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 )
@@ -41,15 +43,15 @@ const (
 	REQUEST_ERROR             RequestStatus = RequestStatus(pb.ServingStatus_SERVING_STATUS_ERROR)
 )
 
-type NodeRequestClient struct {
-	ResourceManagerURI string
-	conn               *grpc.ClientConn
-	client             pb.NodeRequestingServiceClient
+type ResourceManagerClient struct {
+	ResourceManagerURI       string
+	conn                     *grpc.ClientConn
+	nodeRequestServiceClient pb.NodeRequestingServiceClient
+	eventLogsServiceClient   pb.EventLogServiceClient
 }
 
 type NodeRequest struct {
 	RequestID string
-	NodeType  string
 	NodeCount int
 }
 
@@ -61,29 +63,48 @@ type LiveNode struct {
 
 type NodeRequestResponse struct {
 	RequestID     string
-	NodeType      string
 	NodeCount     int
 	RequestStatus RequestStatus
 	Nodes         []LiveNode
 }
 
-func NewNodeResourceManagerClient(resourceManagerURI string) *NodeRequestClient {
-	return &NodeRequestClient{
+// EventLogs
+type EventLog struct {
+	EventID   string
+	EventTime time.Time
+	EventType string
+	EventJSON string
+}
+
+func NewEventLog(eventType string, eventJSON string) *EventLog {
+	eventID := fmt.Sprintf("evt-%s", uuid.New().String())
+
+	return &EventLog{
+		EventID:   eventID,
+		EventTime: time.Now(),
+		EventType: eventType,
+		EventJSON: eventJSON,
+	}
+}
+
+func NewNodeResourceManagerClient(resourceManagerURI string) *ResourceManagerClient {
+	return &ResourceManagerClient{
 		ResourceManagerURI: resourceManagerURI,
 	}
 }
 
-func (n *NodeRequestClient) connect() error {
+func (n *ResourceManagerClient) connect() error {
 	err := error(nil)
 	n.conn, err = grpc.NewClient(n.ResourceManagerURI, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		return err
 	}
-	n.client = pb.NewNodeRequestingServiceClient(n.conn)
+	n.nodeRequestServiceClient = pb.NewNodeRequestingServiceClient(n.conn)
+	n.eventLogsServiceClient = pb.NewEventLogServiceClient(n.conn)
 	return nil
 }
 
-func (n *NodeRequestClient) disconnect() error {
+func (n *ResourceManagerClient) disconnect() error {
 	if n.conn != nil {
 		err := n.conn.Close()
 		if err != nil {
@@ -93,15 +114,14 @@ func (n *NodeRequestClient) disconnect() error {
 	return nil
 }
 
-func (nodeRequestClient *NodeRequestClient) RequestNode(nodeType string, nodeCount int) (*NodeRequestResponse, error) {
+func (ResourceManagerClient *ResourceManagerClient) RequestNode(nodeCount int) (*NodeRequestResponse, error) {
 	nodeRequest := &pb.NodeRequest{
-		NodeType:  nodeType,
 		NodeCount: uint32(nodeCount),
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*10)
 	defer cancel()
-	res, err := nodeRequestClient.client.RequestNodes(ctx, nodeRequest)
+	res, err := ResourceManagerClient.nodeRequestServiceClient.RequestNodes(ctx, nodeRequest)
 	if err != nil {
 		logger.Error("Failed to request node ", "CLIENT", err)
 		return nil, err
@@ -111,20 +131,19 @@ func (nodeRequestClient *NodeRequestClient) RequestNode(nodeType string, nodeCou
 	}
 	return &NodeRequestResponse{
 		RequestID:     res.RequestHandler.RequestID,
-		NodeType:      nodeType,
 		NodeCount:     nodeCount,
 		RequestStatus: REQUEST_REQUESTED,
 		Nodes:         []LiveNode{},
 	}, nil
 }
 
-func (nodeRequestClient *NodeRequestClient) SendHeartbeat(requestID string) error {
+func (ResourceManagerClient *ResourceManagerClient) SendHeartbeat(requestID string) error {
 	requestHandler := &pb.RequestHandler{
 		RequestID: requestID,
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*10)
 	defer cancel()
-	res, err := nodeRequestClient.client.SendRequestHeartbeat(ctx, requestHandler)
+	res, err := ResourceManagerClient.nodeRequestServiceClient.SendRequestHeartbeat(ctx, requestHandler)
 	if err != nil {
 		logger.Error("Failed to send heartbeat", "CLIENT", err)
 		return err
@@ -136,14 +155,14 @@ func (nodeRequestClient *NodeRequestClient) SendHeartbeat(requestID string) erro
 	return nil
 }
 
-func (nodeRequestClient *NodeRequestClient) GetNodeRequestStatus(request *NodeRequestResponse) (*NodeRequestResponse, error) {
+func (ResourceManagerClient *ResourceManagerClient) GetNodeRequestStatus(request *NodeRequestResponse) (*NodeRequestResponse, error) {
 	nodeRequest := &pb.RequestHandler{
 		RequestID: request.RequestID,
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*10)
 	defer cancel()
-	res, err := nodeRequestClient.client.NodeRequestStatus(ctx, nodeRequest)
+	res, err := ResourceManagerClient.nodeRequestServiceClient.NodeRequestStatus(ctx, nodeRequest)
 	if err != nil {
 		logger.Error("Failed to get request status", "CLIENT", err)
 		return nil, err
@@ -162,27 +181,47 @@ func (nodeRequestClient *NodeRequestClient) GetNodeRequestStatus(request *NodeRe
 
 	return &NodeRequestResponse{
 		RequestID:     request.RequestID,
-		NodeType:      request.NodeType,
 		NodeCount:     request.NodeCount,
 		RequestStatus: RequestStatus(res.ServingStatus),
 		Nodes:         nodes,
 	}, nil
 }
 
-func (nodeRequestClient *NodeRequestClient) ReleaseNodes(request *NodeRequestResponse) error {
+func (ResourceManagerClient *ResourceManagerClient) ReleaseNodes(request *NodeRequestResponse) error {
 	nodeRequest := &pb.RequestHandler{
 		RequestID: request.RequestID,
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*10)
 	defer cancel()
-	res, err := nodeRequestClient.client.ReleaseNodes(ctx, nodeRequest)
+	res, err := ResourceManagerClient.nodeRequestServiceClient.ReleaseNodes(ctx, nodeRequest)
 	if err != nil {
 		logger.Error("Failed to release nodes", "CLIENT", err)
 		return err
 	}
 	if !res.Success {
 		return errors.New("failed to release nodes")
+	}
+	return nil
+}
+
+func (ResourceManagerClient *ResourceManagerClient) LogEvent(event *EventLog) error {
+	eventLog := &pb.EventLog{
+		EventID:       event.EventID,
+		EventTimeISO:  event.EventTime.Format(time.RFC3339),
+		EventTypeName: event.EventType,
+		EventJSON:     event.EventJSON,
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*10)
+	defer cancel()
+	res, err := ResourceManagerClient.eventLogsServiceClient.LogEvent(ctx, eventLog)
+	if err != nil {
+		logger.Error("Failed to log event", "CLIENT", err)
+		return err
+	}
+	if !res.Success {
+		return errors.New("failed to log event")
 	}
 	return nil
 }

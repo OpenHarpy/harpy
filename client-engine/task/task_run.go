@@ -57,7 +57,7 @@ type TaskRun struct {
 	TaskSet   *TaskSet
 	TaskRunID string
 	Status    Status
-	Fetched   bool
+	IsDone    bool
 }
 
 func NewTaskRun(task *TaskDefinition, taskRunID string, reporter *Reporter, taskSet *TaskSet) *TaskRun {
@@ -66,7 +66,8 @@ func NewTaskRun(task *TaskDefinition, taskRunID string, reporter *Reporter, task
 	}
 	return &TaskRun{
 		Task: task, TaskRunID: taskRunID, Reporter: reporter, Status: "pending", Result: nil,
-		TaskSet: taskSet, Fetched: false,
+		TaskSet: taskSet,
+		IsDone:  false,
 	}
 }
 
@@ -92,4 +93,5 @@ func (t *TaskRun) SetResult(resultBlockID BlockID, stdoutBlockID BlockID, stderr
 		stderrBlockID,
 	)
 	t.SetStatus(STATUS_DONE)
+	t.IsDone = true
 }

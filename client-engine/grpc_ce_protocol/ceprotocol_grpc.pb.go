@@ -30,7 +30,7 @@ const (
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type SessionClient interface {
 	CreateSession(ctx context.Context, in *SessionRequest, opts ...grpc.CallOption) (*SessionHandler, error)
-	CreateTaskSet(ctx context.Context, in *SessionHandler, opts ...grpc.CallOption) (*TaskSetHandler, error)
+	CreateTaskSet(ctx context.Context, in *TaskSetRequest, opts ...grpc.CallOption) (*TaskSetHandler, error)
 	CloseSession(ctx context.Context, in *SessionHandler, opts ...grpc.CallOption) (*SessionHandler, error)
 	GetInstanceID(ctx context.Context, in *SessionHandler, opts ...grpc.CallOption) (*InstanceMetadata, error)
 }
@@ -53,7 +53,7 @@ func (c *sessionClient) CreateSession(ctx context.Context, in *SessionRequest, o
 	return out, nil
 }
 
-func (c *sessionClient) CreateTaskSet(ctx context.Context, in *SessionHandler, opts ...grpc.CallOption) (*TaskSetHandler, error) {
+func (c *sessionClient) CreateTaskSet(ctx context.Context, in *TaskSetRequest, opts ...grpc.CallOption) (*TaskSetHandler, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(TaskSetHandler)
 	err := c.cc.Invoke(ctx, Session_CreateTaskSet_FullMethodName, in, out, cOpts...)
@@ -88,7 +88,7 @@ func (c *sessionClient) GetInstanceID(ctx context.Context, in *SessionHandler, o
 // for forward compatibility.
 type SessionServer interface {
 	CreateSession(context.Context, *SessionRequest) (*SessionHandler, error)
-	CreateTaskSet(context.Context, *SessionHandler) (*TaskSetHandler, error)
+	CreateTaskSet(context.Context, *TaskSetRequest) (*TaskSetHandler, error)
 	CloseSession(context.Context, *SessionHandler) (*SessionHandler, error)
 	GetInstanceID(context.Context, *SessionHandler) (*InstanceMetadata, error)
 	mustEmbedUnimplementedSessionServer()
@@ -104,7 +104,7 @@ type UnimplementedSessionServer struct{}
 func (UnimplementedSessionServer) CreateSession(context.Context, *SessionRequest) (*SessionHandler, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method CreateSession not implemented")
 }
-func (UnimplementedSessionServer) CreateTaskSet(context.Context, *SessionHandler) (*TaskSetHandler, error) {
+func (UnimplementedSessionServer) CreateTaskSet(context.Context, *TaskSetRequest) (*TaskSetHandler, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method CreateTaskSet not implemented")
 }
 func (UnimplementedSessionServer) CloseSession(context.Context, *SessionHandler) (*SessionHandler, error) {
@@ -153,7 +153,7 @@ func _Session_CreateSession_Handler(srv interface{}, ctx context.Context, dec fu
 }
 
 func _Session_CreateTaskSet_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(SessionHandler)
+	in := new(TaskSetRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
@@ -165,7 +165,7 @@ func _Session_CreateTaskSet_Handler(srv interface{}, ctx context.Context, dec fu
 		FullMethod: Session_CreateTaskSet_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(SessionServer).CreateTaskSet(ctx, req.(*SessionHandler))
+		return srv.(SessionServer).CreateTaskSet(ctx, req.(*TaskSetRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }

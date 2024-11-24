@@ -31,9 +31,8 @@ var (
 
 type ResourceAssignment struct {
 	// This struct is used to store the resource assignment to a session
-	RequestID             string `gorm:"primary_key"`
-	NodeType              string
-	NodeCount             uint32
+	RequestID             string                       `gorm:"primary_key"`
+	NodeCount             uint32                       `gorm:"type:int"`
 	ServingStatus         ResourceAssignmentStatusEnum `gorm:"type:int"`
 	RequestDetails        string                       `gorm:"type:text"`
 	LastHeartbeatReceived int64

@@ -43,8 +43,8 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 });
 
-
-const resourceManagerURI = 'http://172.16.0.11:8080/';
+const thisHost = window.location.hostname;
+const resourceManagerURI = 'http://'+thisHost+':8080/';
 const getAddressIsAlive = async () => {
     try {
         const response = await fetch(resourceManagerURI+'health');
@@ -87,7 +87,7 @@ const loadData = async () => {
         setContentVisibility(true);
         await populateTableWithDataFromAPI('nodes', 'nodesTable', 'nodes');
         await populateTableWithDataFromAPI('requests', 'requestsTable', 'resource-requests');
-        await populateTableWithDataFromAPI('catalog', 'catalogTable', 'node-catalog');
+        await populateTableWithDataFromAPI('config', 'configsTable', 'configs');
     } else {
         refreshStatus('unavailable');
         setContentVisibility(false);

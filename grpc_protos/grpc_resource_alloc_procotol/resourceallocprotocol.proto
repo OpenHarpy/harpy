@@ -27,7 +27,6 @@ message RequestHandler {
 }
 
 message NodeRequest {
-    string NodeType = 1;
     uint32 NodeCount = 2;
 }
 
@@ -49,7 +48,6 @@ message NodeReleaseResponse {
 
 message LiveNode {
     string NodeID = 1;
-    string NodeType = 2;
     string NodeGRPCAddress = 3;
     NodeStatus NodeStatus = 4;
 }
@@ -64,10 +62,16 @@ message NodeRequestStatusResponse {
     repeated LiveNode Nodes = 5;
 }
 
+message EventLog {
+    string EventID = 1;
+    string EventTypeName = 2;
+    string EventTimeISO = 3;
+    string EventJSON = 4;
+}
+
 // Update OK message
 message UpdateOk {
     bool Success = 1;
-    string ErrorMessage = 2;
 }
 
 service NodeRequestingService {
@@ -81,4 +85,7 @@ service NodeStatusUpdateService {
     rpc UpdateNodeStatus (LiveNode) returns (UpdateOk) {}
     rpc NodeHeartbeat (NodeHeartbeatRequest) returns (UpdateOk) {}
 }
-    
+
+service EventLogService {
+    rpc LogEvent (EventLog) returns (UpdateOk) {}
+}

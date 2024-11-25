@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"os"
+	"strconv"
 	"strings"
 	"sync"
 
@@ -60,6 +61,19 @@ func GetConfigs() *Configs {
 func (c *Configs) GetConfig(ks string) (string, bool) {
 	value, ok := c.Configs[ks]
 	return value, ok
+}
+
+func (c *Configs) GetConfigIntWithDefault(ks string, defaultVal int) int {
+	value, ok := c.Configs[ks]
+	if !ok {
+		return defaultVal
+	}
+	// Convert the string to an int
+	intValue, err := strconv.Atoi(value)
+	if err != nil {
+		return defaultVal
+	}
+	return intValue
 }
 
 func (c *Configs) GetConfigWithDefault(ks string, defaultVal string) string {

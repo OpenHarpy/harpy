@@ -91,6 +91,11 @@ message FanoutAdder {
   int32 FanoutCount = 3;
 }
 
+message OneOffClusterAdder {
+  TaskSetHandler taskSetHandler = 1;
+  TaskHandler OneOffClusterDefinition = 2;
+}
+
 // While executing a task set, the server will stream back progress reports
 // --> OnTaskSetProgress
 // --> OnTaskGroupProgress
@@ -127,6 +132,7 @@ service TaskSet {
   rpc AddReduce (ReduceAdder) returns (TaskAdderResult) {}
   rpc AddTransform (TransformAdder) returns (TaskAdderResult) {}
   rpc AddFanout (FanoutAdder) returns (TaskAdderResult) {}
+  rpc AddOneOffCluster (OneOffClusterAdder) returns (TaskAdderResult) {}
   rpc Execute (TaskSetHandler) returns (stream TaskSetProgressReport) {}
   rpc SetBlockRetentionPolicy (SetRetentionPolicy) returns (TaskSetHandler) {} // Need to add this to the TaskSet service implementation
   rpc Dismantle (TaskSetHandler) returns (TaskSetHandler) {}

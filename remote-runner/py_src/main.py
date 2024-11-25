@@ -11,8 +11,9 @@ def unpickle_block(block_location):
     with open(block_location, 'rb') as f:
         return cloudpickle.loads(f.read())
 
-def unpack_command_metadata(command_metadata):
+def unpack_command_metadata(command_metadata, instance_id):
     RemoteExecMetadata().add_metadata('running_remotely', 'True')
+    RemoteExecMetadata().add_metadata('instance_id', instance_id)
     if command_metadata is None:
         return
     else:
@@ -26,6 +27,7 @@ def main():
     parser = argparse.ArgumentParser(description='Run a pickled object.')
     parser.add_argument('--func', type=str, help='The pickled object')
     parser.add_argument('--output', type=str, help='The output file')
+    parser.add_argument('--instanceID', type=str, help='The instance ID', default=None)
     parser.add_argument('--commandMetadata', type=str, help='The command metadata', default=None)
     parser.add_argument('--blocks', nargs='*', type=parse_kwarg, help='Key-value pairs')
     parsed_args = parser.parse_args()
@@ -33,7 +35,7 @@ def main():
 
     # The object is a function, we need to unpickle it
     unpickled_func = unpickle_block(parsed_args.func)
-    unpack_command_metadata(parsed_args.commandMetadata)
+    unpack_command_metadata(parsed_args.commandMetadata, parsed_args.instanceID)
     args = []
     kwargs = {}
     for key, value in blocks.items():

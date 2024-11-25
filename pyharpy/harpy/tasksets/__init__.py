@@ -17,6 +17,7 @@ from harpy.grpc_ce_protocol.ceprotocol_pb2 import (
     ReduceAdder,
     TransformAdder,
     FanoutAdder,
+    OneOffClusterAdder,
     
     ProgressType
 )
@@ -28,6 +29,7 @@ from harpy.processing.types import (
     BatchMapTask,
     FanoutTask,
     ReduceTask, 
+    OneOffClusterTask,
     TransformTask, 
     TaskSetResults,
     Result
@@ -211,6 +213,15 @@ class TaskSetClient:
         )
         self.__check_response__(self.taskset_stub.AddFanout(fanout_adder))        
 
+    @check_variable('taskset_handler', INVALID_TASKSET_MESSAGE)
+    def add_oneoff_cluster(self, oneoff_cluster_task: OneOffClusterTask):
+        task_handler = self.define_task(oneoff_cluster_task)
+        oneoff_cluster_adder = OneOffClusterAdder(
+            taskSetHandler=self.taskset_handler,
+            OneOffClusterDefinition=task_handler
+        )
+        self.__check_response__(self.taskset_stub.AddOneOffCluster(oneoff_cluster_adder))
+
 class NodeLazy(ABC):
     @abstractmethod
     def add_to_taskset(self, taskset_client: TaskSetClient):
@@ -242,7 +253,6 @@ class NodeLazyReduce(NodeLazy):
     
     def add_to_taskset(self, taskset_client: TaskSetClient):
         taskset_client.add_reduce(self.definition)
-        
 
 class NodeLazyTransform(NodeLazy):
     def __init__(self, transform_definition: TransformTask):
@@ -297,6 +307,17 @@ class NodeLazyBatchMap(NodeLazy):
     
     def add_to_taskset(self, taskset_client: TaskSetClient,):
         taskset_client.add_map(self.definitions)
+
+class NodeLazyOneOffCluster(NodeLazy):
+    def __init__(self, oneoff_cluster_definition: OneOffClusterTask):
+        self.node_type = 'OneOffCluster'
+        self.definition = oneoff_cluster_definition
+    
+    def __repr__(self):
+        return f"{self.node_type} ({self.definition.name})"
+    
+    def add_to_taskset(self, taskset_client: TaskSetClient,):
+        taskset_client.add_oneoff_cluster(self.definition)
 
 class TaskSet:
     def __init__(self, session, options={'harpy.taskset.name': 'pyharpy-unamed-taskset'}):
@@ -385,6 +406,20 @@ class TaskSet:
         # Fanout definition passed all the checks
         self._lazy_nodes.append(NodeLazyFanout(fanout_task,))
         return self 
+    
+    def add_oneoff_cluster(self, oneoff_cluster_task: OneOffClusterTask) -> 'TaskSet':
+        # OneOffCluster task validation checks
+        if len(self._lazy_nodes) > 0:
+            raise TaskSetDefinitionError("InvalidOneOffClusterPlacement: Cannot add oneoff cluster tasks after reduce or transform tasks")
+        
+        errors = validate_function(oneoff_cluster_task.fun, "map") # We use map validation for oneoff cluster tasks as they are similar
+        if len(errors) > 0:
+            errors = [" - " + error for error in errors]
+            raise TaskSetDefinitionError("InvalidOneOffClusterFunction: \n" + "\n".join(errors))
+        self._last_function_type = get_output_type(oneoff_cluster_task.fun)
+        # OneOffCluster definition passed all the checks
+        self._lazy_nodes.append(NodeLazyOneOffCluster(oneoff_cluster_task,))
+        return self
     
     # Extended types
     def add_batch_maps(self, batch_map_task: BatchMapTask) -> 'TaskSet':

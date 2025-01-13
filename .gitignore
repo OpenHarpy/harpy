@@ -2,6 +2,7 @@
 dist/
 remote-runner/_live_objects/
 isolated-*/
+grpc_*/
 _*/
 *.cloudpickle
 todo

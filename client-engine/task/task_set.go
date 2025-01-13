@@ -73,6 +73,23 @@ func (t *TaskSet) generateDefaultTaskGroup(factory TaskFactory, options map[stri
 	return tskGrp
 }
 
+func (t *TaskSet) GetNumberOfTaskGroups() int {
+	// This will return the number of task groups in the task set
+	if t.RootNode == nil {
+		return 0
+	}
+	currentNode := t.RootNode
+	count := 1
+	for {
+		if currentNode.GetNextNode() == nil {
+			break
+		}
+		currentNode = currentNode.GetNextNode()
+		count++
+	}
+	return count
+}
+
 func (t *TaskSet) AddNewTaskGroup(taskGroup TaskGroup) error {
 	// Traverse the task set to find the last node
 	//   This will allow us to add the new task group to the end of the task set
@@ -194,10 +211,10 @@ func (t *TaskSet) Execute() (TaskSetResult, error) {
 
 	if failing {
 		t.TaskSetStatus = "failed"
-		t.TaskSetProgress = "compleated"
+		t.TaskSetProgress = "completed"
 	} else {
 		t.TaskSetStatus = "success"
-		t.TaskSetProgress = "compleated"
+		t.TaskSetProgress = "completed"
 	}
 	t.TaskSetResultCache = &TaskSetResult{
 		TaskSetID:     t.TaskSetId,
@@ -210,7 +227,7 @@ func (t *TaskSet) Execute() (TaskSetResult, error) {
 }
 
 func (t TaskSet) GetTaskSetResult() TaskSetResult {
-	if t.TaskSetProgress != "compleated" {
+	if t.TaskSetProgress != "completed" {
 		return TaskSetResult{OverallStatus: "pending"}
 	} else {
 		return *t.TaskSetResultCache

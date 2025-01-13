@@ -28,17 +28,23 @@ func GetProvider() (providers.ProviderInterface, error) {
 	// Load the provider
 	nodeProvider := config.GetConfigs().GetConfigWithDefault("harpy.resourceManager.nodeProvider", "local")
 	var provider providers.ProviderInterface
+	var err error
 	if nodeProvider == "local" {
 		command, ok := config.GetConfigs().GetConfig("harpy.resourceManager.localProvider.command")
 		if !ok {
 			return nil, errors.New("local provider command not set, cannot continue")
 		}
+		maxNodeCount := config.GetConfigs().GetConfigIntWithDefault("harpy.resourceManager.localProvider.maxNodeCount", 1)
+		warmpoolSize := config.GetConfigs().GetConfigIntWithDefault("harpy.resourceManager.localProvider.warmpoolSize", 1)
 
-		provider = lp.NewLocalProvider(command)
+		provider, err = lp.NewLocalProvider(command, maxNodeCount, warmpoolSize)
+		if err != nil {
+			return nil, err
+		}
 	} else {
 		return nil, errors.New("invalid provider option was set")
 	}
-	err := providers.StartProvider(provider)
+	err = providers.StartProvider(provider)
 	if err != nil {
 		return nil, err
 	}

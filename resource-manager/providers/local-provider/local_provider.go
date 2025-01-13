@@ -21,6 +21,8 @@ import (
 type LocalProvider struct {
 	NodesProcessTracker map[string]*exec.Cmd
 	CommandToExecute    string
+	NumberOfMaxNodes    int
+	WarmpoolSize        int
 }
 
 func (l *LocalProvider) Begin() error {
@@ -36,8 +38,8 @@ func (l *LocalProvider) ProvisionNodes(nodeCount int) ([]*providers.ProviderProv
 	logger.Info("Provisioning node", "LOCAL_PROVIDER", logrus.Fields{"nodeCount": nodeCount})
 	// This function will provision a node of the specified type
 	// The node will be added to the pool
-	if nodeCount > 1 {
-		return nil, errors.New("local provider can only provision one node at a time")
+	if nodeCount > l.NumberOfMaxNodes {
+		return nil, errors.New("cannot provision more nodes than the max number of nodes")
 	}
 	//if len(l.NodesProcessTracker) > 0 {
 	//	return nil, errors.New("local provider can only provision one node at a time")
@@ -98,9 +100,11 @@ func (l *LocalProvider) NodeShutdownCallback(nodeID string) error {
 
 func (l *LocalProvider) ProviderTick() ([]*providers.ProviderDecommissionResponse, []*providers.ProviderProvisionResponse, error) {
 	// This function will be called by the resource manager at regular intervals to allow the provider to do any housekeeping
-	if len(l.NodesProcessTracker) == 0 {
+	if len(l.NodesProcessTracker) < l.WarmpoolSize {
+		// Number of nodes to provision
+		nodesToProvision := l.WarmpoolSize - len(l.NodesProcessTracker)
 		// Start the local process
-		provisionResults, err := l.ProvisionNodes(1)
+		provisionResults, err := l.ProvisionNodes(nodesToProvision)
 		if err != nil {
 			return nil, nil, err
 		}
@@ -126,7 +130,7 @@ func (l *LocalProvider) GeneratedProviderDescription() providers.ProviderProps {
 		ProviderDescription:   "Local provider for debugging/testing purposes",
 		ProviderCorePerNode:   4,
 		ProviderMemoryPerNode: 2048,
-		ProviderWarmpoolSize:  1,
+		ProviderWarmpoolSize:  l.WarmpoolSize,
 	}
 }
 
@@ -135,9 +139,21 @@ func (l *LocalProvider) CanAutoScale() bool {
 	return false
 }
 
-func NewLocalProvider(CommandToExecute string) *LocalProvider {
+func NewLocalProvider(CommandToExecute string, NumberOfMaxNodes int, WarmpoolSize int) (*LocalProvider, error) {
+	if CommandToExecute == "" {
+		return nil, errors.New("local provider command cannot be empty")
+	}
+	if NumberOfMaxNodes <= 0 {
+		return nil, errors.New("local provider max node count must be greater than 0")
+	}
+	if WarmpoolSize > NumberOfMaxNodes {
+		return nil, errors.New("local provider warmpool size cannot be greater than the max node count")
+	}
+
 	return &LocalProvider{
 		CommandToExecute:    CommandToExecute,
 		NodesProcessTracker: make(map[string]*exec.Cmd),
-	}
+		NumberOfMaxNodes:    NumberOfMaxNodes,
+		WarmpoolSize:        WarmpoolSize,
+	}, nil
 }

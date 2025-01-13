@@ -65,8 +65,9 @@ message NodeRequestStatusResponse {
 message EventLog {
     string EventID = 1;
     string EventTypeName = 2;
-    string EventTimeISO = 3;
-    string EventJSON = 4;
+    string EventGroupID = 3;
+    string EventTimeISO = 4;
+    string EventJSON = 5;
 }
 
 // Update OK message

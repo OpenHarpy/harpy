@@ -11,6 +11,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/sirupsen/logrus"
 )
 
 // Resource Manager HTTP Server
@@ -198,6 +200,36 @@ func (s *ResourceManagerHTTPServer) EventsHandler(w http.ResponseWriter, r *http
 
 }
 
+func (s *ResourceManagerHTTPServer) TaskSetEventsHandler(w http.ResponseWriter, r *http.Request) {
+	// Return not implemented status
+	var events []*objects.EventLogEntry
+	var hasNext bool = false
+	events, hasNext = objects.GetEventLogsByType("taskset", 0, 10)
+	response := map[string]interface{}{
+		"events":  events,
+		"hasNext": hasNext,
+	}
+	WriteJSONResponse(w, response)
+}
+
+func (s *ResourceManagerHTTPServer) TaskSetEventsFilterHandler(w http.ResponseWriter, r *http.Request) {
+	// Return not implemented status
+	var events []*objects.EventLogEntry
+	var hasNext bool = false
+	eventGroupID := r.URL.Query().Get("event_group_id")
+	if eventGroupID == "" {
+		http.Error(w, "event_group_id is required", http.StatusBadRequest)
+		return
+	}
+	logger.Info("Filtering events for event_group_id", "HTTP_SERVER", logrus.Fields{"event_group_id": eventGroupID})
+	events, hasNext = objects.GetLogsForGroupID(eventGroupID, "taskset")
+	response := map[string]interface{}{
+		"events":  events,
+		"hasNext": hasNext,
+	}
+	WriteJSONResponse(w, response)
+}
+
 // StartServer starts the http server
 func StartServer(stopChan chan bool, wg *sync.WaitGroup, port string, staticServerFiles string) error {
 	wg.Add(1)
@@ -223,7 +255,9 @@ func StartServer(stopChan chan bool, wg *sync.WaitGroup, port string, staticServ
 	http.HandleFunc("/requests", s.RequestsHandler)
 	http.HandleFunc("/config", s.ConfigHandler)
 	http.HandleFunc("/provider", s.ProviderHandler)
-	http.HandleFunc("/events", s.EventsHandler)
+	http.HandleFunc("/dump_events", s.EventsHandler)
+	http.HandleFunc("/taskset_events", s.TaskSetEventsHandler)
+	http.HandleFunc("/taskset_events/filter", s.TaskSetEventsFilterHandler)
 	// Static files handler
 	http.Handle("/", http.FileServer(http.Dir(staticServerFiles)))
 

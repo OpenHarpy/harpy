@@ -29,6 +29,8 @@
     "harpy.resourceManager.localProvider.command" : "/app/remote-runner/main {{nodeID}} harpy-local-resource-manager:50050 harpy-local-resource-manager {{nodePort}}",
     "harpy.resourceManager.ui.staticFiles" : "/opt/resource-manager/_harpy_ui",
     "harpy.resourceManager.database.provider" : "sqlite",
-    "harpy.resourceManager.database.uri" : "sqlite:///resource-manager.db"
+    "harpy.resourceManager.database.uri" : "sqlite:///resource-manager.db",
+    "harpy.resourceManager.localProvider.maxNodeCount" : "2",
+    "harpy.resourceManager.localProvider.warmpoolSize" : "2"
 
 }

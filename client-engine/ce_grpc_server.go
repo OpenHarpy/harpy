@@ -216,6 +216,44 @@ func (s *CEgRPCServer) AddFanout(ctx context.Context, in *pb.FanoutAdder) (*pb.T
 	return &pb.TaskAdderResult{Success: true, ErrorMesssage: ""}, nil
 }
 
+func (s *CEgRPCServer) AddOneOffCluster(ctx context.Context, in *pb.OneOffClusterAdder) (*pb.TaskAdderResult, error) {
+	// This is a special case where we will add a one off cluster to the task set
+	// --> With this mode we need to make sure that the TaskSet contains no other tasks
+
+	ts, ok := s.lm.TaskSetDefinitions[in.TaskSetHandler.TaskSetId]
+	if !ok {
+		logger.Warn("task_set_not_found", "TASKSET_SERVICE", logrus.Fields{"task_set_id": in.TaskSetHandler.TaskSetId})
+		return &pb.TaskAdderResult{Success: false, ErrorMesssage: "Task Set not found"}, nil
+	}
+
+	// We will check if the task set contains any tasks
+	if ts.GetNumberOfTaskGroups() > 0 {
+		logger.Warn("task_set_not_empty", "TASKSET_SERVICE", logrus.Fields{"task_set_id": in.TaskSetHandler.TaskSetId})
+		return &pb.TaskAdderResult{Success: false, ErrorMesssage: "Task Set not empty"}, nil
+	}
+
+	// Basically we need to create a MapperDefinition that needs to match the number of nodes we have assgined to the session
+	numberOfNodes := s.lm.Sessions[s.lm.TaskSetSession[in.TaskSetHandler.TaskSetId]].GetNumberOfNodes()
+	taskInMem, ok := s.lm.TaskDefinitions[in.OneOffClusterDefinition.TaskID]
+	if !ok {
+		logger.Warn("task_definition_not_found", "TASKSET_SERVICE", logrus.Fields{"task_id": in.OneOffClusterDefinition.TaskID})
+		return &pb.TaskAdderResult{Success: false, ErrorMesssage: "Task Definition not found"}, nil
+	}
+	taskDefinitions := []task.MapperDefinition{}
+	for i := 0; i < numberOfNodes; i++ {
+		taskDef := task.NewMapperDefinition(*taskInMem)
+		taskDefinitions = append(taskDefinitions, taskDef)
+	}
+	// As the scheduler is round robin we can simply add the task definitions
+	opt := map[string]string{}
+	ts.Map(taskDefinitions, opt)
+
+	// We can now flush the task definition from the live memory
+	delete(s.lm.TaskDefinitions, in.OneOffClusterDefinition.TaskID)
+	logger.Info("Added one off cluster to task set", "TASKSET_SERVICE", logrus.Fields{"task_set_id": in.TaskSetHandler.TaskSetId})
+	return &pb.TaskAdderResult{Success: true, ErrorMesssage: ""}, nil
+}
+
 type TaskSetStreamListener struct {
 	// We add a stream here to listen for the task set results
 	stream pb.TaskSet_ExecuteServer

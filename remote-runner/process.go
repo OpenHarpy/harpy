@@ -180,6 +180,7 @@ func RunProcess(killChan chan bool, doneChan chan bool, process *Process) {
 	funcCommand := " --func " + process.CallableBlock.BlockLocation
 	// Write the output block
 	outputCommand := " --output " + process.OutputBlock.BlockLocation
+	instanceID := " --instanceID " + config.GetConfigs().InstanceID
 	metadataBlock := ""
 	// Write the arguments
 	// Add the metadata block
@@ -197,7 +198,7 @@ func RunProcess(killChan chan bool, doneChan chan bool, process *Process) {
 	}
 
 	// Combine the command
-	fullCommand := entrypoint + funcCommand + outputCommand + metadataBlock + " --blocks" + argumentsCommand + kwargsCommand
+	fullCommand := entrypoint + funcCommand + outputCommand + instanceID + metadataBlock + " --blocks" + argumentsCommand + kwargsCommand
 	fullCommand = NormalizeCommand(fullCommand)
 	// Run the command
 	logger.Info("Running process", "RUN_PROCESS", logrus.Fields{"command": fullCommand})

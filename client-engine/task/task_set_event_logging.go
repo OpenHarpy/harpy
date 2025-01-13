@@ -120,7 +120,7 @@ func LogTasksetEvent(t *TaskSet) {
 
 	// Log the event
 	eventLogJsonString, _ := json.Marshal(tasksetJson)
-	eventType := fmt.Sprintf("taskset-event-%s", t.TaskSetId)
-	eventLog := NewEventLog(eventType, string(eventLogJsonString))
+	event_group_id := fmt.Sprintf("%s-%s", t.TaskSetId, t.Session.SessionId)
+	eventLog := NewEventLog("taskset", string(eventLogJsonString), event_group_id)
 	t.Session.ResourceTracker.ResourceManager.LogEvent(eventLog)
 }

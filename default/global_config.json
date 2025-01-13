@@ -27,6 +27,8 @@
     "harpy.resourceManager.eventLoop.requestIdleTimeoutSec" : "120",
     "harpy.resourceManager.nodeProvider" : "local",
     "harpy.resourceManager.localProvider.command" : "cd ../remote-runner && go run . {{nodeID}} localhost:50050 localhost {{nodePort}}",
+    "harpy.resourceManager.localProvider.maxNodeCount" : "2",
+    "harpy.resourceManager.localProvider.warmpoolSize" : "2",
     "harpy.resourceManager.ui.staticFiles" : "resource-manager-ui",
     "harpy.resourceManager.database.provider" : "sqlite",
     "harpy.resourceManager.database.uri" : "sqlite:///resource-manager.db",

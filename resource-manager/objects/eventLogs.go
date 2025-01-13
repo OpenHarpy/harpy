@@ -6,6 +6,7 @@ type EventLogEntry struct {
 	EventLogID   string `gorm:"primary_key"`
 	EventLogType string `gorm:"type:text"`
 	EventLogJSON string `gorm:"type:text"`
+	EventGroupID string `gorm:"type:text"`
 	EventLogTime int64
 }
 
@@ -35,4 +36,28 @@ func CleanupEventLog(limit int) {
 	// Cleanup the event log
 	db := GetDBInstance().db
 	db.Exec("DELETE FROM event_log_entries WHERE event_log_id NOT IN (SELECT event_log_id FROM event_log_entries ORDER BY event_log_time DESC LIMIT ?)", limit)
+}
+
+func GetGroupIDsForEventLogType(eventLogType string) ([]string, bool) {
+	db := GetDBInstance().db
+	var els []*EventLogEntry
+	result := db.Where("event_log_type = ?", eventLogType).Find(&els)
+	if result.Error != nil {
+		return nil, false
+	}
+	var groupIDs []string
+	for _, el := range els {
+		groupIDs = append(groupIDs, el.EventGroupID)
+	}
+	return groupIDs, false
+}
+
+func GetLogsForGroupID(groupID string, eventLogType string) ([]*EventLogEntry, bool) {
+	db := GetDBInstance().db
+	var els []*EventLogEntry
+	result := db.Where("event_group_id = ? AND event_log_type = ?", groupID, eventLogType).Find(&els)
+	if result.Error != nil {
+		return nil, false
+	}
+	return els, false
 }

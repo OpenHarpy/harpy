@@ -5,7 +5,7 @@ import warnings
 
 from harpy.grpc_ce_protocol import ceprotocol_pb2 as ceprotocol__pb2
 
-GRPC_GENERATED_VERSION = '1.68.0'
+GRPC_GENERATED_VERSION = '1.69.0'
 GRPC_VERSION = grpc.__version__
 _version_not_supported = False
 
@@ -260,6 +260,11 @@ class TaskSetStub(object):
                 request_serializer=ceprotocol__pb2.FanoutAdder.SerializeToString,
                 response_deserializer=ceprotocol__pb2.TaskAdderResult.FromString,
                 _registered_method=True)
+        self.AddOneOffCluster = channel.unary_unary(
+                '/proto.TaskSet/AddOneOffCluster',
+                request_serializer=ceprotocol__pb2.OneOffClusterAdder.SerializeToString,
+                response_deserializer=ceprotocol__pb2.TaskAdderResult.FromString,
+                _registered_method=True)
         self.Execute = channel.unary_stream(
                 '/proto.TaskSet/Execute',
                 request_serializer=ceprotocol__pb2.TaskSetHandler.SerializeToString,
@@ -315,6 +320,12 @@ class TaskSetServicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def AddOneOffCluster(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
     def Execute(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
@@ -365,6 +376,11 @@ def add_TaskSetServicer_to_server(servicer, server):
             'AddFanout': grpc.unary_unary_rpc_method_handler(
                     servicer.AddFanout,
                     request_deserializer=ceprotocol__pb2.FanoutAdder.FromString,
+                    response_serializer=ceprotocol__pb2.TaskAdderResult.SerializeToString,
+            ),
+            'AddOneOffCluster': grpc.unary_unary_rpc_method_handler(
+                    servicer.AddOneOffCluster,
+                    request_deserializer=ceprotocol__pb2.OneOffClusterAdder.FromString,
                     response_serializer=ceprotocol__pb2.TaskAdderResult.SerializeToString,
             ),
             'Execute': grpc.unary_stream_rpc_method_handler(
@@ -522,6 +538,33 @@ class TaskSet(object):
             target,
             '/proto.TaskSet/AddFanout',
             ceprotocol__pb2.FanoutAdder.SerializeToString,
+            ceprotocol__pb2.TaskAdderResult.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def AddOneOffCluster(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/proto.TaskSet/AddOneOffCluster',
+            ceprotocol__pb2.OneOffClusterAdder.SerializeToString,
             ceprotocol__pb2.TaskAdderResult.FromString,
             options,
             channel_credentials,

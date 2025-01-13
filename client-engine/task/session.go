@@ -56,9 +56,17 @@ func NewSession(
 	// Construct the node tracker with the callback URI
 	callbackPort := GetFromMappingWithDefaultValue(options, "harpy.clientEngine.grpcCallbackServer.servePort", "50052")
 	callbackHost := GetFromMappingWithDefaultValue(options, "harpy.clientEngine.grpcCallbackServer.serveHost", "localhost")
+	nodeCount := GetFromMappingWithDefaultValue(options, "harpy.tasks.node.request.count", "1")
+	nodeCountInt := 1
+	// Convert the node count to an integer
+	_, err := fmt.Sscanf(nodeCount, "%d", &nodeCountInt)
+	if err != nil {
+		logger.Error("Error converting node count to integer", "SESSION", err)
+		return nil, err
+	}
 	resourceManagerURI := GetFromMappingWithDefaultValue(options, "harpy.clientEngine.resourceManager.uri", "localhost:50050")
 	callbackURI := fmt.Sprintf("%s:%s", callbackHost, callbackPort)
-	rt, err := NewResourceTracker(callbackURI, resourceManagerURI, idx)
+	rt, err := NewResourceTracker(callbackURI, resourceManagerURI, idx, nodeCountInt)
 	if err != nil {
 		// TODO: HANDLE THIS ERROR
 		logger.Error("Error creating node tracker", "SESSION", err)
@@ -74,6 +82,10 @@ func NewSession(
 		RegisterCallbackID:               RegisterCommandID,
 		DeregisterCommandCallbackPointer: DeregisterCommandCallbackPointer,
 	}, nil
+}
+
+func (s *Session) GetNumberOfNodes() int {
+	return len(s.ResourceTracker.NodesList)
 }
 
 func (s *Session) GetBlockReaderForBlock(blockId string) *BlockStreamingReader {

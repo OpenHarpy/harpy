@@ -196,6 +196,10 @@ func (s *ResourceAllocServer) LogEvent(ctx context.Context, in *pb.EventLog) (*p
 		logger.Error("Event type name is empty", "RESOURCE_ALLOC_SERVER", nil)
 		return nil, status.Errorf(400, "Event type name is empty")
 	}
+	if in.EventGroupID == "" {
+		logger.Error("Event group name is empty", "RESOURCE_ALLOC_SERVER", nil)
+		return nil, status.Errorf(400, "Event group name is empty")
+	}
 	if in.EventJSON == "" {
 		logger.Error("Event JSON is empty", "RESOURCE_ALLOC_SERVER", nil)
 		return nil, status.Errorf(400, "Event JSON is empty")
@@ -206,6 +210,7 @@ func (s *ResourceAllocServer) LogEvent(ctx context.Context, in *pb.EventLog) (*p
 	event := &obj.EventLogEntry{
 		EventLogID:   in.EventID,
 		EventLogType: in.EventTypeName,
+		EventGroupID: in.EventGroupID,
 		EventLogTime: eventTime.Unix(),
 		EventLogJSON: in.EventJSON,
 	}

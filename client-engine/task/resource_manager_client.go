@@ -70,20 +70,22 @@ type NodeRequestResponse struct {
 
 // EventLogs
 type EventLog struct {
-	EventID   string
-	EventTime time.Time
-	EventType string
-	EventJSON string
+	EventID      string
+	EventTime    time.Time
+	EventType    string
+	EventGroupID string
+	EventJSON    string
 }
 
-func NewEventLog(eventType string, eventJSON string) *EventLog {
+func NewEventLog(eventType string, eventJSON string, EventGroupID string) *EventLog {
 	eventID := fmt.Sprintf("evt-%s", uuid.New().String())
 
 	return &EventLog{
-		EventID:   eventID,
-		EventTime: time.Now(),
-		EventType: eventType,
-		EventJSON: eventJSON,
+		EventID:      eventID,
+		EventTime:    time.Now(),
+		EventType:    eventType,
+		EventGroupID: EventGroupID,
+		EventJSON:    eventJSON,
 	}
 }
 
@@ -211,6 +213,7 @@ func (ResourceManagerClient *ResourceManagerClient) LogEvent(event *EventLog) er
 		EventTimeISO:  event.EventTime.Format(time.RFC3339),
 		EventTypeName: event.EventType,
 		EventJSON:     event.EventJSON,
+		EventGroupID:  event.EventGroupID,
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*10)

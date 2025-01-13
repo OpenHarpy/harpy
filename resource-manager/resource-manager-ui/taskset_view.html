@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset='utf-8'>
+    <meta http-equiv='X-UA-Compatible' content='IE=edge'>
+    <title>Harpy Admin Page</title>
+    <meta name='viewport' content='width=device-width, initial-scale=1'>
+    <link rel='stylesheet' type='text/css' media='screen' href='src/main.css'>
+    <script src="src/common.js"></script>
+    <script src='src/pages/taskset_view.js' defer></script>
+    <!-- Include Viz.js and full.render.js -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/viz.js/2.1.2/viz.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/viz.js/2.1.2/full.render.js"></script>
+</head>
+
+<body>
+    <nav id="nav-bar"></nav>
+    <section id="dashboard">
+        <h2>Taskset Event <span id="event_id"></span></h2>
+        <div id="content">
+            <div id="taskset" hidden>
+                <div class="mt-2">
+                    <h4 for="">TaskSet Overview</h4>
+                    <div id="overview"></div>
+                </div>
+                <div class="mt-2">
+                    <h4 for="">Execution Graph</h4>
+                    <div id="graphview"></div>
+                </div>
+                <div class="mt-2">
+                    <h4 for="">Plans</h4>
+                    <div class="plan-view" id="graphview-plans"></div>
+                </div>
+            </div>
+        </div>
+    </section>
+</body>
+
+</html>

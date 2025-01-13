@@ -422,16 +422,13 @@ func (n *ResourceTracker) HeartbeatRoutine() {
 	}
 }
 
-func NewResourceTracker(CallbackURI string, ResourceManagerURI string, SessionID string) (*ResourceTracker, error) {
+func NewResourceTracker(CallbackURI string, ResourceManagerURI string, SessionID string, NodeCount int) (*ResourceTracker, error) {
 	// Start a new BlockTracker instance
 	blockTracker := NewBlockTracker()
-	// Later these will come from the session configuration
-	nodeCount := 1
-
 	// We will need to get the nodes from the resource manager
 	resourceManager := NewNodeResourceManagerClient(ResourceManagerURI)
 	resourceManager.connect()
-	requestResponse, err := resourceManager.RequestNode(nodeCount)
+	requestResponse, err := resourceManager.RequestNode(NodeCount)
 	logger.Debug("Requesting node", "NODE-TRACKER", logrus.Fields{"RequestID": requestResponse.RequestID, "nodeCount": requestResponse.RequestStatus})
 
 	if err != nil {
@@ -504,6 +501,11 @@ func (n *ResourceTracker) AddNode(nodeURI string, callbackURI string, SessionID 
 }
 
 func (n *ResourceTracker) GetNextNode() *Node {
+	// If you ever need to change the scheduling algorithm, YOU NEED to remember that AddOneOffCluster depends on this being round-robin
+	// == To maintain the functionality of the AddOneOffCluster we may need to refactor the scheduling strategy
+	// == Some context: AddOneOffCluster is used to install dependencies on the nodes or to run any other all nodes tasks
+	//    So we need to improve both how scheduling works as well as how "session level" options get read and used current implementation is garbage tbh
+	//    As of now harpy is mostly a POC and side-project so we can get away with this but we need to improve this in the future
 	// If we have no nodes then we should return nil
 	if len(n.NodesList) == 0 {
 		return nil

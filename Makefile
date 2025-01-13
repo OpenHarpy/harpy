@@ -85,6 +85,7 @@ build-sdk:
 build-docker-images:
 	make clean-node-testing
 	$(DOCKER) system prune -f
+	$(DOCKER) system prune --volumes -f
 	$(DOCKER) build -t harpy-base-go-python:$(RELEASE_VERSION) -f ./images/base-image/Dockerfile ./images/base-image/
 	$(DOCKER) build -t harpy:$(RELEASE_VERSION) -f ./images/harpy-image/Dockerfile .
 	$(DOCKER) build -t harpy-jupyter-server:$(RELEASE_VERSION) -f ./images/harpy-jupyter-server/Dockerfile .
@@ -114,7 +115,7 @@ run-export-images:
 run-dev-resource-manager:
 	cd $(GO_PROJECT_RESOURCE_MANAGER) && $(GO) run .
 run-dev-remote-runner-local:
-	cd $(GO_PROJECT_REMOTE_RUNNER) && $(GO) run . local-1 small-4cpu-8gb localhost:50050
+	cd $(GO_PROJECT_REMOTE_RUNNER) && $(GO) run . local-1 localhost:50050
 run-dev-server:
 	cd $(GO_PROJECT_CLIENT_ENGING) && $(GO) run .
 run-dev-client-example:
@@ -125,3 +126,10 @@ ifneq ($(K_FLAG),)
 endif
 run-integrety-test:
 	cd $(PYTHON_PROJECT_ROOT) && $(PYTHON) -m pytest $(K_FLAG_P) -v ../test/. 
+
+dev-nuke-all:
+	sudo fuser -k 50050/tcp
+	sudo fuser -k 50051/tcp
+	sudo fuser -k 50052/tcp
+	sudo fuser -k 50053/tcp
+	

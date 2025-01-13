@@ -32,7 +32,7 @@ type Session struct {
 	TaskSets                         map[string]*TaskSet
 	TaskSetListeners                 map[string]TaskSetListener
 	Options                          map[string]string
-	NodeTracker                      *NodeTracker
+	ResourceTracker                  *ResourceTracker
 	RegisterCallbackPointer          func(callback func(string, Status) error) string
 	RegisterCallbackID               func(string, string)
 	DeregisterCommandCallbackPointer func(string)
@@ -56,9 +56,17 @@ func NewSession(
 	// Construct the node tracker with the callback URI
 	callbackPort := GetFromMappingWithDefaultValue(options, "harpy.clientEngine.grpcCallbackServer.servePort", "50052")
 	callbackHost := GetFromMappingWithDefaultValue(options, "harpy.clientEngine.grpcCallbackServer.serveHost", "localhost")
+	nodeCount := GetFromMappingWithDefaultValue(options, "harpy.tasks.node.request.count", "1")
+	nodeCountInt := 1
+	// Convert the node count to an integer
+	_, err := fmt.Sscanf(nodeCount, "%d", &nodeCountInt)
+	if err != nil {
+		logger.Error("Error converting node count to integer", "SESSION", err)
+		return nil, err
+	}
 	resourceManagerURI := GetFromMappingWithDefaultValue(options, "harpy.clientEngine.resourceManager.uri", "localhost:50050")
 	callbackURI := fmt.Sprintf("%s:%s", callbackHost, callbackPort)
-	nt, err := NewNodeTracker(callbackURI, resourceManagerURI, idx)
+	rt, err := NewResourceTracker(callbackURI, resourceManagerURI, idx, nodeCountInt)
 	if err != nil {
 		// TODO: HANDLE THIS ERROR
 		logger.Error("Error creating node tracker", "SESSION", err)
@@ -69,15 +77,19 @@ func NewSession(
 		TaskSets:                         make(map[string]*TaskSet),
 		TaskSetListeners:                 make(map[string]TaskSetListener),
 		Options:                          options,
-		NodeTracker:                      nt,
+		ResourceTracker:                  rt,
 		RegisterCallbackPointer:          RegisterCommandCallbackPointer,
 		RegisterCallbackID:               RegisterCommandID,
 		DeregisterCommandCallbackPointer: DeregisterCommandCallbackPointer,
 	}, nil
 }
 
+func (s *Session) GetNumberOfNodes() int {
+	return len(s.ResourceTracker.NodesList)
+}
+
 func (s *Session) GetBlockReaderForBlock(blockId string) *BlockStreamingReader {
-	node := s.NodeTracker.GetNextNode()
+	node := s.ResourceTracker.GetNextNode()
 	if node == nil {
 		return nil
 	}
@@ -85,7 +97,7 @@ func (s *Session) GetBlockReaderForBlock(blockId string) *BlockStreamingReader {
 }
 
 func (s *Session) GetBlockWriter() *BlockStreamingWriter {
-	node := s.NodeTracker.GetNextNode()
+	node := s.ResourceTracker.GetNextNode()
 	if node == nil {
 		return nil
 	}
@@ -106,8 +118,8 @@ func (s *Session) RemoveTaskSetListener(listenerUUID string) {
 	delete(s.TaskSetListeners, listenerUUID)
 }
 
-func (s *Session) CreateTaskSet() *TaskSet {
-	ts := NewTaskSet(s)
+func (s *Session) CreateTaskSet(options map[string]string) *TaskSet {
+	ts := NewTaskSet(s, options)
 	// Add the task set to the session
 	s.TaskSets[ts.TaskSetId] = ts
 	return ts
@@ -135,6 +147,6 @@ func (s *Session) Close() {
 	// To close the session we will simply delete all the tasks from the session tracker
 	//  Hopefully the garbage collector will take care of the rest
 	s.TaskSets = nil
-	s.NodeTracker.Close()
-	s.NodeTracker = nil
+	s.ResourceTracker.Close()
+	s.ResourceTracker = nil
 }

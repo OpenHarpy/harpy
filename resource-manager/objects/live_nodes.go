@@ -31,7 +31,6 @@ type LiveNode struct {
 	// The Live Node is a struct that holds all the live data of a node
 	// It is used to store all the live data of a node
 	NodeID                string             `gorm:"primary_key"`
-	NodeType              string             `gorm:"type:text"`
 	NodeGRPCAddress       string             `gorm:"type:text"`
 	NodeStatus            LiveNodeStatusEnum `gorm:"type:int"`
 	LastHeartbeatReceived int64
@@ -76,8 +75,8 @@ func GetLiveNodesByStatus(status LiveNodeStatusEnum) []*LiveNode {
 	return LiveNodesWithWhereClause("node_status = ?", status)
 }
 
-func GetLiveNodesNotServingRequest(NodeType string) []*LiveNode {
-	return LiveNodesWithWhereClause("node_type = ? AND (is_serving_request = ? OR serving_request_id IS NULL)", NodeType, false)
+func GetLiveNodesNotServingRequest() []*LiveNode {
+	return LiveNodesWithWhereClause("(is_serving_request = ? OR serving_request_id IS NULL)", false)
 }
 
 func GetLiveNodesServingRequest(requestID string) []*LiveNode {

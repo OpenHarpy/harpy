@@ -39,17 +39,17 @@ func NewLiveMemory() *LiveMemory {
 }
 
 func (lm *LiveMemory) RegisterCommandCallbackPointer(callback func(string, task.Status) error) string {
-	logger.Info("Registering callback pointer", "LIVE_MEMORY", logrus.Fields{"callback": callback})
+	logger.Debug("Registering callback pointer", "LIVE_MEMORY", logrus.Fields{"callback": callback})
 	callbackUUID := uuid.New().String()
 	lm.CallbackPointers[callbackUUID] = callback
 	return callbackUUID
 }
 func (lm *LiveMemory) RegisterCommandID(commandID string, callbackPointerID string) {
-	logger.Info("Registering callback pointer", "LIVE_MEMORY", logrus.Fields{"commandID": commandID, "callbackPointerID": callbackPointerID})
+	logger.Debug("Registering callback pointer", "LIVE_MEMORY", logrus.Fields{"commandID": commandID, "callbackPointerID": callbackPointerID})
 	lm.CommandCallbackPointer[commandID] = callbackPointerID
 }
 func (lm *LiveMemory) DeregisterCommandCallbackPointer(callbackPointerID string) {
-	logger.Info("Deregistering callback pointer", "LIVE_MEMORY", logrus.Fields{"callbackPointerID": callbackPointerID})
+	logger.Debug("Deregistering callback pointer", "LIVE_MEMORY", logrus.Fields{"callbackPointerID": callbackPointerID})
 	// Remove any references to the callback pointer
 	for k, v := range lm.CommandCallbackPointer {
 		if v == callbackPointerID {

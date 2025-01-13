@@ -17,20 +17,6 @@ message IsolatedEnv {
     string IsolatedEnvID = 1;
 }
 
-message IsolatedEnvPackageRequest {
-    string PackageURI = 1;
-    IsolatedEnv IsolatedEnv = 2;
-}
-
-message IsolatedEnvPackageResponse {
-    bool Success = 1;
-    string ErrorMessage = 2;
-}
-
-message IsolatedEnvPackageList {
-    repeated string PackageURIs = 1;
-}
-
 // Callbacks
 message CallbackRegistration {
     string CallbackURI = 1;

@@ -30,7 +30,7 @@ const (
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type SessionClient interface {
 	CreateSession(ctx context.Context, in *SessionRequest, opts ...grpc.CallOption) (*SessionHandler, error)
-	CreateTaskSet(ctx context.Context, in *SessionHandler, opts ...grpc.CallOption) (*TaskSetHandler, error)
+	CreateTaskSet(ctx context.Context, in *TaskSetRequest, opts ...grpc.CallOption) (*TaskSetHandler, error)
 	CloseSession(ctx context.Context, in *SessionHandler, opts ...grpc.CallOption) (*SessionHandler, error)
 	GetInstanceID(ctx context.Context, in *SessionHandler, opts ...grpc.CallOption) (*InstanceMetadata, error)
 }
@@ -53,7 +53,7 @@ func (c *sessionClient) CreateSession(ctx context.Context, in *SessionRequest, o
 	return out, nil
 }
 
-func (c *sessionClient) CreateTaskSet(ctx context.Context, in *SessionHandler, opts ...grpc.CallOption) (*TaskSetHandler, error) {
+func (c *sessionClient) CreateTaskSet(ctx context.Context, in *TaskSetRequest, opts ...grpc.CallOption) (*TaskSetHandler, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(TaskSetHandler)
 	err := c.cc.Invoke(ctx, Session_CreateTaskSet_FullMethodName, in, out, cOpts...)
@@ -88,7 +88,7 @@ func (c *sessionClient) GetInstanceID(ctx context.Context, in *SessionHandler, o
 // for forward compatibility.
 type SessionServer interface {
 	CreateSession(context.Context, *SessionRequest) (*SessionHandler, error)
-	CreateTaskSet(context.Context, *SessionHandler) (*TaskSetHandler, error)
+	CreateTaskSet(context.Context, *TaskSetRequest) (*TaskSetHandler, error)
 	CloseSession(context.Context, *SessionHandler) (*SessionHandler, error)
 	GetInstanceID(context.Context, *SessionHandler) (*InstanceMetadata, error)
 	mustEmbedUnimplementedSessionServer()
@@ -104,7 +104,7 @@ type UnimplementedSessionServer struct{}
 func (UnimplementedSessionServer) CreateSession(context.Context, *SessionRequest) (*SessionHandler, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method CreateSession not implemented")
 }
-func (UnimplementedSessionServer) CreateTaskSet(context.Context, *SessionHandler) (*TaskSetHandler, error) {
+func (UnimplementedSessionServer) CreateTaskSet(context.Context, *TaskSetRequest) (*TaskSetHandler, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method CreateTaskSet not implemented")
 }
 func (UnimplementedSessionServer) CloseSession(context.Context, *SessionHandler) (*SessionHandler, error) {
@@ -153,7 +153,7 @@ func _Session_CreateSession_Handler(srv interface{}, ctx context.Context, dec fu
 }
 
 func _Session_CreateTaskSet_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(SessionHandler)
+	in := new(TaskSetRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
@@ -165,7 +165,7 @@ func _Session_CreateTaskSet_Handler(srv interface{}, ctx context.Context, dec fu
 		FullMethod: Session_CreateTaskSet_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(SessionServer).CreateTaskSet(ctx, req.(*SessionHandler))
+		return srv.(SessionServer).CreateTaskSet(ctx, req.(*TaskSetRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -240,6 +240,7 @@ const (
 	TaskSet_AddReduce_FullMethodName               = "/proto.TaskSet/AddReduce"
 	TaskSet_AddTransform_FullMethodName            = "/proto.TaskSet/AddTransform"
 	TaskSet_AddFanout_FullMethodName               = "/proto.TaskSet/AddFanout"
+	TaskSet_AddOneOffCluster_FullMethodName        = "/proto.TaskSet/AddOneOffCluster"
 	TaskSet_Execute_FullMethodName                 = "/proto.TaskSet/Execute"
 	TaskSet_SetBlockRetentionPolicy_FullMethodName = "/proto.TaskSet/SetBlockRetentionPolicy"
 	TaskSet_Dismantle_FullMethodName               = "/proto.TaskSet/Dismantle"
@@ -255,6 +256,7 @@ type TaskSetClient interface {
 	AddReduce(ctx context.Context, in *ReduceAdder, opts ...grpc.CallOption) (*TaskAdderResult, error)
 	AddTransform(ctx context.Context, in *TransformAdder, opts ...grpc.CallOption) (*TaskAdderResult, error)
 	AddFanout(ctx context.Context, in *FanoutAdder, opts ...grpc.CallOption) (*TaskAdderResult, error)
+	AddOneOffCluster(ctx context.Context, in *OneOffClusterAdder, opts ...grpc.CallOption) (*TaskAdderResult, error)
 	Execute(ctx context.Context, in *TaskSetHandler, opts ...grpc.CallOption) (grpc.ServerStreamingClient[TaskSetProgressReport], error)
 	SetBlockRetentionPolicy(ctx context.Context, in *SetRetentionPolicy, opts ...grpc.CallOption) (*TaskSetHandler, error)
 	Dismantle(ctx context.Context, in *TaskSetHandler, opts ...grpc.CallOption) (*TaskSetHandler, error)
@@ -319,6 +321,16 @@ func (c *taskSetClient) AddFanout(ctx context.Context, in *FanoutAdder, opts ...
 	return out, nil
 }
 
+func (c *taskSetClient) AddOneOffCluster(ctx context.Context, in *OneOffClusterAdder, opts ...grpc.CallOption) (*TaskAdderResult, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(TaskAdderResult)
+	err := c.cc.Invoke(ctx, TaskSet_AddOneOffCluster_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *taskSetClient) Execute(ctx context.Context, in *TaskSetHandler, opts ...grpc.CallOption) (grpc.ServerStreamingClient[TaskSetProgressReport], error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	stream, err := c.cc.NewStream(ctx, &TaskSet_ServiceDesc.Streams[0], TaskSet_Execute_FullMethodName, cOpts...)
@@ -377,6 +389,7 @@ type TaskSetServer interface {
 	AddReduce(context.Context, *ReduceAdder) (*TaskAdderResult, error)
 	AddTransform(context.Context, *TransformAdder) (*TaskAdderResult, error)
 	AddFanout(context.Context, *FanoutAdder) (*TaskAdderResult, error)
+	AddOneOffCluster(context.Context, *OneOffClusterAdder) (*TaskAdderResult, error)
 	Execute(*TaskSetHandler, grpc.ServerStreamingServer[TaskSetProgressReport]) error
 	SetBlockRetentionPolicy(context.Context, *SetRetentionPolicy) (*TaskSetHandler, error)
 	Dismantle(context.Context, *TaskSetHandler) (*TaskSetHandler, error)
@@ -405,6 +418,9 @@ func (UnimplementedTaskSetServer) AddTransform(context.Context, *TransformAdder)
 }
 func (UnimplementedTaskSetServer) AddFanout(context.Context, *FanoutAdder) (*TaskAdderResult, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method AddFanout not implemented")
+}
+func (UnimplementedTaskSetServer) AddOneOffCluster(context.Context, *OneOffClusterAdder) (*TaskAdderResult, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method AddOneOffCluster not implemented")
 }
 func (UnimplementedTaskSetServer) Execute(*TaskSetHandler, grpc.ServerStreamingServer[TaskSetProgressReport]) error {
 	return status.Errorf(codes.Unimplemented, "method Execute not implemented")
@@ -529,6 +545,24 @@ func _TaskSet_AddFanout_Handler(srv interface{}, ctx context.Context, dec func(i
 	return interceptor(ctx, in, info, handler)
 }
 
+func _TaskSet_AddOneOffCluster_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(OneOffClusterAdder)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(TaskSetServer).AddOneOffCluster(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: TaskSet_AddOneOffCluster_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(TaskSetServer).AddOneOffCluster(ctx, req.(*OneOffClusterAdder))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _TaskSet_Execute_Handler(srv interface{}, stream grpc.ServerStream) error {
 	m := new(TaskSetHandler)
 	if err := stream.RecvMsg(m); err != nil {
@@ -620,6 +654,10 @@ var TaskSet_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "AddFanout",
 			Handler:    _TaskSet_AddFanout_Handler,
+		},
+		{
+			MethodName: "AddOneOffCluster",
+			Handler:    _TaskSet_AddOneOffCluster_Handler,
 		},
 		{
 			MethodName: "SetBlockRetentionPolicy",

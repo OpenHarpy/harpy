@@ -42,7 +42,7 @@ func (s *CallbackServer) Callback(ctx context.Context, in *pb.CommandStatus) (*p
 	case pb.CommandStatusEnum_COMMAND_PANIC:
 		status = task.STATUS_PANIC
 	}
-	logger.Info("Received callback", "CALLBACK_SERVER", logrus.Fields{"commandID": in.CommandID, "status": status})
+	logger.Debug("Received callback", "CALLBACK_SERVER", logrus.Fields{"commandID": in.CommandID, "status": status})
 	// Get the callback pointer
 	callbackPointerID := s.lm.CommandCallbackPointer[in.CommandID]
 	callbackPointer := s.lm.CallbackPointers[callbackPointerID]
@@ -59,6 +59,7 @@ func (s *CallbackServer) Callback(ctx context.Context, in *pb.CommandStatus) (*p
 }
 
 func StartCallbackServer(exit chan bool, wg *sync.WaitGroup, lm *LiveMemory, port string) error {
+	wg.Add(1)
 	port = ":" + port
 	logger.Info("Starting callback server", "CALLBACK_SERVER", logrus.Fields{"host": port})
 

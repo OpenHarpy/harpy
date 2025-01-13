@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"os"
 	"os/signal"
 	"remote-runner/config"
@@ -12,8 +13,6 @@ import (
 
 // Required Configs for the resource manager
 var requiredConfigs = []string{
-	"harpy.remoteRunner.grpcServer.servePort",
-	"harpy.remoteRunner.grpcServer.serveHost",
 	"harpy.remoteRunner.scriptsRoot",
 	"harpy.remoteRunner.nodeSetupScript",
 	"harpy.remoteRunner.commandEntrypoint",
@@ -55,23 +54,22 @@ func main() {
 	// By default if we try to access an index that does not exist in the array we will get an error
 	// We will need to handle this error
 	if len(os.Args) < 5 {
-		logger.Error("Not enough arguments passed - nodeID and resource manager address are required", "MAIN", nil)
+		err := errors.New("not enough arguments passed")
+		logger.Error("Error while starting remote runner", "MAIN", err)
 		os.Exit(1) // Exit code 1 is for general errors in the program
 		return
 	}
 	nodeID := os.Args[1]
-	nodeType := os.Args[2]
-	resourceManagerAddress := os.Args[3]
-	namedHost := os.Args[4]
-	port := config.GetConfigs().GetConfigWithDefault("harpy.remoteRunner.grpcServer.servePort", "50053")
+	resourceManagerAddress := os.Args[2]
+	namedHost := os.Args[3]
+	port := os.Args[4]
 
 	logger.Info("Node ID", "MAIN", logrus.Fields{"nodeID": nodeID})
-	logger.Info("Node Type", "MAIN", logrus.Fields{"nodeType": nodeType})
 	logger.Info("Resource Manager Address", "MAIN", logrus.Fields{"resourceManagerAddress": resourceManagerAddress})
 
 	// Create the Node Reporter client
 	nodeStatusUpdateClient := NewNodeStatusUpdateClient(
-		nodeID, nodeType, namedHost+":"+port, resourceManagerAddress,
+		nodeID, namedHost+":"+port, resourceManagerAddress,
 	)
 	nodeStatusUpdateClient.connect()
 	nodeStatusUpdateClient.SetNodeBooting()

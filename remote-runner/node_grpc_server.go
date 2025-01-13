@@ -229,7 +229,7 @@ func (s *NodeServer) RunCommand(ctx context.Context, in *pb.CommandRequest) (*pb
 	// Reference the isolated environment
 	s.lm.Process[in.CommandHandler.CommandID].EnvRef = isolatedRef
 	// We keep pooling the process until it is done
-	logger.Info("Process queued - Streaming process status", "SERVER", logrus.Fields{"process_id": in.CommandHandler.CommandID})
+	logger.Debug("Process queued - Streaming process status", "SERVER", logrus.Fields{"process_id": in.CommandHandler.CommandID})
 	ReportToCallbackClient(s.lm, in.CommandHandler.CommandID, PROCESS_QUEUED)
 	return &pb.CommandRequestResponse{
 		Success:      true,
@@ -336,7 +336,7 @@ func (s *NodeServer) StreamOutBlock(in *pb.BlockHandler, stream pb.Node_StreamOu
 	// Get the block from the live memory
 	block := GetBlock(s.lm, in.BlockID)
 	if block == nil {
-		logger.Error("Block not found", "SERVER", errors.New("Block not found"), logrus.Fields{"block_id": in.BlockID})
+		logger.Error("Block not found", "SERVER", errors.New("Block not found during StreamOut"), logrus.Fields{"block_id": in.BlockID})
 		return status.Errorf(404, "Block not found")
 	}
 	// Stream the block
@@ -371,7 +371,7 @@ func (s *NodeServer) DestroyBlock(ctx context.Context, in *pb.BlockHandler) (*pb
 	// Get the block from the live memory
 	block := GetBlock(s.lm, in.BlockID)
 	if block == nil {
-		logger.Error("Block not found", "SERVER", errors.New("Block not found"), logrus.Fields{"block_id": in.BlockID})
+		logger.Debug("Block not found during destroy", "SERVER", logrus.Fields{"block_id": in.BlockID})
 		return &pb.Ack{
 			Success:      false,
 			ErrorMessage: "Block not found",

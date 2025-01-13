@@ -69,17 +69,19 @@ class WriteOptions:
         return self.dataset
 
 class ExecutableDataset:
-    def __init__(self, read: ReadType, write: WriteType, tasks: list[TaskType]):
+    def __init__(self, read: ReadType, write: WriteType, tasks: list[TaskType], shallow_plan: str, name='pyharpy-dataset') -> "ExecutableDataset":
         self._reader_ = read
         self._writer_ = write
         self._tasks_ = tasks
         self._taskset_ = None
+        self.name = name
+        self.shallow_plan = shallow_plan
 
     def __make_taskset__(self):
         if self._reader_ is None:
             raise ValueError("No reader set")
         if self._taskset_ is None:
-            self._taskset_ = Session().create_task_set()
+            self._taskset_ = Session().create_task_set(options={'harpy.taskset.name': self.name, 'harpy.dataset.shallow_plan': self.shallow_plan})
             if self._reader_ is not None:
                 self._reader_.__add_tasks__(self._taskset_)
             for transform in self._tasks_:
@@ -107,11 +109,11 @@ class Dataset:
         self._transforms_ = []
         self._writer_ = None
     
-    def add_transform(self, transform: TaskType) -> "Dataset":
+    def add_task(self, transform: TaskType) -> "Dataset":
         if self.read is None:
-            raise ValueError("No reader set")
-        if self.write is not None:
-            raise ValueError("Writer already set")
+            raise ValueError("Cannot add task: No reader set")
+        if self._writer_ is not None:
+            raise ValueError("Cannot add task: Writer already set")
         self._transforms_.append(transform)
         return self
     
@@ -120,7 +122,8 @@ class Dataset:
             raise ValueError("No reader set")
         if self._writer_ is None:
             raise ValueError("No writer set")
-        exect_dataset = ExecutableDataset(self._reader_, self._writer_, self._transforms_)
+        shallow_plan = self.explain(return_plan=True)
+        exect_dataset = ExecutableDataset(self._reader_, self._writer_, self._transforms_, shallow_plan)
         return exect_dataset.execute(collect=collect, detailed=detailed)
     
     def collect(self, detailed=False):
@@ -128,8 +131,7 @@ class Dataset:
             raise ValueError("No reader set")
         if self._writer_ is None:
             raise ValueError("No writer set")
-        exect_dataset = ExecutableDataset(self._reader_, self._writer_, self._transforms_)
-        return exect_dataset.execute(collect=True, detailed=detailed)
+        return self.execute(collect=True, detailed=detailed)
     
     def show(self, limit_datafragments: int = 1):
         return self.to_pandas(limit_datafragments=limit_datafragments)
@@ -162,7 +164,7 @@ class Dataset:
             explain_str += lambda_add_layer(self._writer_.__repr__(), layer)
         
         if detailed:
-            extra_plan = ExecutableDataset(self._reader_, self._writer_, self._transforms_).explain(return_plan=True)
+            extra_plan = ExecutableDataset(self._reader_, self._writer_, self._transforms_, explain_str).explain(return_plan=True)
             explain_str += "\n--- Taskset Plan ---\n"
             explain_str += extra_plan
         if return_plan:

@@ -9,8 +9,6 @@
     "harpy.clientEngine.grpcCallbackServer.serveHost" : "localhost",
     "harpy.clientEngine.resourceManager.uri" : "localhost:50050",
 
-    "harpy.remoteRunner.grpcServer.servePort" : "50053",
-    "harpy.remoteRunner.grpcServer.serveHost" : "localhost",
     "harpy.remoteRunner.scriptsRoot" : "./py_src",
     "harpy.remoteRunner.nodeSetupScript" : "setup.sh",
     "harpy.remoteRunner.commandEntrypoint" : "entrypoint.sh",
@@ -28,10 +26,12 @@
     "harpy.resourceManager.eventLoop.resourceRequestReleasedTimeoutSec" : "60",
     "harpy.resourceManager.eventLoop.requestIdleTimeoutSec" : "120",
     "harpy.resourceManager.nodeProvider" : "local",
-    "harpy.resourceManager.localProvider.node.uri" : "localhost:50053",
-    "harpy.resourceManager.localProvider.command" : "cd ../remote-runner && go run . local-1 small-4cpu-8gb localhost:50050 localhost",
+    "harpy.resourceManager.localProvider.command" : "cd ../remote-runner && go run . {{nodeID}} localhost:50050 localhost {{nodePort}}",
+    "harpy.resourceManager.localProvider.maxNodeCount" : "2",
+    "harpy.resourceManager.localProvider.warmpoolSize" : "2",
     "harpy.resourceManager.ui.staticFiles" : "resource-manager-ui",
     "harpy.resourceManager.database.provider" : "sqlite",
     "harpy.resourceManager.database.uri" : "sqlite:///resource-manager.db",
-    "harpy.resourceManager.nodeCatalog.location" : "catalog.json"
+    "harpy.resourceManager.eventLogs.enabled" : "true",
+    "harpy.resourceManager.eventLog.maxEntries" : "100000"
 }

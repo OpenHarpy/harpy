@@ -12,17 +12,15 @@ import (
 
 type NodeStatusUpdateClient struct {
 	NodeID             string
-	NodeType           string
 	NodeGRPCAddress    string
 	ResourceManagerURI string
 	conn               *grpc.ClientConn
 	client             pb.NodeStatusUpdateServiceClient
 }
 
-func NewNodeStatusUpdateClient(nodeID, nodeType, nodeGRPCAddress, resourceManagerURI string) *NodeStatusUpdateClient {
+func NewNodeStatusUpdateClient(nodeID, nodeGRPCAddress, resourceManagerURI string) *NodeStatusUpdateClient {
 	return &NodeStatusUpdateClient{
 		NodeID:             nodeID,
-		NodeType:           nodeType,
 		NodeGRPCAddress:    nodeGRPCAddress,
 		ResourceManagerURI: resourceManagerURI,
 	}
@@ -51,7 +49,6 @@ func (n *NodeStatusUpdateClient) disconnect() error {
 func SendNewStatus(nodeStatusUpdateClient *NodeStatusUpdateClient, status pb.NodeStatus) error {
 	nodeStatus := &pb.LiveNode{
 		NodeID:          nodeStatusUpdateClient.NodeID,
-		NodeType:        nodeStatusUpdateClient.NodeType,
 		NodeGRPCAddress: nodeStatusUpdateClient.NodeGRPCAddress,
 		NodeStatus:      status,
 	}

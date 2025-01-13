@@ -395,26 +395,26 @@ func (n *Node) FlushBlock(blockID string) error {
 	return nil
 }
 
-/* NodeTracker */
+/* ResourceTracker */
 
-type NodeTracker struct {
-	NodesList                     []*Node
-	RoundRobinIndex               int
-	ResourceManager               *NodeRequestClient
-	ResourceRequestResponse       *NodeRequestResponse
-	NodeTrackerHeartbeatExit      chan bool
-	NodeTrackerHeartbeatWaitGroup *sync.WaitGroup
-	BlockTracker                  *BlockTracker
+type ResourceTracker struct {
+	NodesList                         []*Node
+	RoundRobinIndex                   int
+	ResourceManager                   *ResourceManagerClient
+	ResourceRequestResponse           *NodeRequestResponse
+	ResourceTrackerHeartbeatExit      chan bool
+	ResourceTrackerHeartbeatWaitGroup *sync.WaitGroup
+	BlockTracker                      *BlockTracker
 }
 
-func (n *NodeTracker) HeartbeatRoutine() {
+func (n *ResourceTracker) HeartbeatRoutine() {
 	// Send the first heartbeat
 	n.ResourceManager.SendHeartbeat(n.ResourceRequestResponse.RequestID)
 	// Send a heartbeat every REQUEST_HEARTBEAT_INTERVAL
 	for {
 		select {
-		case <-n.NodeTrackerHeartbeatExit:
-			defer n.NodeTrackerHeartbeatWaitGroup.Done()
+		case <-n.ResourceTrackerHeartbeatExit:
+			defer n.ResourceTrackerHeartbeatWaitGroup.Done()
 			return
 		case <-time.After(REQUEST_HEARTBEAT_INTERVAL):
 			n.ResourceManager.SendHeartbeat(n.ResourceRequestResponse.RequestID)
@@ -422,17 +422,13 @@ func (n *NodeTracker) HeartbeatRoutine() {
 	}
 }
 
-func NewNodeTracker(CallbackURI string, ResourceManagerURI string, SessionID string) (*NodeTracker, error) {
+func NewResourceTracker(CallbackURI string, ResourceManagerURI string, SessionID string, NodeCount int) (*ResourceTracker, error) {
 	// Start a new BlockTracker instance
 	blockTracker := NewBlockTracker()
-	// Later these will come from the session configuration
-	nodeType := "small-4cpu-8gb"
-	nodeCount := 1
-
 	// We will need to get the nodes from the resource manager
 	resourceManager := NewNodeResourceManagerClient(ResourceManagerURI)
 	resourceManager.connect()
-	requestResponse, err := resourceManager.RequestNode(nodeType, nodeCount)
+	requestResponse, err := resourceManager.RequestNode(NodeCount)
 	logger.Debug("Requesting node", "NODE-TRACKER", logrus.Fields{"RequestID": requestResponse.RequestID, "nodeCount": requestResponse.RequestStatus})
 
 	if err != nil {
@@ -450,7 +446,7 @@ func NewNodeTracker(CallbackURI string, ResourceManagerURI string, SessionID str
 		}
 
 		if requestResponse.RequestStatus == REQUEST_ALLOCATED {
-			logger.Debug("Nodes allocated", "NODE-TRACKER", logrus.Fields{"nodeType": requestResponse.RequestID})
+			logger.Debug("Nodes allocated", "NODE-TRACKER")
 			break
 		} else if requestResponse.RequestStatus == REQUEST_ERROR {
 			resourceManager.ReleaseNodes(requestResponse)
@@ -461,7 +457,7 @@ func NewNodeTracker(CallbackURI string, ResourceManagerURI string, SessionID str
 	}
 
 	// We now add the nodes to the tracker
-	nodeTracker := &NodeTracker{
+	ResourceTracker := &ResourceTracker{
 		NodesList:               make([]*Node, 0),
 		RoundRobinIndex:         0,
 		ResourceManager:         resourceManager,
@@ -471,7 +467,7 @@ func NewNodeTracker(CallbackURI string, ResourceManagerURI string, SessionID str
 
 	for _, liveNode := range requestResponse.Nodes {
 		// Add the node to the tracker (this will connect the node, register the callback and initialize the isolated environment)
-		err = nodeTracker.AddNode(liveNode.NodeGRPCAddress, CallbackURI, SessionID)
+		err = ResourceTracker.AddNode(liveNode.NodeGRPCAddress, CallbackURI, SessionID)
 		if err != nil {
 			logger.Error("Failed to add node", "NODE-TRACKER", err, logrus.Fields{"nodeID": liveNode.NodeID, "nodeGRPCAddress": liveNode.NodeGRPCAddress})
 			resourceManager.ReleaseNodes(requestResponse)
@@ -481,14 +477,14 @@ func NewNodeTracker(CallbackURI string, ResourceManagerURI string, SessionID str
 	}
 
 	// Everything is ready, now we can start the heartbeat
-	nodeTracker.NodeTrackerHeartbeatExit = make(chan bool)
-	nodeTracker.NodeTrackerHeartbeatWaitGroup = &sync.WaitGroup{}
-	nodeTracker.NodeTrackerHeartbeatWaitGroup.Add(1)
-	go nodeTracker.HeartbeatRoutine()
-	return nodeTracker, nil
+	ResourceTracker.ResourceTrackerHeartbeatExit = make(chan bool)
+	ResourceTracker.ResourceTrackerHeartbeatWaitGroup = &sync.WaitGroup{}
+	ResourceTracker.ResourceTrackerHeartbeatWaitGroup.Add(1)
+	go ResourceTracker.HeartbeatRoutine()
+	return ResourceTracker, nil
 }
 
-func (n *NodeTracker) AddNode(nodeURI string, callbackURI string, SessionID string) error {
+func (n *ResourceTracker) AddNode(nodeURI string, callbackURI string, SessionID string) error {
 	node := &Node{
 		nodeID:       uuid.New().String(),
 		NodeURI:      nodeURI,
@@ -504,7 +500,12 @@ func (n *NodeTracker) AddNode(nodeURI string, callbackURI string, SessionID stri
 	return nil
 }
 
-func (n *NodeTracker) GetNextNode() *Node {
+func (n *ResourceTracker) GetNextNode() *Node {
+	// If you ever need to change the scheduling algorithm, YOU NEED to remember that AddOneOffCluster depends on this being round-robin
+	// == To maintain the functionality of the AddOneOffCluster we may need to refactor the scheduling strategy
+	// == Some context: AddOneOffCluster is used to install dependencies on the nodes or to run any other all nodes tasks
+	//    So we need to improve both how scheduling works as well as how "session level" options get read and used current implementation is garbage tbh
+	//    As of now harpy is mostly a POC and side-project so we can get away with this but we need to improve this in the future
 	// If we have no nodes then we should return nil
 	if len(n.NodesList) == 0 {
 		return nil
@@ -520,7 +521,7 @@ func (n *NodeTracker) GetNextNode() *Node {
 	return node
 }
 
-func (n *NodeTracker) GetNode(nodeID string) *Node {
+func (n *ResourceTracker) GetNode(nodeID string) *Node {
 	for _, node := range n.NodesList {
 		if node.nodeID == nodeID {
 			return node
@@ -529,17 +530,17 @@ func (n *NodeTracker) GetNode(nodeID string) *Node {
 	return nil
 }
 
-func (n *NodeTracker) Close() {
+func (n *ResourceTracker) Close() {
 	for _, node := range n.NodesList {
 		node.disconnect()
 	}
 	n.ResourceManager.ReleaseNodes(n.ResourceRequestResponse)
 	n.ResourceManager.disconnect()
-	n.NodeTrackerHeartbeatExit <- true
-	n.NodeTrackerHeartbeatWaitGroup.Wait() // Wait for the heartbeat to finish
+	n.ResourceTrackerHeartbeatExit <- true
+	n.ResourceTrackerHeartbeatWaitGroup.Wait() // Wait for the heartbeat to finish
 }
 
-func (n *NodeTracker) FlushBlocks(GroupID string, filterOutBlockTypes []string) {
+func (n *ResourceTracker) FlushBlocks(GroupID string, filterOutBlockTypes []string) {
 	node := n.GetNextNode() // Get any node to flush the blocks (we plan to use a distributed file system in the future)
 	blocksToFlush := n.BlockTracker.GetBlockGroup(GroupID, filterOutBlockTypes)
 	if blocksToFlush == nil {

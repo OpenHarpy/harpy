@@ -20,3 +20,21 @@ func GetConfig(configKey string) (*Config, bool) {
 	}
 	return &c, true
 }
+
+func GetConfigWithDefault(configKey string, defaultValue string) string {
+	c, ok := GetConfig(configKey)
+	if !ok {
+		return defaultValue
+	}
+	return c.ConfigValue
+}
+
+func GetConfigs() []*Config {
+	db := GetDBInstance().db
+	var cs []*Config
+	result := db.Find(&cs)
+	if result.Error != nil {
+		return nil
+	}
+	return cs
+}

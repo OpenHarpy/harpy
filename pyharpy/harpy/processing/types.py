@@ -119,3 +119,18 @@ class BatchMapTask:
             raise ValueError("args must be a list")
         if not isinstance(self.kwargs, dict):
             raise ValueError("kwargs must be a dict")
+        
+@dataclass
+class OneOffClusterTask:
+    name: str
+    fun: callable
+    args: List[Any] = DEFAULT_ARGS
+    kwargs: dict[str, Any] = DEFAULT_KWARGS
+    
+    def _validate(self):
+        if not callable(self.fun):
+            raise ValueError("fun must be a callable")
+        if not isinstance(self.args, list):
+            raise ValueError("args must be a list")
+        if not isinstance(self.kwargs, dict):
+            raise ValueError("kwargs must be a dict")

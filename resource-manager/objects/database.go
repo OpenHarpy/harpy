@@ -25,12 +25,19 @@ func databaseMain() *gorm.DB {
 	}
 
 	// Migrate the schema
-	db.AutoMigrate(&NodeCatalog{})
 	db.AutoMigrate(&LiveNode{})
 	db.AutoMigrate(&ResourceAssignment{})
 	db.AutoMigrate(&Config{})
 	db.AutoMigrate(&Provider{})
 	db.AutoMigrate(&ProviderProps{})
+	db.AutoMigrate(&EventLogEntry{})
+	// Delete all the records
+	db.Exec("DELETE FROM live_nodes")
+	db.Exec("DELETE FROM resource_assignments")
+	db.Exec("DELETE FROM configs")
+	db.Exec("DELETE FROM providers")
+	db.Exec("DELETE FROM provider_props")
+	db.Exec("DELETE FROM event_log_entries")
 	return db
 }
 

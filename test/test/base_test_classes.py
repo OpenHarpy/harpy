@@ -1,9 +1,11 @@
 import unittest
 from harpy.session import Session
+from harpy.configs import Configs
 
 class HarpyTestCase(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
+        Configs().set("harpy.tasks.node.request.count", "2")
         cls._session = Session()
         cls.__setup_env_called = False
 

@@ -16,9 +16,9 @@ var processPoolingInterval = 1 * time.Second
 var resourceRequestReleasedTimeout = 60 * time.Second
 var requestIdleTimeout = 120 * time.Second
 
-func SpinupNode(runningProvider providers.ProviderInterface, nodeType string, count int) {
+func SpinupNode(runningProvider providers.ProviderInterface, count int) {
 	// This function will spin up a node of the specified type
-	pr, err := runningProvider.ProvisionNodes(nodeType, count)
+	pr, err := runningProvider.ProvisionNodes(count)
 	if err != nil {
 		logger.Error("Failed to spin up node", "SPINUP_NODE", err)
 	}
@@ -26,7 +26,6 @@ func SpinupNode(runningProvider providers.ProviderInterface, nodeType string, co
 	for _, node := range pr {
 		liveNode := &obj.LiveNode{
 			NodeID:           node.NodeID,
-			NodeType:         node.NodeType,
 			NodeStatus:       obj.LiveNodeStatusEnum_NODE_STATUS_BOOTING,
 			NodeGRPCAddress:  node.NodeGRPCAddress,
 			IsServingRequest: false,
@@ -37,18 +36,33 @@ func SpinupNode(runningProvider providers.ProviderInterface, nodeType string, co
 	}
 }
 
-func EvalWarmpool(runningProvider providers.ProviderInterface) {
-	// Iterate over all the nodeTypes that have a warm pool set
-	catalogNodesWithWarmpoolsNotMet := obj.CatalogsWithWarmPoolNotMet()
-	for _, catalogNode := range catalogNodesWithWarmpoolsNotMet {
-		// Check if the warm pool is met
-		// If the warm pool is not met then spin up the required number of nodes
-		warmPoolCount := catalogNode.NodeWarmpoolSize
-		availableNodes := obj.GetLiveNodesNotServingRequest(catalogNode.NodeType)
-		if len(availableNodes) < warmPoolCount {
-			logger.Info("Warm pool not met, spinning up nodes", "EVAL_WARMPOOL", logrus.Fields{"node_type": catalogNode.NodeType, "warm_pool_count": warmPoolCount, "available_nodes": len(availableNodes)})
-			SpinupNode(runningProvider, catalogNode.NodeType, warmPoolCount-len(availableNodes))
+func EvalProviderTick(runningProvider providers.ProviderInterface) {
+	// Provider ticks are used to push the provider to do some work, like decommissioning nodes, starting nodes, etc
+	// The provider tick will return the nodes that have been decommissioned and the nodes that have been started
+	// We will sync the nodes in the database with the nodes that have been decommissioned and started
+	nodesDecommissioned, nodesStarted, err := runningProvider.ProviderTick()
+	if err != nil {
+		logger.Error("Provider tick failed", "EVAL_TICK", err)
+	}
+	// Sync the nodes
+	for _, node := range nodesDecommissioned {
+		logger.Info("Decommissioning node", "EVAL_TICK", logrus.Fields{"node_id": node.NodeID})
+		liveNode, exists := obj.GetLiveNode(node.NodeID)
+		if exists {
+			liveNode.Delete()
 		}
+	}
+	for _, node := range nodesStarted {
+		logger.Info("Starting node", "EVAL_TICK", logrus.Fields{"node_id": node.NodeID})
+		liveNode := &obj.LiveNode{
+			NodeID:           node.NodeID,
+			NodeStatus:       obj.LiveNodeStatusEnum_NODE_STATUS_BOOTING,
+			NodeGRPCAddress:  node.NodeGRPCAddress,
+			IsServingRequest: false,
+			ServingRequestID: "",
+			NodeCreatedAt:    time.Now().Unix(),
+		}
+		liveNode.Sync()
 	}
 }
 
@@ -62,16 +76,15 @@ func EvalNodeAllocation(runningProvider providers.ProviderInterface) {
 	for _, nodeRequest := range nodeRequests {
 		// Check if there are nodes of the requested type available in the pool
 		// If there are nodes available then assign the nodes to the request
-		requestedType := nodeRequest.NodeType
 		requestedCount := nodeRequest.NodeCount
-		availableNodes := obj.GetLiveNodesNotServingRequest(requestedType)
+		availableNodes := obj.GetLiveNodesNotServingRequest()
 
 		// Check: If there are not enough nodes available then spin up the required number of nodes
 		if len(availableNodes) < int(requestedCount) {
 			logger.Info("Not enough nodes available", "EVAL_NODE_ALLOCATION")
 			// Autoscalle signal
-			if runningProvider.CanAutoScale(requestedType) {
-				SpinupNode(runningProvider, requestedType, int(requestedCount)-len(availableNodes))
+			if runningProvider.CanAutoScale() {
+				SpinupNode(runningProvider, int(requestedCount)-len(availableNodes))
 			}
 			// Else we do nothing and skip this request for now (we will check again in the next iteration)
 			continue
@@ -201,6 +214,7 @@ func EvalNodeShutdownCallbackProvider(runningProvider providers.ProviderInterfac
 }
 
 func DoProcessLoop(runningProvider providers.ProviderInterface, exitEventLoop chan bool, wg *sync.WaitGroup) {
+	wg.Add(1)
 	logger.Info("Starting process event loop", "PROCESS_EVENT_LOOP")
 	// Load the default values according to the configuration
 	processPoolingInterval = PopulateFromConfigs("harpy.resourceManager.eventLoop.processPoolingIntervalMS", processPoolingInterval, time.Millisecond)
@@ -219,7 +233,7 @@ func DoProcessLoop(runningProvider providers.ProviderInterface, exitEventLoop ch
 		default:
 			// Current running processes
 			EvalResourceRequestTimeout()
-			EvalWarmpool(runningProvider)
+			EvalProviderTick(runningProvider)
 			EvalNodeAllocation(runningProvider)
 			EvalNodesReady()
 			EvalResourceReleaseRequest()

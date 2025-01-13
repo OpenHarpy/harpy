@@ -29,10 +29,10 @@ type TaskGroupResult struct {
 	OverallStatus string
 }
 
-func (t TaskGroupResult) String() string {
+func (t *TaskGroupResult) String() string {
 	return fmt.Sprintf("TaskGroupResult[%s]; overall_status=[%s]", t.TaskGroupID, t.OverallStatus)
 }
-func (t TaskGroupResult) GetErrors() []Result {
+func (t *TaskGroupResult) GetErrors() []Result {
 	var errors []Result
 	for _, result := range t.Results {
 		if !result.Success {
@@ -41,7 +41,7 @@ func (t TaskGroupResult) GetErrors() []Result {
 	}
 	return errors
 }
-func (t TaskGroupResult) GetSuccesses() []Result {
+func (t *TaskGroupResult) GetSuccesses() []Result {
 	var successes []Result
 	for _, result := range t.Results {
 		if result.Success {
@@ -50,7 +50,7 @@ func (t TaskGroupResult) GetSuccesses() []Result {
 	}
 	return successes
 }
-func (t TaskGroupResult) GetAll() []Result {
+func (t *TaskGroupResult) GetAll() []Result {
 	return t.Results
 }
 
@@ -78,7 +78,7 @@ type TaskGroup struct {
 	MonolithicIndex       int
 }
 
-func (t TaskGroup) String() string {
+func (t *TaskGroup) String() string {
 	return fmt.Sprintf("TaskGroup[%s]", t.TaskGroupID)
 }
 
@@ -110,7 +110,7 @@ func (t *TaskGroup) generateTasks(taskResults TaskGroupResult) error {
 	}
 	return nil
 }
-func (t TaskGroup) SkipRemaining() {
+func (t *TaskGroup) SkipRemaining() {
 	for _, taskRun := range t.TaskRuns {
 		if taskRun.Status == "pending" {
 			taskRun.Skip()
@@ -120,12 +120,11 @@ func (t TaskGroup) SkipRemaining() {
 
 func goFetchResult(commandID string, taskRun *TaskRun, tg *TaskGroup) {
 	nodeID := tg.CommandIDNodeMapping[commandID]
-	node := tg.TaskSet.Session.NodeTracker.GetNode(nodeID)
+	node := tg.TaskSet.Session.ResourceTracker.GetNode(nodeID)
 	err := node.GetTaskOutput(commandID, taskRun)
 	if err != nil {
 		logger.Error("Error fetching task output", "TASKGROUP", err)
 	}
-	taskRun.Fetched = true
 }
 
 func (t *TaskGroup) CallbackHandler(commandID string, status Status) error {
@@ -141,7 +140,7 @@ func (t *TaskGroup) CallbackHandler(commandID string, status Status) error {
 	return nil
 }
 
-func (t TaskGroup) RemoteGRPCExecute(previousResult TaskGroupResult, session *Session) (TaskGroupResult, error) {
+func (t *TaskGroup) RemoteGRPCExecute(previousResult TaskGroupResult, session *Session) (TaskGroupResult, error) {
 	if t.Tasks == nil {
 		return TaskGroupResult{}, fmt.Errorf("tasks have not been generated for TaskGroup[%s]", t.TaskGroupID)
 	}
@@ -160,7 +159,7 @@ func (t TaskGroup) RemoteGRPCExecute(previousResult TaskGroupResult, session *Se
 	logger.Info("CallbackHandler registered", "TASKGROUP", logrus.Fields{"blockGroupID": t.TaskSet.CurrentBlockGroupID, "callbackHandlerID": callbackHandlerID})
 	for _, task := range t.TaskRuns {
 		// For each task we get the node from the session
-		node := session.NodeTracker.GetNextNode()
+		node := session.ResourceTracker.GetNextNode()
 		if node == nil {
 			errorString := fmt.Sprintf("No nodes available for TaskGroup[%s]", t.TaskGroupID)
 			err := errors.New(errorString)
@@ -184,7 +183,7 @@ func (t TaskGroup) RemoteGRPCExecute(previousResult TaskGroupResult, session *Se
 	//  - Mainly, we trade off a bit of performance for more reliability in the system
 	//  - The loop above could be tuned to do some retries if we start to see common issues
 	for commandID, nodeID := range t.CommandIDNodeMapping {
-		node := session.NodeTracker.GetNode(nodeID)
+		node := session.ResourceTracker.GetNode(nodeID)
 		err := node.RunCommand(commandID)
 		// Under the hood this will span a thread in the node and this action will be non-blocking
 		if err != nil {
@@ -198,8 +197,8 @@ func (t TaskGroup) RemoteGRPCExecute(previousResult TaskGroupResult, session *Se
 		allDone := true // Assume all tasks are done at the beginning of each iteration
 		// We need to check if all the tasks are done
 		for _, taskRun := range t.TaskRuns {
-			if !taskRun.Fetched {
-				allDone = false // Set allDone to false if any task is not fetched
+			if !taskRun.IsDone {
+				allDone = false // Set allDone to false if any task is not done
 				break
 			}
 		}
@@ -212,7 +211,7 @@ func (t TaskGroup) RemoteGRPCExecute(previousResult TaskGroupResult, session *Se
 	}
 
 	// We need to get the results from the commandIDTaskMapping
-	// This may not be safe to do concurrently so we will do it sequentially once all the results are fetched
+	// This may not be safe to do concurrently so we will do it sequentially once all the results are done
 	for _, taskRun := range t.CommandIDTaskMapping {
 		results = append(results, *taskRun.Result)
 	}

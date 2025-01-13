@@ -36,9 +36,9 @@ func (lm *LiveMemory) CreateSession(options map[string]string) *task.Session {
 	return sess
 }
 
-func (lm *LiveMemory) CreateTaskSet(sess *task.Session) *task.TaskSet {
+func (lm *LiveMemory) CreateTaskSet(sess *task.Session, options map[string]string) *task.TaskSet {
 	// Create a new task set
-	ts := sess.CreateTaskSet()
+	ts := sess.CreateTaskSet(options)
 	lm.TaskSetDefinitions[ts.TaskSetId] = ts
 	lm.TaskSetSession[ts.TaskSetId] = sess.SessionId
 	return ts
@@ -78,13 +78,18 @@ func (s *CEgRPCServer) CloseSession(ctx context.Context, in *pb.SessionHandler) 
 	runtime.GC() // Run the garbage collector
 	return &pb.SessionHandler{SessionId: "", Success: true}, nil
 }
-func (s *CEgRPCServer) CreateTaskSet(ctx context.Context, in *pb.SessionHandler) (*pb.TaskSetHandler, error) {
-	sess, ok := s.lm.Sessions[in.SessionId]
+func (s *CEgRPCServer) CreateTaskSet(ctx context.Context, in *pb.TaskSetRequest) (*pb.TaskSetHandler, error) {
+	sess, ok := s.lm.Sessions[in.Session.SessionId]
 	if !ok {
-		logger.Warn("session_not_found", "SESSION_SERVICE", logrus.Fields{"session_id": in.SessionId})
+		logger.Warn("session_not_found", "SESSION_SERVICE", logrus.Fields{"session_id": in.Session.SessionId})
 		return &pb.TaskSetHandler{TaskSetId: "", Success: false}, nil
 	}
-	ts := s.lm.CreateTaskSet(sess)
+	options := in.Options
+	if options == nil {
+		options = make(map[string]string)
+		options["harpy.taskset.name"] = "unnamed-taskset"
+	}
+	ts := s.lm.CreateTaskSet(sess, options)
 	logger.Info("Created task set", "SESSION_SERVICE", logrus.Fields{"task_set_id": ts.TaskSetId})
 	return &pb.TaskSetHandler{TaskSetId: ts.TaskSetId}, nil
 }
@@ -208,6 +213,44 @@ func (s *CEgRPCServer) AddFanout(ctx context.Context, in *pb.FanoutAdder) (*pb.T
 	opt := map[string]string{}
 	ts.Fanout(taskDef, int(in.FanoutCount), opt)
 	logger.Info("Added fanout to task set", "TASKSET_SERVICE", logrus.Fields{"task_set_id": in.TaskSetHandler.TaskSetId})
+	return &pb.TaskAdderResult{Success: true, ErrorMesssage: ""}, nil
+}
+
+func (s *CEgRPCServer) AddOneOffCluster(ctx context.Context, in *pb.OneOffClusterAdder) (*pb.TaskAdderResult, error) {
+	// This is a special case where we will add a one off cluster to the task set
+	// --> With this mode we need to make sure that the TaskSet contains no other tasks
+
+	ts, ok := s.lm.TaskSetDefinitions[in.TaskSetHandler.TaskSetId]
+	if !ok {
+		logger.Warn("task_set_not_found", "TASKSET_SERVICE", logrus.Fields{"task_set_id": in.TaskSetHandler.TaskSetId})
+		return &pb.TaskAdderResult{Success: false, ErrorMesssage: "Task Set not found"}, nil
+	}
+
+	// We will check if the task set contains any tasks
+	if ts.GetNumberOfTaskGroups() > 0 {
+		logger.Warn("task_set_not_empty", "TASKSET_SERVICE", logrus.Fields{"task_set_id": in.TaskSetHandler.TaskSetId})
+		return &pb.TaskAdderResult{Success: false, ErrorMesssage: "Task Set not empty"}, nil
+	}
+
+	// Basically we need to create a MapperDefinition that needs to match the number of nodes we have assgined to the session
+	numberOfNodes := s.lm.Sessions[s.lm.TaskSetSession[in.TaskSetHandler.TaskSetId]].GetNumberOfNodes()
+	taskInMem, ok := s.lm.TaskDefinitions[in.OneOffClusterDefinition.TaskID]
+	if !ok {
+		logger.Warn("task_definition_not_found", "TASKSET_SERVICE", logrus.Fields{"task_id": in.OneOffClusterDefinition.TaskID})
+		return &pb.TaskAdderResult{Success: false, ErrorMesssage: "Task Definition not found"}, nil
+	}
+	taskDefinitions := []task.MapperDefinition{}
+	for i := 0; i < numberOfNodes; i++ {
+		taskDef := task.NewMapperDefinition(*taskInMem)
+		taskDefinitions = append(taskDefinitions, taskDef)
+	}
+	// As the scheduler is round robin we can simply add the task definitions
+	opt := map[string]string{}
+	ts.Map(taskDefinitions, opt)
+
+	// We can now flush the task definition from the live memory
+	delete(s.lm.TaskDefinitions, in.OneOffClusterDefinition.TaskID)
+	logger.Info("Added one off cluster to task set", "TASKSET_SERVICE", logrus.Fields{"task_set_id": in.TaskSetHandler.TaskSetId})
 	return &pb.TaskAdderResult{Success: true, ErrorMesssage: ""}, nil
 }
 
@@ -387,7 +430,7 @@ func (s *CEgRPCServer) PutBlock(stream pb.BlockProxy_PutBlockServer) error {
 func (s *CEgRPCServer) GetBlock(in *pb.ProxyBlockHandler, stream pb.BlockProxy_GetBlockServer) error {
 	sessionID := in.SessionHandler.SessionId
 	blockID := in.BlockID
-	logger.Info("Getting block", "BLOCK_PROXY", logrus.Fields{"session_id": sessionID, "block_id": blockID})
+	logger.Debug("Getting block", "BLOCK_PROXY", logrus.Fields{"session_id": sessionID, "block_id": blockID})
 
 	session := s.lm.Sessions[sessionID]
 	if session == nil {
@@ -426,6 +469,7 @@ func (s *CEgRPCServer) GetInstanceID(ctx context.Context, in *pb.SessionHandler)
 }
 
 func NewCEServer(exit chan bool, wg *sync.WaitGroup, lm *LiveMemory, port string) error {
+	wg.Add(1)
 	port = ":" + port
 	logger.Info("gRPC server started", "SERVER", logrus.Fields{"host": port})
 

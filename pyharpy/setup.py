@@ -11,7 +11,7 @@ setup(
         # List your dependencies here
         "grpcio>=1.66.1",
         "grpcio-tools>=1.66.1",
-        "protobuf==5.28.1",
+        "protobuf==5.29.0",
         "duckdb==1.1.1",
         "dill>=0.3.4",
         "cloudpickle==3.0.0",

@@ -120,7 +120,7 @@ func (t *TaskGroup) SkipRemaining() {
 
 func goFetchResult(commandID string, taskRun *TaskRun, tg *TaskGroup) {
 	nodeID := tg.CommandIDNodeMapping[commandID]
-	node := tg.TaskSet.Session.ResourceTracker.GetNode(nodeID)
+	node := tg.TaskSet.Session.NodeScheduler.GetNode(nodeID)
 	err := node.GetTaskOutput(commandID, taskRun)
 	if err != nil {
 		logger.Error("Error fetching task output", "TASKGROUP", err)
@@ -159,7 +159,7 @@ func (t *TaskGroup) RemoteGRPCExecute(previousResult TaskGroupResult, session *S
 	logger.Info("CallbackHandler registered", "TASKGROUP", logrus.Fields{"blockGroupID": t.TaskSet.CurrentBlockGroupID, "callbackHandlerID": callbackHandlerID})
 	for _, task := range t.TaskRuns {
 		// For each task we get the node from the session
-		node := session.ResourceTracker.GetNextNode()
+		node := session.NodeScheduler.GetNextNode()
 		if node == nil {
 			errorString := fmt.Sprintf("No nodes available for TaskGroup[%s]", t.TaskGroupID)
 			err := errors.New(errorString)
@@ -183,7 +183,7 @@ func (t *TaskGroup) RemoteGRPCExecute(previousResult TaskGroupResult, session *S
 	//  - Mainly, we trade off a bit of performance for more reliability in the system
 	//  - The loop above could be tuned to do some retries if we start to see common issues
 	for commandID, nodeID := range t.CommandIDNodeMapping {
-		node := session.ResourceTracker.GetNode(nodeID)
+		node := session.NodeScheduler.GetNode(nodeID)
 		err := node.RunCommand(commandID)
 		// Under the hood this will span a thread in the node and this action will be non-blocking
 		if err != nil {

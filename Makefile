@@ -56,6 +56,7 @@ build-proto-go:
 build-proto-python:
 	rm -r $(PYTHON_PROTO)
 	mkdir $(PYTHON_PROTO)
+	touch $(PYTHON_PROTO)/__init__.py
 	cd $(PYTHON_PROJECT_ROOT) && $(PYTHON) -m grpc_tools.protoc -I=$(PROTO_DIR)/grpc_ce_protocol --python_out=$(PYTHON_PROTO) --grpc_python_out=$(PYTHON_PROTO) $(PROTO_DIR)/grpc_ce_protocol/*.proto && \
 	sed -i 's/import ceprotocol_pb2/from harpy.grpc_ce_protocol import ceprotocol_pb2/g' $(PYTHON_PROTO)/*.py
 build-proto:

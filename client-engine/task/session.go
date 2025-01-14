@@ -32,7 +32,7 @@ type Session struct {
 	TaskSets                         map[string]*TaskSet
 	TaskSetListeners                 map[string]TaskSetListener
 	Options                          map[string]string
-	ResourceTracker                  *ResourceTracker
+	NodeScheduler                    *NodeScheduler
 	RegisterCallbackPointer          func(callback func(string, Status) error) string
 	RegisterCallbackID               func(string, string)
 	DeregisterCommandCallbackPointer func(string)
@@ -66,7 +66,7 @@ func NewSession(
 	}
 	resourceManagerURI := GetFromMappingWithDefaultValue(options, "harpy.clientEngine.resourceManager.uri", "localhost:50050")
 	callbackURI := fmt.Sprintf("%s:%s", callbackHost, callbackPort)
-	rt, err := NewResourceTracker(callbackURI, resourceManagerURI, idx, nodeCountInt)
+	rt, err := NewNodeScheduler(callbackURI, resourceManagerURI, idx, nodeCountInt)
 	if err != nil {
 		// TODO: HANDLE THIS ERROR
 		logger.Error("Error creating node tracker", "SESSION", err)
@@ -77,7 +77,7 @@ func NewSession(
 		TaskSets:                         make(map[string]*TaskSet),
 		TaskSetListeners:                 make(map[string]TaskSetListener),
 		Options:                          options,
-		ResourceTracker:                  rt,
+		NodeScheduler:                    rt,
 		RegisterCallbackPointer:          RegisterCommandCallbackPointer,
 		RegisterCallbackID:               RegisterCommandID,
 		DeregisterCommandCallbackPointer: DeregisterCommandCallbackPointer,
@@ -85,11 +85,15 @@ func NewSession(
 }
 
 func (s *Session) GetNumberOfNodes() int {
-	return len(s.ResourceTracker.NodesList)
+	return len(s.NodeScheduler.NodesList)
+}
+
+func (s *Session) GetShedulerAlgorithm() SchedulerAlgorithm {
+	return s.NodeScheduler.SchedulerAlgorithm
 }
 
 func (s *Session) GetBlockReaderForBlock(blockId string) *BlockStreamingReader {
-	node := s.ResourceTracker.GetNextNode()
+	node := s.NodeScheduler.GetNextNode()
 	if node == nil {
 		return nil
 	}
@@ -97,7 +101,7 @@ func (s *Session) GetBlockReaderForBlock(blockId string) *BlockStreamingReader {
 }
 
 func (s *Session) GetBlockWriter() *BlockStreamingWriter {
-	node := s.ResourceTracker.GetNextNode()
+	node := s.NodeScheduler.GetNextNode()
 	if node == nil {
 		return nil
 	}
@@ -147,6 +151,6 @@ func (s *Session) Close() {
 	// To close the session we will simply delete all the tasks from the session tracker
 	//  Hopefully the garbage collector will take care of the rest
 	s.TaskSets = nil
-	s.ResourceTracker.Close()
-	s.ResourceTracker = nil
+	s.NodeScheduler.Close()
+	s.NodeScheduler = nil
 }

@@ -306,28 +306,28 @@ func (t TaskSet) Dismantle() {
 	// Consider for now that all the blocks are to be flushed
 	if t.RetentionPolicy == BlockRetentionPolicyRemoveAll {
 		for _, blockGroupID := range t.BlockGroupIDs {
-			t.Session.ResourceTracker.FlushBlocks(blockGroupID, nil)
+			t.Session.NodeScheduler.FlushBlocks(blockGroupID, nil)
 		}
 	} else if t.RetentionPolicy == BlockRetentionPolicyKeepLastLastOutput {
 		// We will keep the last output block
 		last := len(t.BlockGroupIDs) - 1
 		for idx, blockGroupID := range t.BlockGroupIDs {
 			if idx != last {
-				t.Session.ResourceTracker.FlushBlocks(blockGroupID, nil)
+				t.Session.NodeScheduler.FlushBlocks(blockGroupID, nil)
 			} else {
-				t.Session.ResourceTracker.FlushBlocks(blockGroupID, []string{"output"})
+				t.Session.NodeScheduler.FlushBlocks(blockGroupID, []string{"output"})
 			}
 		}
 	} else if t.RetentionPolicy == BlockRetentionPolicyKeepAllOutputs {
 		// We will keep all the output blocks
 		for _, blockGroupID := range t.BlockGroupIDs {
-			t.Session.ResourceTracker.FlushBlocks(blockGroupID, []string{"output"})
+			t.Session.NodeScheduler.FlushBlocks(blockGroupID, []string{"output"})
 		}
 	} else if t.RetentionPolicy != BlockRetentionPolicyKeepAll {
 		// We simply print a warning
 		logger.Warn("Unknown block retention policy, defaulting to flush all blocks", "TASKSET")
 		for _, blockGroupID := range t.BlockGroupIDs {
-			t.Session.ResourceTracker.FlushBlocks(blockGroupID, nil)
+			t.Session.NodeScheduler.FlushBlocks(blockGroupID, nil)
 		}
 	}
 }

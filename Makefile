@@ -109,6 +109,9 @@ build:
 	make build-sdk
 	make build-docker-images
 
+clean:
+	cd $(PYTHON_PROJECT_ROOT) && poetry env list | grep -oP '^\S+' | xargs poetry env 
+
 run-export-images:
 	$(DOCKER) save harpy:$(RELEASE_VERSION) > harpy.tar
 	$(DOCKER) save harpy-jupyter-server:$(RELEASE_VERSION) > harpy-jupyter-server.tar

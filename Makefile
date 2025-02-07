@@ -54,7 +54,7 @@ build-proto-go:
 	$(call protoc_command,$(GO_PROJECT_REMOTE_RUNNER),$(PROTO_DIR)/grpc_resource_alloc_procotol/*.proto,remote-runner)
 	$(call protoc_command,$(GO_PROJECT_RESOURCE_MANAGER),$(PROTO_DIR)/grpc_resource_alloc_procotol/*.proto,remote-runner)
 build-proto-python:
-	rm -r $(PYTHON_PROTO)
+	@if [ -d "$(PYTHON_PROTO)" ]; then rm -r $(PYTHON_PROTO); fi
 	mkdir $(PYTHON_PROTO)
 	touch $(PYTHON_PROTO)/__init__.py
 	cd $(PYTHON_PROJECT_ROOT) && $(PYTHON) -m grpc_tools.protoc -I=$(PROTO_DIR)/grpc_ce_protocol --python_out=$(PYTHON_PROTO) --grpc_python_out=$(PYTHON_PROTO) $(PROTO_DIR)/grpc_ce_protocol/*.proto && \

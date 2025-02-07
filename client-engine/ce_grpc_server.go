@@ -219,6 +219,14 @@ func (s *CEgRPCServer) AddFanout(ctx context.Context, in *pb.FanoutAdder) (*pb.T
 func (s *CEgRPCServer) AddOneOffCluster(ctx context.Context, in *pb.OneOffClusterAdder) (*pb.TaskAdderResult, error) {
 	// This is a special case where we will add a one off cluster to the task set
 	// --> With this mode we need to make sure that the TaskSet contains no other tasks
+	// --> One off cluster is a special case where the scheduler must be round robin
+
+	schedulerAlgorithm := s.lm.Sessions[s.lm.TaskSetSession[in.TaskSetHandler.TaskSetId]].GetShedulerAlgorithm()
+	if schedulerAlgorithm != task.SCHEDULER_ALGORITHM_ROUND_ROBIN {
+		logger.Warn("scheduler_not_round_robin", "TASKSET_SERVICE", logrus.Fields{"task_set_id": in.TaskSetHandler.TaskSetId})
+		// In the future we can set the scheduler to round robin if it is not already, for now we will return an error
+		return &pb.TaskAdderResult{Success: false, ErrorMesssage: "Scheduler is not round robin - One off cluster requires round robin scheduler"}, nil
+	}
 
 	ts, ok := s.lm.TaskSetDefinitions[in.TaskSetHandler.TaskSetId]
 	if !ok {

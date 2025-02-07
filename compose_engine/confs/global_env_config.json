@@ -22,7 +22,7 @@
     "harpy.resourceManager.grpcServer.serveHost" : "harpy-local-resource-manager",
     "harpy.resourceManager.httpServer.servePort" : "8080",
     "harpy.resourceManager.httpServer.serveHost" : "harpy-local-resource-manager",
-    "harpy.resourceManager.eventLoop.processPoolingIntervalMS" : "1000",
+    "harpy.resourceManager.eventLoop.processPoolingIntervalMS" : "200",
     "harpy.resourceManager.eventLoop.resourceRequestReleasedTimeoutSec" : "60",
     "harpy.resourceManager.eventLoop.requestIdleTimeoutSec" : "120",
     "harpy.resourceManager.nodeProvider" : "local",

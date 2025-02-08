@@ -110,7 +110,7 @@ build:
 	make build-docker-images
 
 clean:
-	cd $(PYTHON_PROJECT_ROOT) && poetry env list | grep -oP '^\S+' | xargs poetry env 
+	cd $(PYTHON_PROJECT_ROOT) && poetry env list | grep -oP '^\S+' | xargs poetry env remove 
 
 run-export-images:
 	$(DOCKER) save harpy:$(RELEASE_VERSION) > harpy.tar
